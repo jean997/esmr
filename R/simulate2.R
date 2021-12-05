@@ -13,7 +13,7 @@ sim_mv <- function( tau_xz, tau_yz, dir_xz, dir_yz, gamma,
   if(any(dir_xz == 1 & dir_yz == -1)){
     stop("No cycles allowed")
   }
-  F_t <- diag(p + 2)
+  F_t <- matrix(0, nrow = p+2, ncol = p+2)
 
   #confounder
   paYpaX <- which(dir_xz == 1 & dir_yz == 1)
@@ -22,50 +22,26 @@ sim_mv <- function( tau_xz, tau_yz, dir_xz, dir_yz, gamma,
   #collider
   chYchX <- which(dir_xz == -1 & dir_yz == -1)
 
-  #parents of x
-  paX <- which(dir_xz == 1)
-  tot_x_var <- sum(abs(tau_xz[paX]))
-  stopifnot(tot_x_var < 1)
-
-  alpha_xz <- rep(0, p)
-  alpha_xz[paX] <- sqrt(abs(tau_xz[paX])/(1-tot_x_var))*sign(tau_xz[paX])
-
-  alpha_yz <- rep(0, p)
-
-  #parents of y
-  paY <- which(dir_yz == 1)
-  tot_y_var <- sum(abs(tau_yz[paY])) + abs(gamma)
-  stopifnot(tot_y_var < 1)
-
-  alpha_yz[paX] <- sqrt(abs(tau_yz[paY])/(1-tot_y_var))*sign(tau_yz[paY])
-  g <- sqrt(abs(gamma)/(1-tot_y_var))*sign(gamma)
-
-  #parents of each z
-  chX <- which(dir_xz == -1)
-  tot_z_var <- rep(0, p)
-  tot_z_var[paYchX] <- abs(tau_xz[paYchX])
-  tot_z_var[chYchX] <- abs(tau_xz[chYchX]) + abs(tau_yz[chYchX])
-  alpha_xz[chX] <- sqrt(abs(tau_xz[chX])/(1-tot_z_var[chX]))*sign(tau_xz[chX])
-  alpha_yz[chX] <- sqrt(abs(tau_yz[chX])/(1-tot_z_var[chX]))*sign(tau_yz[chX])
-
-
   #X to Y
-  F_t[1,2] <- g + sum((alpha_xz*alpha_yz)[paYchX])
+  F_t[1,2] <- gamma + sum((tau_xz*tau_yz)[paYchX])
 
   #into X
-  F_t[paYpaX+2, 1] <- alpha_xz[paYpaX]
+  F_t[paYpaX+2, 1] <- tau_xz[paYpaX]
   # X to z
-  F_t[1,paYchX + 2] <- alpha_xz[paYchX]
-  F_t[1, chYchX + 2] <- alpha_xz[chYchX] + g*(alpha_yz[chYchX])
+  F_t[1,paYchX + 2] <- tau_xz[paYchX]
+  F_t[1, chYchX + 2] <- tau_xz[chYchX] + gamma*(tau_yz[chYchX])
 
   #Z to Y
-  F_t[paYpaX+2, 2] <- (alpha_yz + g*alpha_xz)[paYpaX]
-  F_t[paYchX+2,2] <- (alpha_yz)[paYchX]
+  F_t[paYpaX+2, 2] <- (tau_yz + gamma*tau_xz)[paYpaX]
+  F_t[paYchX+2,2] <- (tau_yz)[paYchX]
 
   #Y to Z
-  F_t[2,chYchX + 2] <- alpha_yz[chYchX]
-
-  F_mat <- t(F_t)
+  F_t[2,chYchX + 2] <- tau_yz[chYchX]
+  d <- 1-colSums(abs(F_t))
+  if(any(d <= 0)) stop("Supplied variances are impossible.")
+  F_mat <- t(F_t)/d
+  F_mat <- sqrt(abs(F_mat))*sign(F_mat)
+  diag(F_mat) <- 1
 
   dat <- sim_sumstats_lf(F_mat = F_mat,
                          N = N, J = J, h_2_trait = c(h2_x, h2_y, h2_z),

@@ -21,36 +21,32 @@ retrieve_traits <- function(id_x, pval_x, pval_z, pop, batch,
 
 
 #'@export
-mr_pairs <- function(ex_ids, out_ids, inst_pval= 5e-8, method_list = c("mr_ivw")){
-  ex_dat <- TwoSampleMR::extract_instruments(outcomes = ex_ids, p1 = inst_pval)
-  out_dat <- TwoSampleMR::extract_outcome_data(snps = ex_dat$SNP, outcomes = out_ids)
-  dat <- TwoSampleMR::harmonise_data(ex_dat, out_dat)
-  m <- mr(dat, method_list = method_list)
-  return(m)
+mr_pairs <- function(ids1, ids2, inst_pval= 5e-8, method_list = c("mr_ivw")){
+  ex_dat <- TwoSampleMR::extract_instruments(outcomes = ids1, p1 = inst_pval)
+  out_dat <- TwoSampleMR::extract_outcome_data(snps = ex_dat$SNP, outcomes = ids2)
+  dat_1_2 <- TwoSampleMR::harmonise_data(ex_dat, out_dat)
+  m_1_2 <- mr(dat_1_2, method_list = method_list)
+
+  ex_dat <- TwoSampleMR::extract_instruments(outcomes = ids2, p1 = inst_pval)
+  out_dat <- TwoSampleMR::extract_outcome_data(snps = ex_dat$SNP, outcomes = ids1)
+  dat_2_1 <- TwoSampleMR::harmonise_data(ex_dat, out_dat)
+  m_2_1 <- mr(dat_2_1, method_list = method_list)
+
+
+  cor_vals <- expand.grid(id1 = ids1, id2 = ids2, stringsAsFactors = FALSE) %>%
+              filter(id1 != id2)
+  cor_vals$cor <- map2(cor_vals$id1, cor_vals$id2, function(x, y){
+    X_1_2 <- filter(dat_1_2, id.exposure == x & id.outcome == y) %>%
+             rename(beta1 = beta.exposure, beta2 = beta.outcome) %>%
+             select(SNP, beta1, beta2)
+    X_2_1 <- filter(dat_2_1, id.exposure == y & id.outcome == x) %>%
+      rename(beta2 = beta.exposure, beta1 = beta.outcome) %>%
+      select(SNP, beta1, beta2) %>%
+      filter(!SNP %in% X_1_2$SNP)
+    X <- bind_rows(X_1_2, X_2_1)
+    with(X, cor(beta1, beta2))
+  }) %>% unlist()
+
+  return(list(mr12 = m_1_2, mr21 = m_2_1, cor = cor_vals))
 }
 
-sloppy_cor <- function(id1, id2, inst_pval= 5e-8){
-  ex_dat1 <- TwoSampleMR::extract_instruments(outcomes = id1)
-  ex_dat1$id <- str_split(ex_dat1$exposure, "id:") %>% map(., 2) %>% unlist()
-  ex_dat2 <- TwoSampleMR::extract_instruments(outcomes = id2)
-  ex_dat2$id <- str_split(ex_dat2$exposure, "id:") %>% map(., 2) %>% unlist()
-  cor_vals <- expand.grid(id1 = id1, id2 = id2, stringsAsFactors = FALSE)
-  c <- map2(cor_vals$id1, cor_vals$ids, function(x, y){
-
-  })
-  return(m)
-}
-
-
-filter_traits <- function(id_x, id_y, candidate_traits, cor_thresh = 0.9,
-                          cor_func = sloppy_cor){
-
-}
-
-sloppy_cor <- function(idlist, r2, kb, pop, access_token){
-  top_hits_all <- purrr::map(idlist, function(id){
-                      tophits(id = id, pval = pval,
-                        r2 = r2, kb = kb, pop = pop,
-                        access_token =  access_token)
-  })
-}

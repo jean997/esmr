@@ -62,5 +62,6 @@ sim_mv <- function( tau_xz, tau_yz, dir_xz, dir_yz, gamma,
                          overlap_prop = 0,
                          h_2_factor = rep(1, p+2),
                          pi_theta = 1)
+  dat$F_supplied <- F_mat
   return(dat)
 }

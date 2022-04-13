@@ -4,46 +4,77 @@
 \alias{sim_mv}
 \title{Simulate multivariate GWAS data}
 \usage{
-sim_mv(
-  tau_xz,
-  tau_yz,
-  dir_xz,
-  dir_yz,
-  gamma,
-  h2_x,
-  h2_y,
-  h2_z,
-  N,
-  J,
-  pi_x,
-  pi_y,
-  pi_z
-)
+sim_mv(N, J, tau_xz, tau_yz, dir_xz, dir_yz, gamma, h2, pi, G)
 }
 \arguments{
-\item{dir_xz, dir_yz}{Direction of effects between each of Z_1, ..., Z_K and X and Y respectively.
-A value of 1 indicates an effect from Z_k to X. A value of -1 indicates an effect from X to Z_k.}
-
-\item{gamma}{Causal effect of X on Y.}
-
-\item{h2_x, h2_y}{Scalars giving hertiabiltiy of each of X and Y.}
-
-\item{h2_z}{Length K vector giving heritability of each of Z_1 to Z_K.}
-
-\item{N}{Either a single number representing GWAS sample size for all studies or an K+2
-vector giving sample size for X, Y, and then each of Z_1 to Z_K}
+\item{N}{Either a single number representing GWAS sample size for all studies or a
+vector of length equal to the number of studies that will be generated.}
 
 \item{J}{Number of variants to simulate}
 
-\item{pi_x, pi_y}{Scalrs between 0 and 1 giving the proportion of non-zero effects for each of X and Y}
+\item{dir_xz, dir_yz}{Used in 'xyz' mode (see details below)}
 
-\item{pi_z}{Length K vector giving proporiton of non-zero effects for each of Z_1 to Z_K.}
+\item{gamma}{Used in 'xyz' mode (see details below)}
 
-\item{taux_xz, tau_yz}{Length K vectors. Effects between each of Z_1, ..., Z_K and X and Y respectively.}
+\item{h2}{A vector or single number giving the heritability of each trait.}
+
+\item{pi}{A vector or single number giving the expected proportion of direct effect SNPs for each trait.}
+
+\item{G}{If using 'general' mode (see details), G is a matrix of direct effects. Rows correspond to the 'from' trait
+and columns correspond to the 'to' variable, so G[1,2] is the direct effect of variable 1 on variable 2.}
+
+\item{taux_xz, tau_yz}{Used in 'xyz' mode (see details below)}
+}
+\value{
+A list with the following elements:
+
+Simulated effect estimates and standard errors are contained in matrices
+
++ `beta_hat` Effect estimates for each trait
+
++ `se_beta_hat` Standard error of effect estimates
+
+Everything else returned has to do with simulation parameters or true effects
+
++ `direct_effects`, `total_effects` matrices like G giving direct and total effects
+
++ `B` true total SNP effects on traits
+
++ `L_mat` true direct SNP effects on traits
+
+You can ignore everything else returned.
 }
 \description{
 Simulate multivariate GWAS data
 }
 \details{
-This function simulates data for traits X, Y, and Z_1, ..., Z_k.
+This function generates GWAS summary statistics from a DAG specified by the user. It can be used in two modes
+depending on the arguments specified, 'general' mode or 'xyz' mode. Each are described below.
+
+In 'xyz' mode, data are generated for traits X, Y, and K variables Z_1, ..., Z_K. There is a causal effect of X on Y
+given by gamma, which specifies the proportion of the variance of Y explained by X. The K variables Z_1, ..., Z_K can have
+effects to or from X and Y but do not have direct effects on each other. Vectors `dir_xz` and `dir_yz` specify the direction
+of these effects with +1 corresponding to "to" effects and -1 corresponding to "from" effects. For example, `dir_xz = c(1, -1)`
+and `dir_yz = c(1, 1)` would indicate two variables $Z_1$ and $Z_2$ with $Z_1$ being a common cause of both $X$ and $Y$ and $Z_2$
+being a cause of $Y$ and caused by $X$ ($Z_2$ is a mediator between $X$ and $Y$). The function will give an error if there
+is any index with `dir_xz` equal to -1 and `dir_yz` equal 1. This would indicate a variable that is a mediator between $Y$ and
+$X$, however, because there is an effect from $X$ to $Y$ assumed, the resulting graph would be cyclic and not allowed.
+
+In 'xyz' mode, you will also need to specify `tau_xz` and `tau_yz` which determine the effect sizes of each of the $Z_k$ variables on or
+from $X$ and $Y$. These are given in signed percent variance explained. If we again used `dir_xz = c(1, -1)` and `dir_yz = c(1, 1)` with
+`tau_xz = c(0.2, -0.3)` and `tau_yz = c(0.1, 0.25)`, this means that the confounder, $Z_1$ explains 20\% of the variance of $X$ and 10\% of the
+variance of $Y$ and both effects are positive. $X$ explains 30\% of the variance of the mediate $Z_2$ with a negative effect direction and
+$Z_2$ explains 25\% of the variance of $Y$. If you specify a set of variances that imply that one variable has more than 100\% of variance
+explained you will get an error. It is also possible to specify variances that add up to less than 100\% but are incompatible with the heritabilities specified.
+For example, if we say that $Z_1$ has a heritability of 0.8 and explains 50\% of the variance of $X$, then $X$ must have a heritability of at least 0.4.
+
+If using 'xyz' mode, `dir_xz`, `dir_yz`, `tau_yz`, `tau_xz` should all have the same length ($K$). `h2` and `pi` should have length equal to K+2 and have entries
+corresponding to $X$, $Y$, and then each of the $Z_k$ variables.
+
+In 'general' mode, you can omit the parameters specific to 'xyz' mode and instead supply `G`, a matrix of direct effects. The diagonal
+entries of `G` should be equal to 0 and
+`h2` and `pi` should have length equal to the number of rows (or columns) of `G` (which should be square). All variables have variance 1
+so `G[i,j]^2` is the proportion of variance of trait j explained by the effect of trait i.
+Currently, this function does no checking that `G`
+is acyclic and (I think) will run forever if `G` contains a cycle. Use caution when using this option.
 }

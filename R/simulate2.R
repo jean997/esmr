@@ -1,62 +1,121 @@
 #'@title Simulate multivariate GWAS data
-#'@param N Either a single number representing GWAS sample size for all studies or an K+2
-#'vector giving sample size for X, Y, and then each of Z_1 to Z_K
+#'@param N Either a single number representing GWAS sample size for all studies or a
+#'vector of length equal to the number of studies that will be generated.
 #'@param J Number of variants to simulate
-#'@param taux_xz,tau_yz Length K vectors. Effects between each of Z_1, ..., Z_K and X and Y respectively.
-#'@param dir_xz,dir_yz Direction of effects between each of Z_1, ..., Z_K and X and Y respectively.
-#' A value of 1 indicates an effect from Z_k to X. A value of -1 indicates an effect from X to Z_k.
-#'@param h2_x,h2_y Scalars giving hertiabiltiy of each of X and Y.
-#'@param h2_z Length K vector giving heritability of each of Z_1 to Z_K.
-#'@param pi_x,pi_y Scalrs between 0 and 1 giving the proportion of non-zero effects for each of X and Y
-#'@param pi_z Length K vector giving proporiton of non-zero effects for each of Z_1 to Z_K.
-#'@param gamma Causal effect of X on Y.
-#'@details This function simulates data for traits X, Y, and Z_1, ..., Z_k.
-#'tau_xz and tau_yz give effects of Z_1, ..., Z_K on (or from) X and Y respectively in units of proportion of variance
-#'explained. For example, if
-#'tau_xz = c(0.2, 0.15, 0.15), tau_yz = c(0.3, 0.1, 0.4), dir_xz = c(1, -1, -1), dir_yz = c(1, 1, -1)
-#'then there are three variables Z_1, Z_2, Z_3. Z_1 is a common cause of X and Y
-#'(indicated by a 1 in both dir_xz and dir_yz).
-#'Z_1 explains 20% of the variance of X and 30% of the variance of Y.
-#'Z_2 is a mediator between X and Y. There is an effect of X on Z_2 (the second entry of dir_xz is -1) explainng 15% of
-#'the variance of Z_1. There is also an effect of Z_1 on Y explaining 10% of the variance of Y.
-#'Z_3 is a common child of X and Y. X explains 15% of the variation of Z_3 while Y explains 40% of the variance of Z_3.
+#'@param h2 A vector or single number giving the heritability of each trait.
+#'@param pi A vector or single number giving the expected proportion of direct effect SNPs for each trait.
+#'@param G If using 'general' mode (see details), G is a matrix of direct effects. Rows correspond to the 'from' trait
+#'and columns correspond to the 'to' variable, so G[1,2] is the direct effect of variable 1 on variable 2.
+#'@param taux_xz,tau_yz Used in 'xyz' mode (see details below)
+#'@param dir_xz,dir_yz Used in 'xyz' mode (see details below)
+#'@param gamma Used in 'xyz' mode (see details below)
+#'
+#'@return A list with the following elements:
+#'
+#'Simulated effect estimates and standard errors are contained in matrices
+#'
+#' + `beta_hat` Effect estimates for each trait
+#'
+#' + `se_beta_hat` Standard error of effect estimates
+#'
+#'Everything else returned has to do with simulation parameters or true effects
+#'
+#'+ `direct_effects`, `total_effects` matrices like G giving direct and total effects
+#'
+#'+ `B` true total SNP effects on traits
+#'
+#'+ `L_mat` true direct SNP effects on traits
+#'
+#'You can ignore everything else returned.
+#'
+#'
+#'@details This function generates GWAS summary statistics from a DAG specified by the user. It can be used in two modes
+#'depending on the arguments specified, 'general' mode or 'xyz' mode. Each are described below.
+#'
+#'In 'xyz' mode, data are generated for traits X, Y, and K variables Z_1, ..., Z_K. There is a causal effect of X on Y
+#'given by gamma, which specifies the proportion of the variance of Y explained by X. The K variables Z_1, ..., Z_K can have
+#'effects to or from X and Y but do not have direct effects on each other. Vectors `dir_xz` and `dir_yz` specify the direction
+#'of these effects with +1 corresponding to "to" effects and -1 corresponding to "from" effects. For example, `dir_xz = c(1, -1)`
+#'and `dir_yz = c(1, 1)` would indicate two variables $Z_1$ and $Z_2$ with $Z_1$ being a common cause of both $X$ and $Y$ and $Z_2$
+#'being a cause of $Y$ and caused by $X$ ($Z_2$ is a mediator between $X$ and $Y$). The function will give an error if there
+#'is any index with `dir_xz` equal to -1 and `dir_yz` equal 1. This would indicate a variable that is a mediator between $Y$ and
+#'$X$, however, because there is an effect from $X$ to $Y$ assumed, the resulting graph would be cyclic and not allowed.
+#'
+#'In 'xyz' mode, you will also need to specify `tau_xz` and `tau_yz` which determine the effect sizes of each of the $Z_k$ variables on or
+#'from $X$ and $Y$. These are given in signed percent variance explained. If we again used `dir_xz = c(1, -1)` and `dir_yz = c(1, 1)` with
+#'`tau_xz = c(0.2, -0.3)` and `tau_yz = c(0.1, 0.25)`, this means that the confounder, $Z_1$ explains 20\% of the variance of $X$ and 10\% of the
+#'variance of $Y$ and both effects are positive. $X$ explains 30\% of the variance of the mediate $Z_2$ with a negative effect direction and
+#'$Z_2$ explains 25\% of the variance of $Y$. If you specify a set of variances that imply that one variable has more than 100\% of variance
+#'explained you will get an error. It is also possible to specify variances that add up to less than 100\% but are incompatible with the heritabilities specified.
+#'For example, if we say that $Z_1$ has a heritability of 0.8 and explains 50\% of the variance of $X$, then $X$ must have a heritability of at least 0.4.
+#'
+#'If using 'xyz' mode, `dir_xz`, `dir_yz`, `tau_yz`, `tau_xz` should all have the same length ($K$). `h2` and `pi` should have length equal to K+2 and have entries
+#'corresponding to $X$, $Y$, and then each of the $Z_k$ variables.
+#'
+#'In 'general' mode, you can omit the parameters specific to 'xyz' mode and instead supply `G`, a matrix of direct effects. The diagonal
+#'entries of `G` should be equal to 0 and
+#'`h2` and `pi` should have length equal to the number of rows (or columns) of `G` (which should be square). All variables have variance 1
+#'so `G[i,j]^2` is the proportion of variance of trait j explained by the effect of trait i.
+#'Currently, this function does no checking that `G`
+#'is acyclic and (I think) will run forever if `G` contains a cycle. Use caution when using this option.
+#'
 #'@export
-sim_mv <- function( tau_xz, tau_yz, dir_xz, dir_yz, gamma,
-                    h2_x, h2_y, h2_z, N, J,
-                    pi_x, pi_y, pi_z){
-  p <- length(tau_xz)
-  stopifnot(length(tau_yz) == p)
-  stopifnot(length(dir_xz) == p)
-  stopifnot(length(dir_yz) == p)
-  stopifnot(length(h2_z) == p)
-  stopifnot(length(pi_z) == p)
-  #stopifnot(all(tau_yz >= 0) & all(tau_xz >= 0))
+sim_mv <- function(N, J,
+                   tau_xz, tau_yz, dir_xz, dir_yz, gamma,
+                   h2, pi, G){
 
-  if(any(dir_xz == 1 & dir_yz == -1)){
-    stop("No cycles allowed")
+  if(missing(tau_xz)){
+    mode <- "general"
+    if(missing(G)){
+      stop("If using 'general' mode, please proved G")
+    }
+  }else{
+    mode <- "xyz"
+    if(missing(tau_xz) | missing(tau_yz) | missing(dir_xz)|
+       missing(dir_yz) | missing(gamma)){
+      stop("If using 'xyz' mode, please proved tau_xz, tau_yz, dir_xz, dir_yz, and gamma")
+    }
   }
 
-  tau_xz <- sqrt(abs(tau_xz))*sign(tau_xz)
-  tau_yz <- sqrt(abs(tau_yz))*sign(tau_yz)
-  gamma <- sqrt(abs(gamma))*sign(gamma)
+  if(mode == "xyz"){
+    if(any(dir_xz == 1 & dir_yz == -1)){
+      stop("No cycles allowed")
+    }
+    p <- length(tau_xz)
+    stopifnot(length(tau_yz) == p)
+    stopifnot(length(dir_xz) == p)
+    stopifnot(length(dir_yz) == p)
+    stopifnot(length(h2) == p + 2 | length(h2) == 1)
+    stopifnot(length(pi) == p + 2 | length(pi) ==1)
+    stopifnot(length(N) == p + 2 | length(N) ==1)
+    tau_xz <- sqrt(abs(tau_xz))*sign(tau_xz)
+    tau_yz <- sqrt(abs(tau_yz))*sign(tau_yz)
+    gamma <- sqrt(abs(gamma))*sign(gamma)
 
-  # Direct Effects
-  G <- matrix(0, nrow = p+2, ncol = p+2)
-  G[1,2] <- gamma
-  G[which(dir_xz == 1) + 2, 1] <- tau_xz[dir_xz ==1]
-  G[1, which(dir_xz == -1) + 2] <- tau_xz[dir_xz == -1]
+    # Direct Effects
+    G <- matrix(0, nrow = p+2, ncol = p+2)
+    G[1,2] <- gamma
+    G[which(dir_xz == 1) + 2, 1] <- tau_xz[dir_xz ==1]
+    G[1, which(dir_xz == -1) + 2] <- tau_xz[dir_xz == -1]
 
-  G[which(dir_yz == 1) + 2, 2] <- tau_yz[dir_yz ==1]
-  G[2, which(dir_yz == -1) + 2] <- tau_yz[dir_yz == -1]
-
+    G[which(dir_yz == 1) + 2, 2] <- tau_yz[dir_yz ==1]
+    G[2, which(dir_yz == -1) + 2] <- tau_yz[dir_yz == -1]
+    n <- p + 2
+  }else{
+    n <- nrow(G)
+    stopifnot(ncol(G) == n)
+    stopifnot(length(h2) == n | length(h2) == 1)
+    stopifnot(length(pi) == n | length(pi) ==1)
+    stopifnot(length(N) == n | length(N) ==1)
+    stopifnot(all(diag(G) == 0))
+  }
   G_t <- direct_to_total(G)
 
 
   # Compute Input and Direct Heritability
-  h2 <- c(h2_x, h2_y, h2_z)
   C <- colSums(h2*(G_t)^2)
   H <- t(G_t^2)
-  input_h2 <- solve(diag(p+2) + H) %*% matrix(C, ncol = 1) %>% as.vector()
+  input_h2 <- solve(diag(n) + H) %*% matrix(C, ncol = 1) %>% as.vector()
 
   direct_h2 <- h2-input_h2
   if(any(direct_h2 < 0)) stop("Input variance greater than 1 for at least one variable.")
@@ -66,13 +125,12 @@ sim_mv <- function( tau_xz, tau_yz, dir_xz, dir_yz, gamma,
   F_mat <- t(G_t)
 
   dat <- sim_sumstats_lf(F_mat = F_mat,
-                         N = N, J = J, h_2_trait = c(h2_x, h2_y, h2_z),
-                         omega = rep(1, p + 2),
-                         pi_L = c(pi_x, pi_y, pi_z),
+                         N = N, J = J, h_2_trait = h2,
+                         omega = rep(1, n),
+                         pi_L = pi,
                          overlap_prop = 0,
-                         h_2_factor = rep(1, p+2),
+                         h_2_factor = rep(1, n),
                          pi_theta = 1)
-  dat$F_mat_init <- F_mat
   dat$total_effects <- t(dat$F_mat)/diag(dat$F_mat)
   dat$direct_effects <- G
   diag(dat$direct_effects) <- 1

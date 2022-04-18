@@ -69,46 +69,46 @@ sim_mv <- function(N, J,
     if(missing(G)){
       stop("If using 'general' mode, please proved G")
     }
+    n <- nrow(G)
+    stopifnot(ncol(G) == n)
+    stopifnot(all(diag(G) == 0))
   }else{
     mode <- "xyz"
     if(missing(tau_xz) | missing(tau_yz) | missing(dir_xz)|
        missing(dir_yz) | missing(gamma)){
       stop("If using 'xyz' mode, please proved tau_xz, tau_yz, dir_xz, dir_yz, and gamma")
     }
-  }
-
-  if(mode == "xyz"){
     if(any(dir_xz == 1 & dir_yz == -1)){
       stop("No cycles allowed")
     }
     p <- length(tau_xz)
+    n <- p + 2
     stopifnot(length(tau_yz) == p)
     stopifnot(length(dir_xz) == p)
     stopifnot(length(dir_yz) == p)
-    stopifnot(length(h2) == p + 2 | length(h2) == 1)
-    stopifnot(length(pi) == p + 2 | length(pi) ==1)
-    stopifnot(length(N) == p + 2 | length(N) ==1)
+  }
+  stopifnot(length(h2) == n | length(h2) == 1)
+  if(length(h2) == 1) h2 <- rep(h2, n)
+  stopifnot(length(pi) == n | length(pi) ==1)
+  if(length(pi) == 1) pi <- rep(pi, n)
+  stopifnot(length(N) == n | length(N) ==1)
+  if(length(N) ==1) N <- rep(N, n)
+
+  if(mode == "xyz"){
     tau_xz <- sqrt(abs(tau_xz))*sign(tau_xz)
     tau_yz <- sqrt(abs(tau_yz))*sign(tau_yz)
     gamma <- sqrt(abs(gamma))*sign(gamma)
 
     # Direct Effects
-    G <- matrix(0, nrow = p+2, ncol = p+2)
+    G <- matrix(0, nrow = n, ncol = n)
     G[1,2] <- gamma
     G[which(dir_xz == 1) + 2, 1] <- tau_xz[dir_xz ==1]
     G[1, which(dir_xz == -1) + 2] <- tau_xz[dir_xz == -1]
 
     G[which(dir_yz == 1) + 2, 2] <- tau_yz[dir_yz ==1]
     G[2, which(dir_yz == -1) + 2] <- tau_yz[dir_yz == -1]
-    n <- p + 2
-  }else{
-    n <- nrow(G)
-    stopifnot(ncol(G) == n)
-    stopifnot(length(h2) == n | length(h2) == 1)
-    stopifnot(length(pi) == n | length(pi) ==1)
-    stopifnot(length(N) == n | length(N) ==1)
-    stopifnot(all(diag(G) == 0))
   }
+
   G_t <- direct_to_total(G)
 
 
@@ -118,7 +118,7 @@ sim_mv <- function(N, J,
   input_h2 <- solve(diag(n) + H) %*% matrix(C, ncol = 1) %>% as.vector()
 
   direct_h2 <- h2-input_h2
-  if(any(direct_h2 < 0)) stop("Input variance greater than 1 for at least one variable.")
+  if(any(direct_h2 < 0)) stop("Input heritability greater total heritability for least one variable.")
   G_t <- G_t*sqrt(direct_h2)
   diag(G_t) <- sqrt(direct_h2)
 
@@ -131,11 +131,16 @@ sim_mv <- function(N, J,
                          overlap_prop = 0,
                          h_2_factor = rep(1, n),
                          pi_theta = 1)
-  dat$total_effects <- t(dat$F_mat)/diag(dat$F_mat)
-  dat$direct_effects <- G
-  diag(dat$direct_effects) <- 1
-  dat$B <- dat$Z * dat$se_beta_hat
-  return(dat)
+  R <- list(beta_hat = dat$beta_hat,
+            se_beta_hat = dat$se_beta_hat,
+            direct_SNP_effets = dat$L_mat,
+            direct_trait_effects = G,
+            total_trait_effects = t(dat$F_mat)/diag(dat$F_mat),
+            B = dat$Z * dat$se_beta_hat)
+
+  diag(R$total_trait_effects) <- 0
+
+  return(R)
 }
 
 path_one_step <- function(graph, paths){

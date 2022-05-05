@@ -9,6 +9,7 @@
 #'@param taux_xz,tau_yz Used in 'xyz' mode (see details below)
 #'@param dir_xz,dir_yz Used in 'xyz' mode (see details below)
 #'@param gamma Used in 'xyz' mode (see details below)
+#'@param R_E Environmental correlation
 #'
 #'@return A list with the following elements:
 #'
@@ -62,7 +63,7 @@
 #'@export
 sim_mv <- function(N, J,
                    tau_xz, tau_yz, dir_xz, dir_yz, gamma,
-                   h2, pi, G){
+                   h2, pi, G, R_E, overlap_prop = 0){
 
   if(missing(tau_xz)){
     mode <- "general"
@@ -128,15 +129,18 @@ sim_mv <- function(N, J,
                          N = N, J = J, h_2_trait = h2,
                          omega = rep(1, n),
                          pi_L = pi,
-                         overlap_prop = 0,
+                         overlap_prop = overlap_prop,
                          h_2_factor = rep(1, n),
-                         pi_theta = 1)
+                         pi_theta = 1,
+                         R_E = R_E)
   R <- list(beta_hat = dat$beta_hat,
             se_beta_hat = dat$se_beta_hat,
             direct_SNP_effects = dat$L_mat,
             direct_trait_effects = G,
             total_trait_effects = t(dat$F_mat)/diag(dat$F_mat),
-            B = dat$Z * dat$se_beta_hat)
+            B = dat$Z * dat$se_beta_hat,
+            R = dat$R,
+            F_mat = dat$F_mat)
 
   diag(R$total_trait_effects) <- 0
 

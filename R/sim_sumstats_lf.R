@@ -65,7 +65,10 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
 
   #R_E
   if(overlap_prop > 0){
-    if(missing(R_E)) stop("R_E must be provided if overlap_prop > 0. Use R_E = diag(ntrait) for no environmental covariance.")
+    if(missing(R_E) | is.null(R_E)){
+      message("R_E not provided but overlap_prop > 0. Using R_E = diag(ntrait) for no environmental covariance.")
+      R_E <- diag(M)
+    }
     if(missing(h_2_factor))('h_2_factor must be provided if overlap_prop > 0.')
     stopifnot(nrow(R_E) == M & ncol(R_E) == M)
     stopifnot(Matrix::isSymmetric(R_E))

@@ -1,7 +1,7 @@
 
 # omega = solve(Sigma) where Sigma is row covariance
 # omega could be a single matrix or a list of length n
-
+#'@export
 update_l_k <- function(R_k, fbar_k, f2bar_k, omega, ebnm_fn){
   n <- nrow(R_k)
   p <- ncol(R_k)
@@ -21,21 +21,16 @@ update_l_k <- function(R_k, fbar_k, f2bar_k, omega, ebnm_fn){
   diag(Fbar) <- f2bar_k
   # Fbar is 2 by 2
   if(s_equal){
-    A <- Fbar %*% omega %>% diag() %>% sum()
+    A <- (Fbar * omega) %>% sum()
     A <- rep(A, n)
-    B <- map(seq(n), function(i){
-      R_i <- R_k[i,, drop = FALSE] # 1 by p
-      Hbar <- t(R_i) %*% t(fbar_k) # Hbar is now p by b
-      Hbar %*% omega %>% diag() %>% sum()
-    }) %>% unlist()
+    B <- R_k %*% omega %*% fbar_k
   }else{
     A <- map(omega, function(o){
-      Fbar %*% o %>% diag() %>% sum()
+      (Fbar * o) %>% sum()
     }) %>% unlist()
     B <- map(seq(n), function(i){
       R_i <- R_k[i,, drop = FALSE]
-      Hbar <- t(R_i) %*% t(fbar_k)
-      Hbar %*% o[[i]] %>% diag() %>% sum()
+      R_i %*% omega[[i]] %*% fbar_k
     }) %>% unlist()
   }
 

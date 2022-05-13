@@ -4,7 +4,20 @@
 \alias{sim_mv}
 \title{Simulate multivariate GWAS data}
 \usage{
-sim_mv(N, J, tau_xz, tau_yz, dir_xz, dir_yz, gamma, h2, pi, G)
+sim_mv(
+  N,
+  J,
+  tau_xz,
+  tau_yz,
+  dir_xz,
+  dir_yz,
+  gamma,
+  h2,
+  pi,
+  G,
+  R_E,
+  overlap_prop = 0
+)
 }
 \arguments{
 \item{N}{Either a single number representing GWAS sample size for all studies or a
@@ -22,6 +35,8 @@ vector of length equal to the number of studies that will be generated.}
 
 \item{G}{If using 'general' mode (see details), G is a matrix of direct effects. Rows correspond to the 'from' trait
 and columns correspond to the 'to' variable, so G[1,2] is the direct effect of variable 1 on variable 2.}
+
+\item{R_E}{Environmental correlation}
 
 \item{taux_xz, tau_yz}{Used in 'xyz' mode (see details below)}
 }

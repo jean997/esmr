@@ -8,7 +8,8 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
                   tol = 1e-7,
                   lfsr_thresh = 1, pval_thresh =1, pval_select,
                   beta_m_init, which_beta,
-                  fix_beta = FALSE){
+                  fix_beta = FALSE,
+                  beta_joint = FALSE){
 
   set.seed(seed)
 
@@ -35,7 +36,7 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
     ix_pval <- 1:n
   }
 
-  if(missing(which_beta)){
+  if(missing(which_beta) | beta_joint){
     beta_j <- rep(1, p-1)
     beta_k <- 2:p
     if(missing(beta_m_init)){
@@ -46,7 +47,7 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
       beta_m <- beta_m_init
       beta_s <- rep(0, p-1)
     }
-  }else{
+  }else if(!beta_joint){
     beta_j <- which_beta[,1]
     beta_k <- which_beta[,2]
     if(missing(beta_m_init)){
@@ -90,28 +91,38 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   f2bar <-  ff$f2bar
 
   check <- 1
-  obj <- -Inf
-
+  kl <- c()
+  ll <- c()
+  obj <- c()
+  obj_old <- -Inf
+  l_update <- list()
   while(i < max_iter & check > tol){
-    if(i == 1) kk <- 3
-      else kk <- 1
+    # if(i == 1) kk <- 1
+    #   else kk <- 1
     # alpha and gamma updates
-    for(kk in 1:kk){
-      l_update <- map(rev(seq(p)), function(j){
-        R_j <- Y - (lbar[,-j,drop=FALSE] %*% t(fbar[,-j,drop=FALSE]))
-        update_l_k(R_j, fbar[,j], f2bar[,j], omega, ebnm_fn)
-      }) %>% rev()
-      lbar <- l_update %>% map(function(l){l$posterior$mean}) %>% do.call(cbind, .)
-      l2bar <- l_update %>% map(function(l){l$posterior$second_moment}) %>% do.call(cbind, .)
-      lfsr <- l_update %>% map(function(l){l$posterior$lfsr}) %>% do.call(cbind, .)
-      l_ghat <- l_update %>% map(function(l){l$fitted_g})
-    }
+    #for(kk in 1:kk){
 
-    R_k <- map(seq(p), function(k){
-      Y[ix_pval,] - (lbar[ix_pval,-k,drop=FALSE]%*%t(fbar[,-k,drop=FALSE]))
-    })
+    for(j in seq(p)){
+        R_j <- Y - (lbar[,-j,drop=FALSE] %*% t(fbar[,-j,drop=FALSE]))
+        lu <- update_l_k(R_j, fbar[,j], f2bar[,j], omega, ebnm_fn)
+        lbar[,j] <- lu$posterior$mean
+        l2bar[,j] <- lu$posterior$second_moment
+        l_update[[j]] <- lu
+        #kl <- c(kl, map(l_update, "KL") %>% unlist() %>% sum())
+        #ll <- c(ll, calc_ll(Y, lbar, l2bar, beta_m, beta_s, omega))
+    }
+      #lbar <- l_update %>% map(function(l){l$posterior$mean}) %>% do.call(cbind, .)
+      #l2bar <- l_update %>% map(function(l){l$posterior$second_moment}) %>% do.call(cbind, .)
+    lfsr <- l_update %>% map(function(l){l$posterior$lfsr}) %>% do.call(cbind, .)
+    l_ghat <- l_update %>% map(function(l){l$fitted_g})
+
+
+
     # beta update
-    if(!fix_beta){
+    if(!fix_beta & !beta_joint){
+      R_k <- map(seq(p), function(k){
+        Y[ix_pval,] - (lbar[ix_pval,-k,drop=FALSE]%*%t(fbar[,-k,drop=FALSE]))
+      })
       if(s_equal){
         beta_upd <- map(seq(length(beta_j)), function(r){
           k <- beta_k[r]
@@ -131,37 +142,83 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
                         omega = omega[ixk], fbar = fbar,
                         sigma_beta = sigma_beta)
         })
-
       }
       beta_m <- map(beta_upd, "m") %>% unlist()
       beta_s <- map(beta_upd, "s") %>% unlist()
       ff <- make_fbar(beta_m, beta_s, beta_j, beta_k, p)
       fbar <- ff$fbar
       f2bar <-  ff$f2bar
+    }else if(!fix_beta & beta_joint){
+      beta_upd <- update_beta_joint(Y[ix_pval,], lbar[ix_pval,], l2bar[ix_pval,], omega)
+      beta_m <- beta_upd$m
+      beta_s <- sqrt(diag(beta_upd$S))
+      beta_var <- beta_upd$S
+      ff <- make_fbar(beta_m, beta_s, beta_j, beta_k, p)
+      fbar <- ff$fbar
+      f2bar <-  ff$f2bar
     }
 
-    if(!is.null(ebnm_fn)){
-      obj_old <- obj
-      obj <- map(l_update, "KL") %>% unlist() %>% sum()
-      check <- obj - obj_old
-      #if(check < 0) warning("Objective increased on iteration ", i, ".\n")
-      check <- abs(check)
-    }else{
-      obj <- NA
-      check <- 1
-    }
-    cat(i, ": ", obj, " ", beta_m, " ", beta_s, "\n")
+    kl <- c(kl, map(l_update, "KL") %>% unlist() %>% sum())
+    #ll <- c(ll, calc_ll(Y, lbar, l2bar, beta_m, beta_s, omega))
+    #obj <- ll + kl
+    obj <- kl
+    obj_new <- obj[length(obj)]
+    check <- obj_new - obj_old
+    obj_old <- obj_new
+
+    #if(check < -1e-5) warning("Objective decreased on iteration ", i, ".\n")
+    check <- abs(check)
+    cat(i, ": ", obj_new, " ", beta_m, " ", beta_s, "\n")
     i <- i + 1
   }
-  fitted_values <- lbar %*% t(fbar)
+
   result <- list(beta_m = beta_m, beta_s = beta_s, Y = Y, S = S,
-                 lbar = lbar, fbar = fbar,
-                 l_fit = l_update, fitted_values = fitted_values)
+                 lbar = lbar, l2bar = l2bar, fbar = fbar,
+                 l_fit = l_update, omega = omega, obj = obj, ll = ll, kl = kl)
+  if(beta_joint) result$beta_var <- beta_var
   return(result)
 }
 
 
-calc_ll <- function(Y, lbar, l2bar, fbar, f2bar, omega, l_ghat){
+calc_ll <- function(Y, lbar, l2bar, beta_m, beta_s, omega){
+  n <- nrow(Y)
+  p <- ncol(Y)
+  stopifnot(nrow(lbar) == n & ncol(lbar) == p)
+  stopifnot(nrow(l2bar) == n & ncol(l2bar) == p)
+  stopifnot(length(beta_m) == p-1 & length(beta_s) == p-1)
+
+
+  #First col of lbar is alpha the rest are gammas
+  if("matrix" %in% class(omega)){
+    s_equal <- TRUE
+  }else{
+    stopifnot(class(omega) != "list")
+    stopifnot(length(omega) == n)
+    s_equal <- FALSE
+  }
+  beta_m <- as.vector(beta_m)
+  b2 <- beta_m^2 + (beta_s)^2
+  s2l <- l2bar - (lbar^2)
+  r <- Y - lbar
+  if(s_equal){
+    beta_lbar <- t(t(lbar[,-1, drop = FALSE])*beta_m)
+    G <- t(t(r)*omega[1,])
+    gi <- rowSums(G)
+    t1 <- sum(beta_lbar^2)*omega[1,1]
+    t2 <- sum(t(s2l[,-1])*b2)*omega[1,1]
+    t3 <- -2*sum(rowSums(beta_lbar)*gi)
+    t4 <- 2*sum(t(s2l[,-1])*(beta_m*omega[1,-1]))
+    t5 <- sapply(seq(n), function(i){
+      r[i,,drop = FALSE]%*%omega%*%t(r[i,,drop=FALSE])
+    }) %>% unlist() %>% sum()
+    t6 <- sum(t(s2l)*diag(omega))
+    t7 <- 0.5*sum(log(s2l))
+    x <- t1 + t2 + t3 + t4 + t5 + t6
+    return(-0.5*x)
+  }
+}
+
+calc_ll0 <- function(Y, lbar, l2bar, fbar, f2bar, omega, l_ghat){
   n <- nrow(Y)
   p <- ncol(Y)
   stopifnot(nrow(lbar) == n & ncol(lbar) == p)

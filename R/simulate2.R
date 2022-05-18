@@ -133,9 +133,10 @@ sim_mv <- function(N, J,
                          h_2_factor = rep(1, n),
                          pi_theta = 1,
                          R_E = R_E)
+  direct_SNP_effects <- t(t(dat$L_mat)*diag(dat$F_mat))
   R <- list(beta_hat = dat$beta_hat,
             se_beta_hat = dat$se_beta_hat,
-            direct_SNP_effects = dat$L_mat,
+            direct_SNP_effects = direct_SNP_effects,
             direct_trait_effects = G,
             total_trait_effects = t(dat$F_mat)/diag(dat$F_mat),
             B = dat$Z * dat$se_beta_hat,

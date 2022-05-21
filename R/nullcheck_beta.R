@@ -1,6 +1,7 @@
 nullcheck_beta <- function(dat, k, max_iter, tol = default_precision(dim(dat$Y))){
 
   dat_k <- zero_beta(dat, k)
+  dat_k$beta_joint <- FALSE
   dat_k <- ebmr_solve(dat_k, max_iter, tol)
   obj1 <- dat$obj[length(dat$obj)]
   obj2 <- dat_k$obj[length(dat_k$obj)]

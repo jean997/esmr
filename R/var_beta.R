@@ -72,6 +72,7 @@ var_beta <- function(Y, beta_m, lbar, l2bar, omega){
     Hn <- Hn/n
     Hninv <- solve(Hn)
     sand_var <- (1/n)*(Hninv %*% Bn %*% Hninv)
+    #sand_var <- Hninv
   }
   return(sand_var)
 }

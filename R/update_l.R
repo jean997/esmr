@@ -10,7 +10,7 @@ update_l_k <- function(R_k, fbar_k, f2bar_k, omega, ebnm_fn){
   if("matrix" %in% class(omega)){
     s_equal <- TRUE
   }else{
-    stopifnot(class(omega) != "list")
+    stopifnot(class(omega) == "list")
     stopifnot(length(omega) == n)
     s_equal <- FALSE
   }
@@ -35,14 +35,21 @@ update_l_k <- function(R_k, fbar_k, f2bar_k, omega, ebnm_fn){
   }
 
   x <- B/A
-
   s <- 1/sqrt(A)
+
+  ixnmiss <- which(A > 0)
+  if(length(ixnmiss)  != n){
+    x <- x[ixnmiss]
+    s <- s[ixnmiss]
+  }
+
 
   ebnm_res <- ebnm_fn( x= x, s = s, g_init = NULL, fix_g= FALSE, output = output_all())
   ebnm_res$KL <-  (ebnm_res$log_likelihood
                    - flashier:::normal.means.loglik(x,s,
                                                     ebnm_res$posterior$mean,
                                                     ebnm_res$posterior$second_moment))
+  ebnm_res$posterior$index <- ixnmiss
   return(ebnm_res)
 
 

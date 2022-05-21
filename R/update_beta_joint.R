@@ -9,7 +9,7 @@ update_beta_joint <- function(Y, lbar, l2bar, omega, prior_cov = NULL){
   if("matrix" %in% class(omega)){
     s_equal <- TRUE
   }else{
-    stopifnot(class(omega) != "list")
+    stopifnot(class(omega) == "list")
     stopifnot(length(omega) == n)
     s_equal <- FALSE
   }
@@ -23,12 +23,12 @@ update_beta_joint <- function(Y, lbar, l2bar, omega, prior_cov = NULL){
   if(s_equal){
     ltl <- t(lbar) %*% lbar
     diag(ltl) <- colSums(l2bar)
-    R <- omega[1,1]*(ltl[-1,-1])
-    diag(R) <- colSums(l2bar[,-1])*omega[1,1]
+    R <- omega[1,1]*(ltl[-1,-1, drop = FALSE])
+    diag(R) <- colSums(l2bar[,-1, drop = FALSE])*omega[1,1]
     R <- R + T0
     G <- t(t(Y - lbar)*omega[1,])
     g <- rowSums(G)
-    a <- colSums(g*lbar[,-1]) - rowSums(t(s2l[,-1])*omega[1,-1])
+    a <- colSums(g*lbar[,-1,drop=FALSE]) - rowSums(t(s2l[,-1,drop=FALSE])*omega[1,-1])
     a <-  matrix(a, nrow = p-1)
     S <- solve(R)
     mu <- S %*% a
@@ -38,11 +38,11 @@ update_beta_joint <- function(Y, lbar, l2bar, omega, prior_cov = NULL){
       matrix(nrow = n, byrow = TRUE)
     ltl <- t(lbar) %*% (lbar*o11)
     diag(ltl) <- colSums(l2bar*o11)
-    R <- ltl[-1,-1] + T0
+    R <- ltl[-1,-1, drop = FALSE] + T0
     G <- (Y - lbar)*O11
     g <- rowSums(G)
-    a <- colSums(g*lbar[,-1, drop =FALSE]) %>% matrix(nrow = p-1)
-    a <- a  + colSums((l2bar[,-1] - lbar[,-1]^2)*O11[,-1])
+    a <- colSums(g*lbar[,-1,drop = FALSE]) - colSums(s2l[,-1,drop = FALSE]*O11[,-1,drop=FALSE])
+    a <-  matrix(a, nrow = p-1)
     S <- solve(R)
     mu <- S %*% a
 

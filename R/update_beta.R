@@ -11,7 +11,7 @@ update_beta_k <- function(R_k, j, k, lbar, l2bar, omega, fbar, sigma_beta = Inf)
   if("matrix" %in% class(omega)){
     s_equal <- TRUE
   }else{
-    stopifnot(class(omega) != "list")
+    stopifnot(class(omega) == "list")
     stopifnot(length(omega) == n)
     s_equal <- FALSE
   }

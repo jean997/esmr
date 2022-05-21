@@ -102,12 +102,12 @@ sim_mv <- function(N, J,
 
     # Direct Effects
     G <- matrix(0, nrow = n, ncol = n)
-    G[1,2] <- gamma
-    G[which(dir_xz == 1) + 2, 1] <- tau_xz[dir_xz ==1]
-    G[1, which(dir_xz == -1) + 2] <- tau_xz[dir_xz == -1]
+    G[2,1] <- gamma
+    G[which(dir_xz == 1) + 2, 2] <- tau_xz[dir_xz ==1]
+    G[2, which(dir_xz == -1) + 2] <- tau_xz[dir_xz == -1]
 
-    G[which(dir_yz == 1) + 2, 2] <- tau_yz[dir_yz ==1]
-    G[2, which(dir_yz == -1) + 2] <- tau_yz[dir_yz == -1]
+    G[which(dir_yz == 1) + 2, 1] <- tau_yz[dir_yz ==1]
+    G[1, which(dir_yz == -1) + 2] <- tau_yz[dir_yz == -1]
   }
 
   G_t <- direct_to_total(G)

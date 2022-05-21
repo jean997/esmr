@@ -6,7 +6,7 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
                   max_iter = 100,
                   seed = 123, sigma_beta = Inf,
                   tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
-                  pval_thresh =1, pval_select,
+                  pval_thresh =1, lfsr_thresh = 1,
                   beta_m_init = NULL, which_beta = NULL,
                   fix_beta = FALSE,
                   beta_joint = TRUE){
@@ -27,12 +27,11 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
 
-  if(pval_thresh < 1){
-    if(missing(pval_select)) stop("If pval_thresh is <1 please provide pval_select")
-    dat$ix_beta <- which(pval_select < pval_thresh)
-  }else{
-    dat$ix_beta <- 1:n
-  }
+  dat$pval <- with(dat, 2*pnorm(-abs(Y/S)))
+  dat$pval[,1] <- 0
+
+  dat$lfsr_thresh <- lfsr_thresh
+  dat$pval_thresh <- pval_thresh
 
   dat <- ebmr_solve(dat, max_iter, tol )
 

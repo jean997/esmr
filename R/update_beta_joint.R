@@ -24,7 +24,6 @@ update_beta_joint <- function(Y, lbar, l2bar, omega, prior_cov = NULL){
     ltl <- t(lbar) %*% lbar
     diag(ltl) <- colSums(l2bar)
     R <- omega[1,1]*(ltl[-1,-1, drop = FALSE])
-    diag(R) <- colSums(l2bar[,-1, drop = FALSE])*omega[1,1]
     R <- R + T0
     G <- t(t(Y - lbar)*omega[1,])
     g <- rowSums(G)

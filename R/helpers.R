@@ -122,7 +122,7 @@ check_missing <- function(Y, S){
 get_omega <- function(R, S, any_missing){
 
   s_equal <- apply(S, 2, function(x){all(x == x[1])}) %>% all()
-
+  p <- ncol(S)
   R_is_id <- is.null(R) | all(R == diag(p))
 
   if(s_equal & R_is_id){

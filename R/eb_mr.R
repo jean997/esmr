@@ -9,7 +9,8 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
                   pval_thresh =1, lfsr_thresh = 1,
                   beta_m_init = NULL, which_beta = NULL,
                   fix_beta = FALSE,
-                  beta_joint = TRUE){
+                  beta_joint = TRUE,
+                  est_tau = FALSE){
 
   set.seed(seed)
 
@@ -28,11 +29,12 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$sigma_beta <- sigma_beta
 
   dat$pval <- with(dat, 2*pnorm(-abs(Y/S)))
-  dat$pval <- apply(dat$pval[,-1], 1, min)
+  dat$pval <- apply(dat$pval[,-1,drop = FALSE], 1, min)
   dat$ix <- which(dat$pval < pval_thresh)
 
   dat$lfsr_thresh <- lfsr_thresh
   dat$pval_thresh <- pval_thresh
+  dat$est_tau <- est_tau
 
   dat <- ebmr_solve(dat, max_iter, tol )
 

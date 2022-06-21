@@ -10,6 +10,9 @@
 #'@param dir_xz,dir_yz Used in 'xyz' mode (see details below)
 #'@param gamma Used in 'xyz' mode (see details below)
 #'@param R_E Environmental correlation
+#'@param overlap_prop Proportion of GWAS samples overlapping between studies. Scalar.
+#'@param R_LD List of eigen decompositions of LD correlation matrices, may be missing.
+#'@param snp_info If R_LD is provided, provide a data frame with columns "SNP" and "AF"
 #'
 #'@return A list with the following elements:
 #'
@@ -63,7 +66,8 @@
 #'@export
 sim_mv <- function(N, J,
                    tau_xz, tau_yz, dir_xz, dir_yz, gamma,
-                   h2, pi, G, R_E, overlap_prop = 0){
+                   h2, pi, G, R_E, overlap_prop = 0,
+                   R_LD = NULL, snp_info = NULL){
 
   if(missing(tau_xz)){
     mode <- "general"
@@ -132,7 +136,7 @@ sim_mv <- function(N, J,
                          overlap_prop = overlap_prop,
                          h_2_factor = rep(1, n),
                          pi_theta = 1,
-                         R_E = R_E)
+                         R_E = R_E, R_LD = R_LD, snp_info  = snp_info)
   direct_SNP_effects <- t(t(dat$L_mat)*diag(dat$F_mat))
   R <- list(beta_hat = dat$beta_hat,
             se_beta_hat = dat$se_beta_hat,
@@ -142,6 +146,7 @@ sim_mv <- function(N, J,
             B = dat$Z * dat$se_beta_hat,
             R = dat$R,
             F_mat = dat$F_mat)
+  if(!is.null(R_LD)) R$snp_info <- dat$snp_info
 
   diag(R$total_trait_effects) <- 0
 

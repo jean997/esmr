@@ -34,7 +34,7 @@
 #'@export
 sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
                             pi_L, pi_theta,
-                            R_E, maf = NA, R_LD, snp_info,
+                            R_E, maf = NA, R_LD = NULL, snp_info = NULL,
                             g_F, nz_factor, add=FALSE,
                             overlap_prop =1){
 
@@ -84,7 +84,7 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
     else stopifnot(length(N) == M)
 
   #maf
-  if(missing(R_LD)){
+  if(missing(R_LD) | is.null(R_LD)){
     if(is.na(maf)){
       sx <- rep(1, J)
     }else if(class(maf) == "numeric"){
@@ -96,7 +96,7 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
       sx <- 2*af*(1-af)
     }
   }else{
-    if(missing(snp_info)) stop("Please prvide snp_info to go with R_LD.")
+    if(missing(snp_info) | is.null(snp_info)) stop("Please prvide snp_info to go with R_LD.")
     l <- sapply(R_LD, function(e){length(e$values)})
     stopifnot(nrow(snp_info) == sum(l))
     stopifnot(all(c("SNP", "AF") %in% names(snp_info)))
@@ -187,7 +187,7 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
   E_Z <- MASS::mvrnorm(n=J, mu = rep(0, M), Sigma = R)
 
   #Generate summary statistics
-  if(missing(R_LD)){
+  if(missing(R_LD) | is.null(R_LD)){
     se_beta_hat <- matrix(1/sx) %*% matrix(1/sqrt(N), nrow = 1) # J by M
     beta_hat <- (Z + E_Z)*se_beta_hat
 

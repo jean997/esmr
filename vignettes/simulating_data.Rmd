@@ -426,22 +426,23 @@ We can further verify that this is the case by fitting the data using GRAPPLE, w
 account for measurement error
 
 ```{r}
-grapple_dat <- data.frame(cbind(sim_dat1$beta_hat[, c(1, 3, 4)], 
-                                sim_dat1$se_beta_hat[, c(1, 3, 4)]))
-names(grapple_dat) <- c("gamma_exp1", "gamma_exp2", "gamma_out1", 
-                        "se_exp1", "se_exp2", "se_out1")
+grapple_dat <- data.frame(cbind(sim_dat1$beta_hat[, c(1, 2, 3, 4)], 
+                                sim_dat1$se_beta_hat[, c(1, 2, 3, 4)]))
+names(grapple_dat) <- c("gamma_exp1", "gamma_exp2", "gamma_exp3", "gamma_out1", 
+                        "se_exp1", "se_exp2", "se_exp3", "se_out1")
 
 grapple_dat <- mutate(grapple_dat, 
                       pval_1 = 2*pnorm(-abs(gamma_exp1/se_exp1)),
-                      pval_2 = 2*pnorm(-abs(gamma_exp2/se_exp2)))
-grapple_dat$selection_pvals <- with(grapple_dat, pmin(pval_1, pval_2))
+                      pval_2 = 2*pnorm(-abs(gamma_exp2/se_exp2)), 
+                      pval_3 = 2*pnorm(-abs(gamma_exp3/se_exp3)))
+grapple_dat$selection_pvals <- with(grapple_dat, pmin(pval_3, pmin(pval_1, pval_2)))
 
 res <- grappleRobustEst(data = grapple_dat, p.thres = 1e-3, plot.it =FALSE)
 
 grapple_res <- data.frame(est = res$beta.hat, 
                           ci_lower = res$beta.hat - sqrt(diag(res$beta.var))*qnorm(0.975),
                           ci_upper = res$beta.hat + sqrt(diag(res$beta.var))*qnorm(0.975), 
-                          truth = c(sim_dat1$total_trait_effects[1,4], sim_dat1$direct_trait_effects[3,4]))
+                          truth = sim_dat1$direct_trait_effects[1:3,4])
 grapple_res
 
 ```
@@ -449,6 +450,4 @@ grapple_res
 The GRAPPLE estimates are much closer, though both CIs are just slightly closer to zero than 
 the true effects
 
-### Exercise
 
-Fit multivariable MR adjusting for $X$, $Y$, and $Z$. What are the true effects that we are estimating doing this? How does the linear regression method compare to GRAPPLE?

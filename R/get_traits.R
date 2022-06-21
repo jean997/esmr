@@ -25,7 +25,7 @@ mr_pairs <- function(ids1, ids2, inst_pval= 5e-8, method_list = c("mr_ivw")){
   ex_dat <- TwoSampleMR::extract_instruments(outcomes = ids1, p1 = inst_pval)
   out_dat <- TwoSampleMR::extract_outcome_data(snps = ex_dat$SNP, outcomes = ids2)
   dat_1_2 <- TwoSampleMR::harmonise_data(ex_dat, out_dat)
-  m_1_2 <- mr(dat_1_2, method_list = method_list)
+  m_1_2 <- mr(dat_1_2, method_list = method_list) # Replace for grapple or esmr
 
   ex_dat <- TwoSampleMR::extract_instruments(outcomes = ids2, p1 = inst_pval)
   out_dat <- TwoSampleMR::extract_outcome_data(snps = ex_dat$SNP, outcomes = ids1)

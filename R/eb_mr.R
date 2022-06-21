@@ -29,8 +29,8 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$sigma_beta <- sigma_beta
 
   dat$pval <- with(dat, 2*pnorm(-abs(Y/S)))
-  dat$pval <- apply(dat$pval[,-1,drop = FALSE], 1, min)
-  dat$ix <- which(dat$pval < pval_thresh)
+  dat$pval_min <- apply(dat$pval[,-1,drop = FALSE], 1, min)
+  dat$ix <- which(dat$pval_min < pval_thresh)
 
   dat$lfsr_thresh <- lfsr_thresh
   dat$pval_thresh <- pval_thresh

@@ -29,7 +29,7 @@ update_beta_sequential <- function(dat, jj){
 
   beta_j <- dat$beta$beta_j
   beta_k <- dat$beta$beta_k
-  #ix <- dat$ix_beta
+
   fbar <- dat$f$fbar
   f2bar <- dat$f$f2bar
   beta_m <- dat$beta$beta_m
@@ -41,13 +41,13 @@ update_beta_sequential <- function(dat, jj){
     coords <- jj
   }
 
-  ix <- dat$ix
+  #ix <- dat$ix
 
   for(i in coords){
       k <- beta_k[i]
       j <- beta_j[i]
       #ix <- which(dat$lfsr1[,k] < dat$lfsr_thresh)
-      #ix <- which(dat$pval[,k] < dat$pval_thresh)
+      ix <- which(dat$pval[,k] < dat$pval_thresh)
 
       R_k <- dat$Y[ix,] - (dat$l$lbar[ix,-k,drop=FALSE]%*%t(fbar[,-k,drop=FALSE]))
       b <- update_beta_k(R_k = R_k, j=j, k=k,

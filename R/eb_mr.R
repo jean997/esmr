@@ -1,4 +1,12 @@
 
+#'@title Empirical Shrinkage Multivariable MR
+#'@param beta_hat_Y Vector of SNP-outcome associations (length p)
+#'@param se_Y Standard errors of beta_hat_Y
+#'@param beta_hat_X Matrix of SNP-exposure associations (p by K)
+#'@param se_X matrix of standard errors of beta_hat_X
+#'@param R Optional correlation matrix for overlapping samples.
+#'@param ebnm_fn Options prior distribution family. Defaults to point-normal.
+#'@param pval_thresh p-value threshold for beta update
 #'@export
 eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
                   R = NULL,

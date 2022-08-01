@@ -2,9 +2,11 @@
 
 export(eb_mr)
 export(generate_F2)
+export(generate_F_simple)
 export(mr_pairs)
 export(retrieve_traits)
 export(rnormalmix)
+export(sim_ld_prune)
 export(sim_mv)
 export(sim_sumstats_lf)
 export(sum_stats)

@@ -16,7 +16,9 @@ sim_mv(
   pi,
   G,
   R_E,
-  overlap_prop = 0
+  overlap_prop = 0,
+  R_LD = NULL,
+  snp_info = NULL
 )
 }
 \arguments{
@@ -37,6 +39,12 @@ vector of length equal to the number of studies that will be generated.}
 and columns correspond to the 'to' variable, so G[1,2] is the direct effect of variable 1 on variable 2.}
 
 \item{R_E}{Environmental correlation}
+
+\item{overlap_prop}{Proportion of GWAS samples overlapping between studies. Scalar.}
+
+\item{R_LD}{List of eigen decompositions of LD correlation matrices, may be missing.}
+
+\item{snp_info}{If R_LD is provided, provide a data frame with columns "SNP" and "AF"}
 
 \item{taux_xz, tau_yz}{Used in 'xyz' mode (see details below)}
 }

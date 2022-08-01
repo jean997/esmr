@@ -19,8 +19,8 @@ sim_sumstats_lf(
   snp_info = NULL,
   g_F,
   nz_factor,
-  add = FALSE,
-  overlap_prop = 1
+  overlap_prop = 1,
+  sporadic_pleiotropy = TRUE
 )
 }
 \arguments{
@@ -38,7 +38,7 @@ sim_sumstats_lf(
 
 \item{pi_L}{Proportion of non-zero elements in L_k. Length K factor}
 
-\item{pi_theta}{Proportion of non-zero elements in theta. Scalar.}
+\item{pi_theta}{Proportion of non-zero elements in theta. Scalar or length M vector.}
 
 \item{R_E}{Environmental trait correlation not mediated by factors. M by M pd matrix.}
 
@@ -52,7 +52,9 @@ vector of length equal to the number of SNPs. maf is ignored if LD is provided.}
 
 \item{g_F}{Function from which non-zero elements of F are generated}
 
-\item{pi_F}{Proportion of non-zero elements of F.}
+\item{nz_factor}{Number of non-zero elements of each factor if F is to be generated.}
+
+\item{sporadic_pleiotropy}{Allow a single SNP to affect multiple factors (default TRUE).}
 }
 \description{
 Simulate summary statistcs for fully overlapping GWAS with no LD

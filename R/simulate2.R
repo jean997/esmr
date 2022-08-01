@@ -67,7 +67,8 @@
 sim_mv <- function(N, J,
                    tau_xz, tau_yz, dir_xz, dir_yz, gamma,
                    h2, pi, G, R_E, overlap_prop = 0,
-                   R_LD = NULL, snp_info = NULL){
+                   R_LD = NULL, snp_info = NULL,
+                   sporadic_pleiotropy = TRUE){
 
   if(missing(tau_xz)){
     mode <- "general"
@@ -136,7 +137,8 @@ sim_mv <- function(N, J,
                          overlap_prop = overlap_prop,
                          h_2_factor = rep(1, n),
                          pi_theta = 1,
-                         R_E = R_E, R_LD = R_LD, snp_info  = snp_info)
+                         R_E = R_E, R_LD = R_LD, snp_info  = snp_info,
+                         sporadic_pleiotropy = sporadic_pleiotropy)
   direct_SNP_effects <- t(t(dat$L_mat)*diag(dat$F_mat))
   R <- list(beta_hat = dat$beta_hat,
             se_beta_hat = dat$se_beta_hat,
@@ -145,7 +147,8 @@ sim_mv <- function(N, J,
             total_trait_effects = t(dat$F_mat)/diag(dat$F_mat),
             B = dat$Z * dat$se_beta_hat,
             R = dat$R,
-            F_mat = dat$F_mat)
+            F_mat = dat$F_mat,
+            dat = dat)
   if(!is.null(R_LD)) R$snp_info <- dat$snp_info
 
   diag(R$total_trait_effects) <- 0

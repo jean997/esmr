@@ -9,7 +9,7 @@
 #'@param omega Proportion of SNP heritability mediated by factors. Length M vector.
 #'@param h_2_factor Heritability of each factor. Length K vector.
 #'@param pi_L Proportion of non-zero elements in L_k. Length K factor
-#'@param pi_theta Proportion of non-zero elements in theta. Scalar.
+#'@param pi_theta Proportion of non-zero elements in theta. Scalar or length M vector.
 #'@param R_E Environmental trait correlation not mediated by factors. M by M pd matrix.
 #'@param maf can either be a scalar in which case the same maf is used for all SNPS, NA in which case SNPs
 #'are assumed scaled to variance 1, a function that takes a number n and returns n values between 0 and 1, or a
@@ -17,7 +17,8 @@
 #'@param R_LD List of eigen decompositions of LD correlation matrices, may be missing.
 #'@param snp_info If R_LD is provided, provide a data frame with columns "SNP" and "AF"
 #'@param g_F Function from which non-zero elements of F are generated
-#'@param pi_F Proportion of non-zero elements of F.
+#'@param nz_factor Number of non-zero elements of each factor if F is to be generated.
+#'@param sporadic_pleiotropy Allow a single SNP to affect multiple factors (default TRUE).
 #'@details
 #'
 #'If F_mat is not provided, it will be generated using the `generate_F2` function.
@@ -35,21 +36,23 @@
 sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
                             pi_L, pi_theta,
                             R_E, maf = NA, R_LD = NULL, snp_info = NULL,
-                            g_F, nz_factor, add=FALSE,
-                            overlap_prop =1){
+                            g_F, nz_factor,
+                            overlap_prop =1,
+                            sporadic_pleiotropy = TRUE){
 
   #Check parameters
   if(!missing(F_mat)){
     stopifnot("matrix" %in% class(F_mat))
     M <- nrow(F_mat)
     K <- ncol(F_mat)
+    cat("Factor structure provided for ", M, " traits and ", K, " factors.\n")
   }else{
     if(missing(g_F) | missing(nz_factor) ){
       stop("If F_mat is missing please supply g_F and nz_factor")
     }
     K <- length(nz_factor)
     M <- length(h_2_trait)
-    cat("Will generate L and F with ", J, " markers, ", M, " traits, and ", K, "factors.\n")
+    cat("Will generate L and F with ", J, " markers, ", M, " traits, and ", K, " factors.\n")
   }
   stopifnot(length(h_2_trait) == M)
   stopifnot(all(h_2_trait <= 1 & h_2_trait >= 0))
@@ -59,9 +62,16 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
   stopifnot(all(omega >= 0 & omega <= 1))
   stopifnot(length(pi_L) == K)
   stopifnot(all(pi_L <= 1 & pi_L > 0))
-  stopifnot(length(pi_theta) == 1 )
-  stopifnot(pi_theta >=0 & pi_theta <=1)
-  if(any(omega < 1) & pi_theta == 0){stop("Theta contributes non-zero heritability so pi_theta must be greater than 0.")}
+
+  if(length(pi_theta) == 1){
+    pi_theta <- rep(pi_theta, M)
+  }else{
+    stopifnot(length(pi_theta)== M)
+  }
+  stopifnot(all(pi_theta >=0 & pi_theta <=1))
+  if(any(omega < 1 & pi_theta == 0)){
+    stop("Omega is less than 1 for trait ", i, " so pi_theta must be greater than 0 for that trait.")
+  }
 
   #R_E
   if(overlap_prop > 0){
@@ -108,19 +118,14 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
   if(missing(F_mat)){
     F_mat <- sumstatFactors:::generate_F2(non_zero_by_factor = nz_factor,
                          square_row_sums = omega*h_2_trait,
-                         rfunc = g_F, add=add)
-    # if(ncol(F_mat) > K){
-    #   nextra <- ncol(F_mat)-K
-    #   if(overlap_prop > 0) h_2_factor <- c(h_2_factor, rep(1, nextra))
-    #   pi_L <- c(pi_L, rep(pi_theta, nextra))
-    # }
+                         rfunc = g_F)
     if(any(rowSums(F_mat^2) == 0)){
       ix <- which(rowSums(F_mat^2)==0)
       omega[ix] <- 0
     }
   }else{
     if(any(rowSums(F_mat == 0) == K & omega >0)){
-      stop("One row of F is all zero but corresponds to non-zero omega\n")
+      stop("One row of F is zero but corresponds to non-zero omega\n")
     }
     #Re scale rows of F
     scale <- sqrt(omega*h_2_trait/rowSums(F_mat^2))
@@ -130,26 +135,60 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
 
 
   #Generate theta
-  sigma_theta <- sqrt( (1/(pi_theta*J))*(1-omega)*h_2_trait)
+  sigma_theta <- sqrt( (1/(pi_theta*J)) * (1-omega)*h_2_trait)
   sigma_theta[omega == 1] <- 0
 
-  theta <- purrr::map(sigma_theta, function(s){
-    t <- rbinom(n=J, size=1, prob = pi_theta)
-    n <- sum(t==1)
-    t[t==1] <- rnorm(n=n, mean=0, sd = s)
-    return(t)
-  }) %>% do.call(cbind, .)
+  if(all(sigma_theta == 0)){
+    theta <- matrix(0, nrow = J, ncol = M)
+  }else if(sporadic_pleiotropy){
+    theta <- purrr::map(seq(M), function(i){
+      t <- rbinom(n=J, size=1, prob = pi_theta[i])
+      n <- sum(t==1)
+      t[t==1] <- rnorm(n=n, mean=0, sd = sigma_theta[i])
+      return(t)
+    }) %>% do.call(cbind, .)
+  }else{
+    ix <- which(sigma_theta > 0)
+    if(sum(pi_theta[ix]) > 1){
+      stop("You have requested too many traits and too many causal variants to use sporadic_pleiotrop = FALSE.\n")
+    }
+    p <- sum(pi_theta[ix])
+    nz_theta_ix <- sample(c(0, ix), size = J, replace = TRUE, prob = c(1-p, pi_theta[ix]) )
+    theta <- purrr::map(seq(M), function(i){
+      t <- which(nz_theta_ix == i)
+      n <- length(t)
+      val <- rep(0, J)
+      if(n > 0) val[t] <- rnorm(n=n, mean=0, sd = sigma_theta[i])
+      return(val)
+    }) %>% do.call(cbind, .)
+  }
 
 
 
   #Generate L
-  sigma_L <- (1/(pi_L*J))
-  L_mat <- purrr::map(pi_L, function(p){
-    l <- rbinom(n=J, size=1, prob = p)
-    n <- sum(l==1)
-    l[l==1] <- rnorm(n=n, mean=0, sd = sqrt(1/(p*J)))
-    return(l)
-  }) %>% do.call(cbind, .)
+  sigma_L <- sqrt(1/(pi_L*J))
+  if(sporadic_pleiotropy){
+    L_mat <- purrr::map(seq(K), function(i){
+      l <- rbinom(n=J, size=1, prob = pi_L[i])
+      n <- sum(l==1)
+      l[l==1] <- rnorm(n=n, mean=0, sd = sigma_L[i])
+      return(l)
+    }) %>% do.call(cbind, .)
+  }else{
+    if(sum(pi_L) > 1){
+      stop("You have requested too many factors and too many causal variants to use sporadic_pleiotropy = FALSE.\n")
+    }
+    p <- sum(pi_L)
+    nz_L_ix <- sample(c(0, seq(K)), size = J, replace = TRUE, prob = c(1-p, pi_L) )
+    L_mat <- purrr::map(seq(K), function(i){
+      l <- which(nz_L_ix == i)
+      n <- length(l)
+      val <- rep(0, J)
+      if(n > 0) val[l] <- rnorm(n=n, mean=0, sd = sigma_L[i])
+      return(val)
+    }) %>% do.call(cbind, .)
+  }
+
 
   # Compute Beta, standardized effects
   # Since phenos are scaled to variance 1, sqrt(N_m)*beta_{j,m} = z_{j,m}
@@ -274,8 +313,7 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
 #'@export
 generate_F2 <- function(non_zero_by_factor,
                         square_row_sums,
-                        rfunc = function(n){runif(n, -1, 1)},
-                        add=FALSE){
+                        rfunc = function(n){runif(n, -1, 1)}){
   f <- function(n, nz){
     stopifnot(nz >= 1)
     x <- rep(0, n)
@@ -293,20 +331,10 @@ generate_F2 <- function(non_zero_by_factor,
 
   if(any(rowSums(F_mat !=0)==0)){
     missing_ix <- which(rowSums(F_mat !=0)==0)
-    if(add){
-      # Add any missing traits
-      F_add <- sapply(missing_ix, function(i){
-                  x <- rep(0, M)
-                  x[i] <- 1
-                  return(x)
-      })
-      F_mat <- cbind(F_mat, F_add)
-    }else{
-      r2 <- rowSums(F_mat^2)
-      F_mat <- F_mat*sqrt(square_row_sums)/sqrt(r2)
-      F_mat[missing_ix,] <- 0
-      return(F_mat)
-    }
+    r2 <- rowSums(F_mat^2)
+    F_mat <- F_mat*sqrt(square_row_sums)/sqrt(r2)
+    F_mat[missing_ix,] <- 0
+    return(F_mat)
   }
   r2 <- rowSums(F_mat^2)
   F_mat <- F_mat*sqrt(square_row_sums)/sqrt(r2)

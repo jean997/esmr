@@ -18,7 +18,8 @@ sim_mv(
   R_E,
   overlap_prop = 0,
   R_LD = NULL,
-  snp_info = NULL
+  snp_info = NULL,
+  sporadic_pleiotropy = TRUE
 )
 }
 \arguments{

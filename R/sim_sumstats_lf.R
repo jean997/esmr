@@ -89,11 +89,11 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
       sx <- rep(1, J)
     }else if(class(maf) == "numeric"){
       stopifnot(length(maf) %in% c(1, J))
-      sx <- 2*maf*(1-maf)
+      sx <- sqrt(2*maf*(1-maf))
       if(length(sx) == 1) sx <- rep(sx, J)
     }else if(class(maf) == "function"){
       af <- maf(J)
-      sx <- 2*af*(1-af)
+      sx <- sqrt(2*af*(1-af))
     }
   }else{
     if(missing(snp_info) | is.null(snp_info)) stop("Please prvide snp_info to go with R_LD.")
@@ -106,14 +106,14 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
 
   #Re-scale F or generate it if it is missing
   if(missing(F_mat)){
-    F_mat <- generate_F2(non_zero_by_factor = nz_factor,
+    F_mat <- sumstatFactors:::generate_F2(non_zero_by_factor = nz_factor,
                          square_row_sums = omega*h_2_trait,
                          rfunc = g_F, add=add)
-    if(ncol(F_mat) > K){
-      nextra <- ncol(F_mat)-K
-      if(overlap_prop > 0) h_2_factor <- c(h_2_factor, rep(1, nextra))
-      pi_L <- c(pi_L, rep(pi_theta, nextra))
-    }
+    # if(ncol(F_mat) > K){
+    #   nextra <- ncol(F_mat)-K
+    #   if(overlap_prop > 0) h_2_factor <- c(h_2_factor, rep(1, nextra))
+    #   pi_L <- c(pi_L, rep(pi_theta, nextra))
+    # }
     if(any(rowSums(F_mat^2) == 0)){
       ix <- which(rowSums(F_mat^2)==0)
       omega[ix] <- 0
@@ -190,6 +190,10 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
   if(missing(R_LD) | is.null(R_LD)){
     se_beta_hat <- matrix(1/sx) %*% matrix(1/sqrt(N), nrow = 1) # J by M
     beta_hat <- (Z + E_Z)*se_beta_hat
+    # Convert L and theta from standardized scale
+    L_mat <- ((1/sx)*matrix(1, nrow = J, ncol = K))*L_mat
+    theta <- ((1/sx)*matrix(1, nrow = J, ncol = M))*theta
+    beta_std <- beta
 
     ret <- list(beta_hat =beta_hat, se_beta_hat = se_beta_hat,
                 L_mat = L_mat, F_mat = F_mat, theta = theta,
@@ -201,6 +205,7 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
 
   #Figure out how much/how many replicates of supplied LD we need
   nblock <- length(R_LD)
+  l <- sapply(R_LD, function(e){length(e$values)})
   ld_size <- sum(l)
   full_reps <- floor(J/ld_size) # Recall l is list of block sizes
   remainder <- J  - full_reps*ld_size
@@ -214,6 +219,16 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
   start_ix <- cumsum(c(1, l[-length(l)]))
   end_ix <- start_ix + l-1
 
+  #snp info
+  snp_info_full <- snp_info[c(rep(seq(ld_size), full_reps), seq(remainder)),]
+  if(full_reps == 0){
+    snp_info_full$rep <- rep(1, remainder)
+  }else{
+    snp_info_full$rep <- c(rep(seq(full_reps), each = ld_size), rep(full_reps + 1, remainder))
+  }
+  snp_info_full$SNP <- with(snp_info_full, paste0(SNP, ".", rep))
+  sx <- with(snp_info_full, sqrt(2*AF*(1-AF)))
+
   # Multiply errors by square root of LD matrix
   E_LD_Z <- lapply(seq_along(block_index), function(i){
     with(R_LD[[block_index[i]]], vectors %*% sqrt(diag(values)) %*% E_Z[start_ix[i]:end_ix[i], ])
@@ -225,31 +240,32 @@ sim_sumstats_lf <- function(F_mat, N, J, h_2_trait, omega, h_2_factor,
   }) %>% do.call( rbind, .)
   Z_hat <- Z + E_LD_Z
 
-  # Transform L by LD matrix
-  L_mat <- lapply(seq_along(block_index), function(i){
-    with(R_LD[[block_index[i]]], vectors %*% diag(values) %*% t(vectors) %*% L_mat[start_ix[i]:end_ix[i], ])
-  }) %>% do.call( rbind, .)
-
-  # Transform Theta by LD matrix
-  theta <- lapply(seq_along(block_index), function(i){
-    with(R_LD[[block_index[i]]], vectors %*% diag(values) %*% t(vectors) %*% theta[start_ix[i]:end_ix[i], ])
-  }) %>% do.call( rbind, .)
-
-  #snp info
-  snp_info_full <- snp_info[c(rep(seq(ld_size), full_reps), seq(remainder)),]
-  if(full_reps == 0){
-    snp_info_full$rep <- rep(1, remainder)
-  }else{
-    snp_info_full$rep <- c(rep(seq(full_reps), each = ld_size), rep(full_reps + 1, remainder))
-  }
-  snp_info_full$SNP <- with(snp_info_full, paste0(SNP, ".", rep))
-  sx <- with(snp_info_full, 2*AF*(1-AF))
 
   se_beta_hat <- matrix(1/sx) %*% matrix(1/sqrt(N), nrow = 1) # J by M
   beta_hat <- Z_hat*se_beta_hat
 
+  # Convert L and Theta to observed scale by dividing by se of genotypes
+  L_mat <- L_mat_direct <-  ((1/sx)*matrix(1, nrow = J, ncol = K))*L_mat
+  theta <- theta_direct <- ((1/sx)*matrix(1, nrow = J, ncol = M))*theta
+
+  # Transform L by LD matrix
+  L_mat <- L_mat*sx # S^-inv L (the N will cancel)
+  L_mat <- lapply(seq_along(block_index), function(i){
+    with(R_LD[[block_index[i]]],
+         vectors %*% diag(values) %*% t(vectors) %*% L_mat[start_ix[i]:end_ix[i], ])
+  }) %>% do.call( rbind, .)
+  L_mat <- L_mat/sx
+
+  # Transform Theta by LD matrix
+  theta <- theta*sx
+  theta <- lapply(seq_along(block_index), function(i){
+    with(R_LD[[block_index[i]]], vectors %*% diag(values) %*% t(vectors) %*% theta[start_ix[i]:end_ix[i], ])
+  }) %>% do.call( rbind, .)
+  theta <- theta/sx
+
   ret <- list(beta_hat =beta_hat, se_beta_hat = se_beta_hat, Z = Z,
               L_mat = L_mat, F_mat = F_mat, theta = theta,
+              L_mat_direct = L_mat_direct, theta_direct = theta_direct,
               R_E = R_E, tau = tau, R = R, snp_info = snp_info_full)
   return(ret)
 }
@@ -298,4 +314,57 @@ generate_F2 <- function(non_zero_by_factor,
 
 }
 
+#'@export
+sim_ld_prune <- function(dat, pvalue, R_LD, r2_thresh = 0.1, pval_thresh = 1){
+  if(missing(pvalue)){
+    p <- 2*pnorm(-abs(dat$beta_hat/dat$se_beta_hat))
+    pvalue <- apply(p, 1, min)
+  }
 
+  R_LD <- lapply(R_LD, function(e){e$vectors %*% diag(e$values) %*% t(e$vectors) })
+  thresh <- sqrt(r2_thresh)
+  combos <- expand.grid(block = unique(dat$snp_info$block),
+                        rep = unique(dat$snp_info$rep))
+  keep_list <- purrr::map2(combos$block, combos$rep, function(b, r){
+    ix_rem <- which(dat$snp_info$block == b & dat$snp_info$rep == r)
+    myld <- reshape2::melt(R_LD[[b]])
+    myld$ix1 <- ix_rem[myld$Var1]
+    myld$ix2 <- ix_rem[myld$Var2]
+    ix_keep <- c()
+    df_rem <- data.frame(ix = ix_rem, pval = pvalue[ix_rem]) %>%
+              arrange(pval)
+    df_rem <- filter(df_rem, pval < pval_thresh)
+    while(nrow(df_rem) > 0){
+      s <- df_rem$ix[1]
+      ix_keep <- c(ix_keep, s)
+      a <- filter(myld, (ix1 == s | ix2 == s) & abs(value) > thresh)
+      v <- unique(a$ix1, a$ix2)
+      df_rem <- filter(df_rem, !ix %in% v)
+    }
+    return(ix_keep)
+    }) %>% unlist()
+  return(keep_list)
+}
+
+
+#'@export
+generate_F_simple <- function(nblocks, type=c("nested", "difference",
+                                              "checkers1", "checkers2")){
+
+  type <- match.arg(type)
+  if(type == "nested"){
+    m <-  cbind(c(1, 1, 1), c(1, 1, 0), c(0, 0, 1))
+  }else if(type == "difference"){
+    m <- cbind(c(1, 1, 1), c(1, -1, 0), c(0, 0, 1))
+  }else if(type == "checkers1"){
+    m <- cbind(c(1, 1, 1),
+               c(1, 1, 0 ),
+               c(0, 1, 1))
+  }else if(type == "checkers2"){
+    m <-  cbind(c(1, 0, 1),
+                c(1, 1, 0 ),
+                c(0, 1, 1))
+  }
+  F_mat <- kronecker(diag(nblocks), m)
+  return(F_mat)
+}

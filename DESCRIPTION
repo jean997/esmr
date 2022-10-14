@@ -1,7 +1,7 @@
 Package: mrScan
 Type: Package
 Title: Find and Adjust for Heritable Confounders Using IEU Open GWAS Database
-Version: 0.1.0
+Version: 0.1.1
 Author: Jean Morrison
 Maintainer: Jean Morrison <jvmorr@umich.edu>
 Description: This package scans GWAS in IEU Open GWAS database for possible heritable confounders. 

@@ -43,6 +43,11 @@ update_beta_sequential <- function(dat, jj){
 
   ix <- dat$ix
 
+  if("matrix" %in% class(dat$omega)){
+    om <- dat$omega
+  }else{
+    om <- dat$omega[ix]
+  }
   for(i in coords){
       k <- beta_k[i]
       j <- beta_j[i]
@@ -52,7 +57,7 @@ update_beta_sequential <- function(dat, jj){
       R_k <- dat$Y[ix,] - (dat$l$lbar[ix,-k,drop=FALSE]%*%t(fbar[,-k,drop=FALSE]))
       b <- update_beta_k(R_k = R_k, j=j, k=k,
                     lbar=dat$l$lbar[ix,], l2bar=dat$l$l2bar[ix,],
-                    omega = dat$omega[ix], fbar = fbar,
+                    omega = om, fbar = fbar,
                     sigma_beta = dat$sigma_beta)
       beta_m[i] <- b$m
       beta_s[i] <- b$s
@@ -96,8 +101,13 @@ ebmr_solve <- function(dat, max_iter, tol){
       dat <- update_beta_sequential(dat)
 
     }else if(!fix_beta & beta_joint){
+      if("matrix" %in% class(dat$omega)){
+        om <- dat$omega
+      }else{
+        om <- dat$omega[dat$ix]
+      }
       beta_upd <- with(dat,
-                       update_beta_joint(Y[ix,], l$lbar[ix,], l$l2bar[ix,], omega[ix]))
+                       update_beta_joint(Y[ix,], l$lbar[ix,], l$l2bar[ix,], om))
       dat$beta$beta_m <- beta_upd$m
       dat$beta$beta_s <- sqrt(diag(beta_upd$S))
       dat$beta$beta_var <- beta_upd$S

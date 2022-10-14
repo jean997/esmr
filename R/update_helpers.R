@@ -41,18 +41,18 @@ update_beta_sequential <- function(dat, jj){
     coords <- jj
   }
 
-  #ix <- dat$ix
+  ix <- dat$ix
 
   for(i in coords){
       k <- beta_k[i]
       j <- beta_j[i]
       #ix <- which(dat$lfsr1[,k] < dat$lfsr_thresh)
-      ix <- which(dat$pval[,k] < dat$pval_thresh)
+      #ix <- which(dat$pval[,k] < dat$pval_thresh)
 
       R_k <- dat$Y[ix,] - (dat$l$lbar[ix,-k,drop=FALSE]%*%t(fbar[,-k,drop=FALSE]))
       b <- update_beta_k(R_k = R_k, j=j, k=k,
                     lbar=dat$l$lbar[ix,], l2bar=dat$l$l2bar[ix,],
-                    omega = dat$omega, fbar = fbar,
+                    omega = dat$omega[ix], fbar = fbar,
                     sigma_beta = dat$sigma_beta)
       beta_m[i] <- b$m
       beta_s[i] <- b$s
@@ -97,7 +97,7 @@ ebmr_solve <- function(dat, max_iter, tol){
 
     }else if(!fix_beta & beta_joint){
       beta_upd <- with(dat,
-                       update_beta_joint(Y[ix,], l$lbar[ix,], l$l2bar[ix,], omega))
+                       update_beta_joint(Y[ix,], l$lbar[ix,], l$l2bar[ix,], omega[ix]))
       dat$beta$beta_m <- beta_upd$m
       dat$beta$beta_s <- sqrt(diag(beta_upd$S))
       dat$beta$beta_var <- beta_upd$S

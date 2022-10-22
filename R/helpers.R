@@ -51,7 +51,8 @@ init_beta <- function(p, which_beta=NULL, beta_joint = TRUE, beta_m_init = NULL)
 init_l <- function(n, p){
   lbar <- l2bar <- matrix(0, nrow = n, ncol = p)
   lfsr <- matrix(1, nrow = n, ncol = p)
-  return(list(lbar = lbar, l2bar = l2bar, lfsr = lfsr))
+  g_hat <- list()
+  return(list(lbar = lbar, l2bar = l2bar, lfsr = lfsr, g_hat = g_hat))
 }
 
 

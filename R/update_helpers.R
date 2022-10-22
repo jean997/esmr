@@ -3,6 +3,7 @@ update_l_sequential <- function(dat, jj){
   lbar <- dat$l$lbar
   l2bar <- dat$l$l2bar
   lfsr <- dat$l$lfsr
+  g_hat <- dat$l$g_hat
   if(!missing(jj)){
     coords <- jj
   }else{
@@ -16,10 +17,11 @@ update_l_sequential <- function(dat, jj){
     lbar[lu$posterior$index,j] <- lu$posterior$mean
     l2bar[lu$posterior$index,j] <- lu$posterior$second_moment
     lfsr[lu$posterior$index,j] <- lu$posterior$lfsr
+    g_hat[[j]] <- lu$fitted_g
     l_update[[j]] <- lu
   }
   kl <- map(l_update, "KL") %>% unlist() %>% sum()
-  dat$l <- list(lbar =lbar, l2bar = l2bar, lfsr = lfsr, kl = kl)
+  dat$l <- list(lbar =lbar, l2bar = l2bar, lfsr = lfsr, kl = kl, g_hat = g_hat)
   return(dat)
 }
 
@@ -81,13 +83,18 @@ ebmr_solve <- function(dat, max_iter, tol){
   obj <- c()
   obj_old <- -Inf
   i <- 1
-
+  if(dat$ll){
+    myll <- c()
+  }
   if(dat$est_tau){
     dat$omega_given <- dat$omega
   }
   while(i < max_iter & check > tol){
 
     dat <- update_l_sequential(dat)
+    if(dat$ll){
+      myll <- c(myll, with(dat, calc_ell(Y, l$lbar, l$l2bar, f$fbar, f$f2bar, omega)))
+    }
     if(i == 1){
       dat$lfsr1 <- dat$l$lfsr
       dat$lfsr1[,1] <- 0
@@ -113,6 +120,9 @@ ebmr_solve <- function(dat, max_iter, tol){
       dat$beta$beta_var <- beta_upd$S
       dat$f <- dat$f_fun(dat$beta$beta_m, dat$beta$beta_s)
     }
+    if(dat$ll){
+      myll <- c(myll, with(dat, calc_ell(Y, l$lbar, l$l2bar, f$fbar, f$f2bar, omega)))
+    }
     if(est_tau){
       dat <- update_tau(dat)
     }
@@ -124,6 +134,9 @@ ebmr_solve <- function(dat, max_iter, tol){
     check <- abs(check)
     cat(i, ": ", obj_new, " ", dat$beta$beta_m, "\n")
     i <- i + 1
+  }
+  if(dat$ll){
+    dat$myll <- myll
   }
   dat <- update_l_sequential(dat)
   dat$obj <- obj

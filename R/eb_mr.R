@@ -18,7 +18,8 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
                   beta_m_init = NULL, which_beta = NULL,
                   fix_beta = FALSE,
                   beta_joint = TRUE,
-                  est_tau = FALSE){
+                  est_tau = FALSE,
+                  ll = FALSE){
 
   set.seed(seed)
 
@@ -43,6 +44,7 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$lfsr_thresh <- lfsr_thresh
   dat$pval_thresh <- pval_thresh
   dat$est_tau <- est_tau
+  dat$ll <- ll
 
   dat <- ebmr_solve(dat, max_iter, tol )
 
@@ -50,105 +52,58 @@ eb_mr <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
 }
 
 
-calc_ll <- function(Y, lbar, l2bar, beta_m, beta_s, omega){
+calc_ell <- function(Y, lbar, l2bar, fbar, f2bar, omega){
   n <- nrow(Y)
   p <- ncol(Y)
   stopifnot(nrow(lbar) == n & ncol(lbar) == p)
   stopifnot(nrow(l2bar) == n & ncol(l2bar) == p)
-  stopifnot(length(beta_m) == p-1 & length(beta_s) == p-1)
+  stopifnot(nrow(fbar) == p & nrow(f2bar) == p & ncol(fbar) == p & ncol(f2bar) == p)
+  #stopifnot(length(beta_m) == p-1 & length(beta_s) == p-1)
 
 
-  #First col of lbar is alpha the rest are gammas
   if("matrix" %in% class(omega)){
     s_equal <- TRUE
   }else{
-    stopifnot(class(omega) != "list")
-    stopifnot(length(omega) == n)
-    s_equal <- FALSE
-  }
-  beta_m <- as.vector(beta_m)
-  b2 <- beta_m^2 + (beta_s)^2
-  s2l <- l2bar - (lbar^2)
-  r <- Y - lbar
-  if(s_equal){
-    beta_lbar <- t(t(lbar[,-1, drop = FALSE])*beta_m)
-    G <- t(t(r)*omega[1,])
-    gi <- rowSums(G)
-    t1 <- sum(beta_lbar^2)*omega[1,1]
-    t2 <- sum(t(s2l[,-1])*b2)*omega[1,1]
-    t3 <- -2*sum(rowSums(beta_lbar)*gi)
-    t4 <- 2*sum(t(s2l[,-1])*(beta_m*omega[1,-1]))
-    t5 <- sapply(seq(n), function(i){
-      r[i,,drop = FALSE]%*%omega%*%t(r[i,,drop=FALSE])
-    }) %>% unlist() %>% sum()
-    t6 <- sum(t(s2l)*diag(omega))
-    t7 <- 0.5*sum(log(s2l))
-    x <- t1 + t2 + t3 + t4 + t5 + t6
-    return(-0.5*x)
-  }
-}
-
-calc_ll0 <- function(Y, lbar, l2bar, fbar, f2bar, omega, l_ghat){
-  n <- nrow(Y)
-  p <- ncol(Y)
-  stopifnot(nrow(lbar) == n & ncol(lbar) == p)
-  stopifnot(nrow(l2bar) == n & ncol(l2bar) == p)
-  stopifnot(ncol(fbar) ==p)
-
-
-  #First col of lbar is alpha the rest are gammas
-  if("matrix" %in% class(omega)){
-    s_equal <- TRUE
-  }else{
-    stopifnot(class(omega) != "list")
+    stopifnot(class(omega) == "list")
     stopifnot(length(omega) == n)
     s_equal <- FALSE
   }
 
-  Ybar <- lbar %*% t(fbar)
+  ybar <- lbar %*% t(fbar)
 
-  Y2bar <- l2bar %*% t(f2bar)
-  R <- Y - Ybar
-
-
-  # Calculate E(log p(Y | l, f, omega))
-  Fbar <- map(seq(p), function(k){
-    Fb <- fbar[,k] %*% t(fbar[,k])
-    diag(Fb) <- f2bar[,k]
-    return(Fb)
-  })
-
-  L2 <- lbar %*% t(lbar)
-  diag(L2) <- 0
+  varlbar <- l2bar - (lbar^2)
+  varfbar <- f2bar - (fbar^2)
   if(s_equal){
-    ll_t1 <- map(seq(n), function(i){
-      Y[i,,drop = FALSE] %*% omega %*% t(R[i,,drop = FALSE])
-    }) %>% unlist() %>% sum()
-
-
-    ll_t2 <- map(seq(n), function(i){
-      Y2i <- Ybar[i,,drop = FALSE]%*%omega %*% t(Ybar[i,,drop = FALSE])
-      sum(Y2i)
-    }) %>% unlist() %>% sum()
-
-    ll_t0 <- map(seq(n), function(i){
-      Y2i <- Y[i,,drop = FALSE]%*%omega %*% t(Y[i,,drop = FALSE])
-      sum(Y2i)
-    }) %>% unlist() %>% sum()
-
+    part_a <- map_dbl(seq(nrow(ybar)), function(i){
+      crossprod(t(Y[i,,drop =F]), omega) %>% tcrossprod(ybar[i, , drop = F])
+    }) %>% sum()
+    part_b <- map_dbl(seq(nrow(ybar)), function(i){
+      crossprod(t(ybar[i,,drop =F]), omega) %>% tcrossprod(ybar[i, , drop = F])
+    }) %>% sum()
+    x1 <- sum(t( t(tcrossprod(lbar^2 , varfbar))*diag(omega)))
+    x2 <- sum(t( t(tcrossprod(varlbar , fbar^2))*diag(omega)))
+    x3 <- sum(t( t(tcrossprod(varlbar , varfbar))*diag(omega)))
+    part_b <- part_b + x1 + x2 + x3
+    ell <- part_a - 0.5*part_b
   }else{
-
+    part_a <- map_dbl(seq(nrow(ybar)), function(i){
+      crossprod(t(Y[i,,drop =F]), omega[[i]]) %>% tcrossprod(ybar[i, , drop = F])
+    }) %>% sum()
+    part_b <- map_dbl(seq(nrow(ybar)), function(i){
+      crossprod(t(ybar[i,,drop =F]), omega[[i]]) %>% tcrossprod(ybar[i, , drop = F])
+    }) %>% sum()
+    x1 <- map_dbl(seq(nrow(ybar)), function(i){
+      sum(t(t( tcrossprod((lbar^2)[i,,drop =F], varfbar))*diag(omega[[i]])) )
+    }) %>% sum()
+    x2 <- map_dbl(seq(nrow(ybar)), function(i){
+      sum(t(t( tcrossprod(varlbar[i,,drop =F], fbar^2))*diag(omega[[i]])) )
+    }) %>% sum()
+    x3 <- map_dbl(seq(nrow(ybar)), function(i){
+     sum(t(t( tcrossprod(varlbar[i,,drop =F], varfbar))*diag(omega[[i]])) )
+    }) %>% sum()
+    part_b <- part_b + x1 + x2 + x3
+    ell <- part_a - 0.5*part_b
   }
-
-  #log likelihood minus constant depending on omega
-  ll <- -0.5*(ll_t0 -2*ll_t1 + ll_t2)
-
-  gll <- map(seq(p), function(k){
-    llk <- ashr:::lik_normalmix(pilik = l_ghat[[k]]$pi,
-                                sdlik = l_ghat[[k]]$sd)
-    sum(llk$lpdfFUN(lbar[,k]))
-  }) %>% unlist() %>% sum()
-
-  return(ll + gll)
-
+  return(ell)
 }
+

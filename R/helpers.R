@@ -113,6 +113,8 @@ check_missing <- function(Y, S){
 
   nmiss_r <- rowSums(is.na(Y))
   nmiss_c <- colSums(is.na(Y))
+  p <- ncol(Y)
+  n <- nrow(Y)
   if(any(nmiss_r == p)) stop("Data cannot have variants missing for all traits.\n")
   if(any(nmiss_c == n)) stop("At least one trait is missing for all variants.\n")
   Y[missing_ix] <- 0

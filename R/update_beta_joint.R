@@ -6,17 +6,12 @@ update_beta_joint <- function(Y, lbar, l2bar, omega, prior_cov = NULL){
   stopifnot(nrow(lbar) == n & ncol(lbar) == p)
   stopifnot(nrow(l2bar) == n & ncol(l2bar) == p)
 
-  if("matrix" %in% class(omega)){
-    s_equal <- TRUE
-  }else{
-    stopifnot(class(omega) == "list")
-    stopifnot(length(omega) == n)
-    s_equal <- FALSE
-  }
+  s_equal <- check_equal_omega(omega)
+
   if(is.null(prior_cov)){
     T0 <- matrix(0, nrow = p-1, ncol = p-1)
   }else{
-    stopifnot(nrow(prior_cov) == p-1 & ncol(prior_cov) == p-1)
+    T0 <- check_matrix(prior_cov, p-1, p-1)
     T0 <- solve(prior_cov)
   }
   s2l <- l2bar - (lbar^2)

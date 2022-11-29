@@ -2,12 +2,6 @@ default_precision <- function(dims){
   sqrt(.Machine$double.eps)*prod(dims)
 }
 
-make_fbar <- function(beta_m, beta_s, beta_j, beta_k, p){
-  fbar <- f2bar <- diag(p)
-  for(i in seq(length(beta_j))) fbar[beta_j[i],beta_k[i]] <- beta_m[i]
-  for(i in seq(length(beta_j))) f2bar[beta_j[i],beta_k[i]] <- beta_m[i]^2 + beta_s[i]^2
-  return(list(fbar = fbar, f2bar = f2bar))
-}
 
 make_f_fun <- function(p, beta_j, beta_k){
   if(length(beta_j) == 0 | is.null(beta_j)){
@@ -24,6 +18,28 @@ make_f_fun <- function(p, beta_j, beta_k){
   }
   return(ff)
 }
+
+make_f_fun_future <- function(p, beta_j, beta_k, G){
+  if(length(beta_j) == 0 | is.null(beta_j)){
+    ff <- function(beta_m, beta_s){ ## No betas to estimate, F is identity, FG = G
+      return(list(fbar = G, f2bar = G))
+    }
+    return(ff)
+  }
+  ff <- function(beta_m, beta_s){
+    fbar <- f2bar <- diag(p)
+    for(i in seq(length(beta_j))) fbar[beta_j[i],beta_k[i]] <- beta_m[i]
+    fstarbar <- fbar %*% G
+    V <- matrix(0, nrow = p, ncol = p)
+    for(i in seq(length(beta_j))) V[beta_j[i],beta_k[i]] <- beta_s[i]^2
+    f2bar <- (fbar^2) + V
+    f2starbar <- (fstarbar^2) + (V %*% (G^2))
+    return(list(fbar = fstarbar, f2bar = f2starbar,
+                fbar_o = fbar, f2bar_o = f2bar))
+  }
+  return(ff)
+}
+
 
 init_beta <- function(p, which_beta=NULL, beta_joint = TRUE, beta_m_init = NULL){
   if(!is.null(which_beta) & beta_joint){
@@ -49,10 +65,22 @@ init_beta <- function(p, which_beta=NULL, beta_joint = TRUE, beta_m_init = NULL)
 }
 
 init_l <- function(n, p){
-  lbar <- l2bar <- matrix(0, nrow = n, ncol = p)
+  lbar <- matrix(0, nrow = n, ncol = p)
   lfsr <- matrix(1, nrow = n, ncol = p)
   g_hat <- list()
-  return(list(lbar = lbar, l2bar = l2bar, lfsr = lfsr, g_hat = g_hat))
+  return(list(lbar = lbar, l2bar = lbar,
+              wpost = lbar, mupost = lbar, s2post = lbar,
+              lfsr = lfsr, g_hat = g_hat))
+}
+
+init_l_future <- function(n, p){
+  lbar <- matrix(0, nrow = n, ncol = p)
+  lfsr <- matrix(1, nrow = n, ncol = p)
+  g_hat <- list()
+  return(list(lbar = lbar, l2bar = lbar,
+              lbar_o = lbar, l2bar_o = lbar,
+              wpost = lbar, mupost = lbar, s2post = lbar,
+              lfsr = lfsr, g_hat = g_hat))
 }
 
 
@@ -101,6 +129,7 @@ check_R <- function(R, tol = 1e-8){
   if(!all(diag(R) == 1)){
     stop("R should be a correlation matrix.\n")
   }
+  return(R)
 }
 
 check_missing <- function(Y, S){
@@ -191,7 +220,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
   beta_hat_X <- check_matrix(beta_hat_X, "beta_hat_X", n)
   p <- ncol(beta_hat_X) + 1
   se_X <- check_matrix(se_X, "se_X", n, p-1)
-  R <- check_matrix(R, "se_X", p, p)
+  R <- check_matrix(R, "R", p, p)
   R <- check_R(R)
 
   dat <- check_missing(cbind(beta_hat_Y, beta_hat_X), cbind(se_Y, se_X))
@@ -201,4 +230,61 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
   return(dat)
 
+}
+
+subset_data <- function(dat, ix){
+  s_equal <- check_equal_omega(dat$omega)
+  dat$Y <- dat$Y[ix,]
+  dat$S <- dat$S[ix,]
+  dat$n <- length(ix)
+  if(!s_equal){
+    dat$omega <- dat$omega[ix]
+  }
+  return(dat)
+}
+
+check_equal_omega <- function(omega){
+  if("matrix" %in% class(omega)){
+    #check_matrix(omega, "omega", p, p)
+    s_equal <- TRUE
+  }else{
+    stopifnot(class(omega) == "list")
+    s_equal <- FALSE
+  }
+  return(s_equal)
+}
+
+check_omega <- function(omega, n, p, s_equal){
+  if(s_equal){
+    if(!"matrix" %in% class(omega)) stop("omega is not of class matrix\n")
+    check_matrix(omega, "omega", p, p)
+  }else{
+    stopifnot(class(omega) == "list")
+    stopifnot(length(omega) == n)
+    d <- lapply(omega, dim)
+    nr <- map(d, 1) %>% unlist()
+    nc <- map(d, 2) %>% unlist()
+    stopifnot(all(nr == p))
+    stopifnot(all(nc == p))
+  }
+}
+
+
+get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_normal"){
+  wpost <- purrr::map_dfc(col_ix, function(ii){
+    cat(ii, "\n")
+    x <- beta_hat[,ii];
+    s <- se_beta_hat[,ii];
+    f <- ebnm(x = x, s = s, prior_family = "point_normal", output = ebnm::output_all());
+    pi0 <- f$fitted_g$pi[1];
+    mu <- f$fitted_g$mean[2];
+    s2 <- f$fitted_g$sd[2]^2;
+    w <- 1-pi0;
+    a <- 1/s2;
+    wpost <- ebnm:::wpost_normal(x=x, s=s, w, a, mu);
+    df <- data.frame(w = wpost);
+    names(df) <- paste0("wpost", ii);
+    return(df);
+  });
+  return(wpost)
 }

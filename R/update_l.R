@@ -7,18 +7,12 @@ update_l_k <- function(R_k, fbar_k, f2bar_k, omega, ebnm_fn){
   p <- ncol(R_k)
   stopifnot(length(fbar_k) == p)
   stopifnot(length(f2bar_k) == p)
-  if("matrix" %in% class(omega)){
-    s_equal <- TRUE
-  }else{
-    stopifnot(class(omega) == "list")
-    stopifnot(length(omega) == n)
-    s_equal <- FALSE
-  }
+  s_equal <- check_equal_omega(omega)
 
 
   fbar_k <- matrix(fbar_k, ncol = 1)
   Fbar <- fbar_k %*% t(fbar_k)
-  diag(Fbar) <- f2bar_k
+  #diag(Fbar) <- f2bar_k
   # Fbar is 2 by 2
   if(s_equal){
     A <- (Fbar * omega) %>% sum()
@@ -44,13 +38,22 @@ update_l_k <- function(R_k, fbar_k, f2bar_k, omega, ebnm_fn){
   }
 
 
-  ebnm_res <- ebnm_fn( x= x, s = s, g_init = NULL, fix_g= FALSE, output = output_all())
+  ebnm_res <- ebnm_fn( x= as.numeric(x), s = s, g_init = NULL, fix_g= FALSE, output = output_all())
   ebnm_res$KL <-  (ebnm_res$log_likelihood
                    - flashier:::normal.means.loglik(x,s,
                                                     ebnm_res$posterior$mean,
                                                     ebnm_res$posterior$second_moment))
   ebnm_res$posterior$index <- ixnmiss
+  # This is only for point normal
+  a <- 1/ebnm_res$fitted_g$sd[2]^2
+  w <- ebnm_res$fitted_g$pi[2]
+  ebnm_res$posterior$wpost <- ebnm:::wpost_normal(x, s, w, a, 0)
+  ebnm_res$posterior$mu <- ebnm:::pmean_cond_normal(x, s, a, 0)
+  ebnm_res$posterior$s2 <- ebnm:::pvar_cond_normal(s, a)
   return(ebnm_res)
 
 
 }
+
+# ebnm_res$KL  is computed as log p(x | g) - E_{p(theta | g)}[p(x | theta)] = E_{p(theta | g)}(log p(theta) - log(p(theta | x)))
+# = -KL(p(theta | x) || p(theta))

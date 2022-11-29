@@ -1,10 +1,10 @@
-Package: mrScan
+Package: esmr
 Type: Package
 Title: Empirical Shrinkage Mendelian Randomization
 Version: 0.1.1.0
 Author: Jean Morrison
 Maintainer: Jean Morrison <jvmorr@umich.edu>
-Description: 
+Description: Perform univariable or multivariable MR with empirical shrinkage priors.
 License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true

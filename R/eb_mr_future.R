@@ -23,7 +23,8 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
                   fix_beta = FALSE,
                   beta_joint = TRUE,
                   g_type = c("gfa", "svd"),
-                  svd_zthresh = 0){
+                  svd_zthresh = 0,
+                  augment_G = FALSE){
                   #est_tau = FALSE,
                   #ll = FALSE){
 
@@ -59,6 +60,9 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
                       R = R,
                       type = g_type,
                       svd_zthresh = svd_zthresh)
+      if(augment_G){
+        G <- cbind(diag(p), G[,-1])
+      }
     }
   }
   dat$G <- check_matrix(G, "G", n = p)

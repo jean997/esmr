@@ -69,9 +69,10 @@ calc_ell <- function(Y, lbar, l2bar, fbar, omega){
 calc_ell2 <- function(Y, lbar, l2bar, fbar, omega){
   n <- nrow(Y)
   p <- ncol(Y)
-  check_matrix(lbar, "lbar", n, p)
-  check_matrix(l2bar, "l2bar", n, p)
-  check_matrix(fbar, "fbar", p, p)
+  k <- nncol(fbar)
+  check_matrix(lbar, "lbar", n, k)
+  check_matrix(l2bar, "l2bar", n, k)
+  check_matrix(fbar, "fbar", p, k)
 
   s_equal <- check_equal_omega(omega)
 

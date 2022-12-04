@@ -28,8 +28,36 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
                   #est_tau = FALSE,
                   #ll = FALSE){
 
+  if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
   g_type <- match.arg(g_type, g_type)
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
+
+
+  n <- dat$n
+  p <- dat$p
+
+  if(is.null(G)){
+    if(p == 2){
+      G <- diag(p)
+    }else if(!missing(which_beta)){
+      warning("Cannot estimate G for network problem yet.\n")
+      G <- diag(p)
+    }else{
+      G <- estimate_G(beta_hat_X <- dat$Y[,-1],
+                      se_X = dat$S[,-1],
+                      R = R,
+                      type = g_type,
+                      svd_zthresh = svd_zthresh)
+      if(augment_G){
+        A <- diag(p)[,-1]
+        G <- cbind(G, A)
+      }
+    }
+  }
+  dat$G <- check_matrix(G, "G", n = p)
+  k <- ncol(dat$G)
+
+
 
   dat$pval_thresh <- pval_thresh
   dat$post_prob_thresh <- post_prob_thresh
@@ -46,27 +74,6 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
     dat <- subset_data(dat, ix)
   }
 
-  n <- dat$n
-  p <- dat$p
-  if(is.null(G)){
-    if(p == 2){
-      G <- diag(p)
-    }else if(!missing(which_beta)){
-      warning("Cannot estimate G for network problem yet.\n")
-      G <- diag(p)
-    }else{
-      G <- estimate_G(beta_hat_X <- dat$Y[,-1],
-                      se_X = dat$S[,-1],
-                      R = R,
-                      type = g_type,
-                      svd_zthresh = svd_zthresh)
-      if(augment_G){
-        G <- cbind(diag(p), G[,-1])
-      }
-    }
-  }
-  dat$G <- check_matrix(G, "G", n = p)
-  k <- ncol(dat$G)
 
   dat$beta <- init_beta(p, which_beta, beta_joint, beta_m_init)
   dat$f_fun <- make_f_fun_future(p, dat$beta$beta_j, dat$beta$beta_k, G)

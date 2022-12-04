@@ -1,7 +1,7 @@
 ebmr_solve_future <- function(dat, max_iter, tol){
 
-  fix_beta <- dat$fix_beta
-  beta_joint <- dat$beta_joint
+  #fix_beta <- dat$fix_beta
+  #beta_joint <- dat$beta_joint
   #est_tau <- dat$est_tau
 
   check <- 1
@@ -14,16 +14,16 @@ ebmr_solve_future <- function(dat, max_iter, tol){
   #}
   dat$obj_dec_warn <- FALSE
   while(i < max_iter & check > tol){
-    #dat <- calc_lbar_future(dat)
     dat <- update_l_sequential_future(dat)
-    #if(dat$ll){
+
     ll <- with(dat, calc_ell2(Y, l$lbar_o, l$l2bar_o, f$fbar, omega))
     obj <- c(obj, ll + dat$l$kl)
-    #}
+    #cat(obj, "\n")
+
     # beta update
-    if(!fix_beta & !beta_joint){
-      dat <- update_beta_sequential_future(dat)
-    }else if(!fix_beta & beta_joint){
+    if(!dat$beta_joint){
+      dat <- update_beta_sequential_future(dat, fix_beta = dat$fix_beta)
+    }else if(!dat$fix_beta & dat$beta_joint){
       beta_upd <- with(dat,
                        update_beta_joint(Y, l$lbar, l$l2bar, omega))
       dat$beta$beta_m <- beta_upd$m
@@ -35,7 +35,7 @@ ebmr_solve_future <- function(dat, max_iter, tol){
     ll <- with(dat, calc_ell2(Y, l$lbar_o, l$l2bar_o, f$fbar, omega))
 
     obj <- c(obj, ll + dat$l$kl)
-
+    #cat(obj, "\n")
     obj_new <- obj[length(obj)]
     check <- obj_new - obj_old
     obj_old <- obj_new

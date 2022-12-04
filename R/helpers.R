@@ -27,15 +27,15 @@ make_f_fun_future <- function(p, beta_j, beta_k, G){
     return(ff)
   }
   ff <- function(beta_m, beta_s){
-    fbar <- f2bar <- diag(p)
-    for(i in seq(length(beta_j))) fbar[beta_j[i],beta_k[i]] <- beta_m[i]
-    fstarbar <- fbar %*% G
+    fbar_o <- f2bar_o <- diag(p)
+    for(i in seq(length(beta_j))) fbar_o[beta_j[i],beta_k[i]] <- beta_m[i]
+    fbar <- fbar_o %*% G
     V <- matrix(0, nrow = p, ncol = p)
     for(i in seq(length(beta_j))) V[beta_j[i],beta_k[i]] <- beta_s[i]^2
-    f2bar <- (fbar^2) + V
-    f2starbar <- (fstarbar^2) + (V %*% (G^2))
-    return(list(fbar = fstarbar, f2bar = f2starbar,
-                fbar_o = fbar, f2bar_o = f2bar))
+    f2bar_o <- (fbar_o^2) + V
+    f2bar <- (fbar^2) + (V %*% (G^2))
+    return(list(fbar = fbar, f2bar = f2bar,
+                fbar_o = fbar_o, f2bar_o = f2bar_o))
   }
   return(ff)
 }

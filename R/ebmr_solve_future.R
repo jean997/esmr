@@ -24,8 +24,9 @@ ebmr_solve_future <- function(dat, max_iter, tol){
     if(!dat$beta_joint){
       dat <- update_beta_sequential_future(dat, fix_beta = dat$fix_beta)
     }else if(!dat$fix_beta & dat$beta_joint){
-      beta_upd <- with(dat,
-                       update_beta_joint(Y, l$lbar, l$l2bar, omega))
+      beta_upd <- update_beta_joint_future(dat, j = 1)
+      #            with(dat,
+      #                 update_beta_joint(Y, l$lbar, l$l2bar, omega))
       dat$beta$beta_m <- beta_upd$m
       dat$beta$beta_s <- sqrt(diag(beta_upd$S))
       dat$beta$beta_var <- beta_upd$S

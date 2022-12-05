@@ -13,7 +13,7 @@ update_l_sequential_future <- function(dat, jj){
   if(!missing(jj)){
     coords <- jj
   }else{
-    coords <- seq(ncol(dat$f$fbar))
+    coords <- seq(dat$k)
   }
 
   for(j in coords){

@@ -32,16 +32,12 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
   g_type <- match.arg(g_type, g_type)
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
 
-
-  n <- dat$n
-  p <- dat$p
-
   if(is.null(G)){
-    if(p == 2){
-      G <- diag(p)
+    if(dat$p == 2){
+      G <- diag(dat$p)
     }else if(!missing(which_beta)){
       warning("Cannot estimate G for network problem yet.\n")
-      G <- diag(p)
+      G <- diag(dat$p)
     }else{
       G <- estimate_G(beta_hat_X <- dat$Y[,-1],
                       se_X = dat$S[,-1],
@@ -49,13 +45,13 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
                       type = g_type,
                       svd_zthresh = svd_zthresh)
       if(augment_G){
-        A <- diag(p)[,-1]
+        A <- diag(dat$p)[,-1]
         G <- cbind(G, A)
       }
     }
   }
-  dat$G <- check_matrix(G, "G", n = p)
-  k <- ncol(dat$G)
+  dat$G <- check_matrix(G, "G", n = dat$p)
+  dat$k <- ncol(dat$G)
 
 
 
@@ -68,17 +64,17 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
     ix <- which(pval_min < pval_thresh)
     dat <- subset_data(dat, ix)
   }else if(post_prob_thresh > 0){
-    wpost <- get_wpost(dat$Y, dat$S, 2:p, prior_family = "point_normal")
+    wpost <- get_wpost(dat$Y, dat$S, 2:dat$p, prior_family = "point_normal")
     wpost_max <- apply(wpost, 1, max)
     ix <- which(wpost_max >= post_prob_thresh)
     dat <- subset_data(dat, ix)
   }
 
 
-  dat$beta <- init_beta(p, which_beta, beta_joint, beta_m_init)
-  dat$f_fun <- make_f_fun_future(p, dat$beta$beta_j, dat$beta$beta_k, G)
+  dat$beta <- init_beta(dat$p, which_beta, beta_joint, beta_m_init)
+  dat$f_fun <- make_f_fun_future(dat$p, dat$beta$beta_j, dat$beta$beta_k, G)
 
-  dat$l <- init_l_future(n, k)
+  dat$l <- init_l_future(dat$n, dat$k)
   dat$f <- dat$f_fun(dat$beta$beta_m, dat$beta$beta_s)
   dat$fix_beta <- fix_beta
   dat$beta_joint <- beta_joint

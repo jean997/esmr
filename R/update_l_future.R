@@ -3,9 +3,9 @@ update_l_sequential_future <- function(dat, jj){
   lbar_o <- dat$l$lbar_o
   l2bar_o <- dat$l$l2bar_o
 
-  wpost <- dat$l$wpost
-  mupost <- dat$l$mupost
-  s2post <- dat$l$s2post
+  # wpost <- dat$l$wpost
+  # mupost <- dat$l$mupost
+  # s2post <- dat$l$s2post
 
 
   lfsr <- dat$l$lfsr
@@ -22,9 +22,9 @@ update_l_sequential_future <- function(dat, jj){
 
     lbar_o[lu$posterior$index,j] <- lu$posterior$mean
     l2bar_o[lu$posterior$index,j] <- lu$posterior$second_moment
-    wpost[lu$posterior$index,j] <- lu$posterior$wpost
-    mupost[lu$posterior$index,j] <- lu$posterior$mu
-    s2post[lu$posterior$index,j] <- lu$posterior$s2
+    # wpost[lu$posterior$index,j] <- lu$posterior$wpost
+    # mupost[lu$posterior$index,j] <- lu$posterior$mu
+    # s2post[lu$posterior$index,j] <- lu$posterior$s2
     lfsr[lu$posterior$index,j] <- lu$posterior$lfsr
     g_hat[[j]] <- lu$fitted_g
     l_update[[j]] <- lu
@@ -39,7 +39,7 @@ update_l_sequential_future <- function(dat, jj){
   dat$l <- list(lbar =lbar, l2bar = l2bar,
                 lbar_o = lbar_o, l2bar_o= l2bar_o,
                 lfsr = lfsr,
-                wpost = wpost, mupost = mupost, s2post = s2post,
+                #wpost = wpost, mupost = mupost, s2post = s2post,
                 kl = kl, g_hat = g_hat)
   return(dat)
 }

@@ -17,7 +17,7 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
                   sigma_beta = Inf,
                   tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
                   pval_thresh =1,
-                  post_prob_thresh = 0,
+                  #post_prob_thresh = 0,
                   beta_m_init = NULL,
                   which_beta = NULL,
                   fix_beta = FALSE,
@@ -60,19 +60,20 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
 
 
   dat$pval_thresh <- pval_thresh
-  dat$post_prob_thresh <- post_prob_thresh
+  #dat$post_prob_thresh <- post_prob_thresh
 
   if(pval_thresh < 1){
     pval <- with(dat, 2*pnorm(-abs(Y/S)))
     pval_min <- apply(pval[,-1,drop = FALSE], 1, min)
     ix <- which(pval_min < pval_thresh)
     dat <- subset_data(dat, ix)
-  }else if(post_prob_thresh > 0){
-    wpost <- get_wpost(dat$Y, dat$S, 2:dat$p, prior_family = "point_normal")
-    wpost_max <- apply(wpost, 1, max)
-    ix <- which(wpost_max >= post_prob_thresh)
-    dat <- subset_data(dat, ix)
   }
+  # }else if(post_prob_thresh > 0){
+  #   wpost <- get_wpost(dat$Y, dat$S, 2:dat$p, prior_family = "point_normal")
+  #   wpost_max <- apply(wpost, 1, max)
+  #   ix <- which(wpost_max >= post_prob_thresh)
+  #   dat <- subset_data(dat, ix)
+  # }
 
   dat$l <- init_l_future(dat$n, dat$k)
 

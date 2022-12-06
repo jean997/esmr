@@ -1,6 +1,4 @@
 
-# omega = solve(Sigma) where Sigma is row covariance
-# omega could be a single matrix or a list of length n
 #'@export
 update_l_k <- function(R_k, fbar_k, f2bar_k, omega, ebnm_fn){
   n <- nrow(R_k)
@@ -45,11 +43,11 @@ update_l_k <- function(R_k, fbar_k, f2bar_k, omega, ebnm_fn){
                                                     ebnm_res$posterior$second_moment))
   ebnm_res$posterior$index <- ixnmiss
   # This is only for point normal
-  a <- 1/ebnm_res$fitted_g$sd[2]^2
-  w <- ebnm_res$fitted_g$pi[2]
-  ebnm_res$posterior$wpost <- ebnm:::wpost_normal(x, s, w, a, 0)
-  ebnm_res$posterior$mu <- ebnm:::pmean_cond_normal(x, s, a, 0)
-  ebnm_res$posterior$s2 <- ebnm:::pvar_cond_normal(s, a)
+  # a <- 1/ebnm_res$fitted_g$sd[2]^2
+  # w <- ebnm_res$fitted_g$pi[2]
+  # ebnm_res$posterior$wpost <- ebnm:::wpost_normal(x, s, w, a, 0)
+  # ebnm_res$posterior$mu <- ebnm:::pmean_cond_normal(x, s, a, 0)
+  # ebnm_res$posterior$s2 <- ebnm:::pvar_cond_normal(s, a)
   return(ebnm_res)
 
 

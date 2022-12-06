@@ -1,6 +1,9 @@
 #'@export
 estimate_G <- function(beta_hat_X, se_X, R=NULL ,
-                       type = c("gfa", "svd"), svd_zthresh = 0){
+                       type = c("gfa", "svd"),
+                       svd_zthresh = 0,
+                       augment = FALSE,
+                       single_trait_thresh = 0.95){
   type <- match.arg(type, type)
   beta_hat_X <- check_matrix(beta_hat_X, "beta_hat_X")
   n <- nrow(beta_hat_X)
@@ -29,6 +32,16 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
       V <- svd(UTZ)$v
       UV <- eR$vectors %*% diag(sqrt(eR$values)) %*% V
       myG <- UV
+    }
+  }
+  if(augment){
+    cmax <- apply(abs(myG), 2, max)
+    if(all(cmax > single_trait_thresh)){ # all single trait factors
+      myG <- diag(p)
+    }else{
+      st_factors <- which(cmax > single_trait_thresh)
+      multi_factors <- myG[, cmax < single_trait_thresh]
+      myG <- cbind(multi_factors, diag(p))
     }
   }
   k <- ncol(myG)

@@ -43,11 +43,8 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
                       se_X = dat$S[,-1],
                       R = R,
                       type = g_type,
-                      svd_zthresh = svd_zthresh)
-      if(augment_G){
-        A <- diag(dat$p)[,-1]
-        G <- cbind(G, A)
-      }
+                      svd_zthresh = svd_zthresh,
+                      augment = augment_G)
     }
   }
   dat$G <- check_matrix(G, "G", n = dat$p)

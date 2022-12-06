@@ -47,7 +47,7 @@ update_beta_sequential_future <- function(dat){
   # beta_m <- dat$beta$beta_m
   # beta_s <- dat$beta$beta_s
 
-  coords <- seq(length(beta_j))
+  coords <- seq(length(dat$beta$beta_j))
   coords <- coords[!dat$beta$fix_beta]
 
   for(i in coords){

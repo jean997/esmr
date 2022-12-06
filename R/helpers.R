@@ -40,28 +40,55 @@ make_f_fun_future <- function(p, beta_j, beta_k, G){
   return(ff)
 }
 
-
-init_beta <- function(p, which_beta=NULL, beta_joint = TRUE, beta_m_init = NULL){
-  if(!is.null(which_beta) & beta_joint){
-    stop("Joint update only implemented for standard problem.\n")
+make_f <- function(dat){
+  if(length(dat$beta$beta_j) == 0 | is.null(dat$beta$beta_j)){
+    return(list(fbar_o = diag(dat$p), f2bar_o = diag(dat$p),
+                fbar = dat$G, f2bar = dat$G^2))
   }
-  if(is.null(which_beta) | beta_joint){
+  fbar_o <- f2bar_o <- diag(dat$p)
+  nb <- length(dat$beta$beta_j)
+  for(i in seq(nb)) fbar_o[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_m[i]
+  fbar <- fbar_o %*% dat$G
+  V <- matrix(0, nrow = dat$p, ncol = dat$p)
+  for(i in seq(nb)) V[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_s[i]^2
+  f2bar_o <- (fbar_o^2) + V
+  f2bar <- (fbar^2) + (V %*% (dat$G^2))
+  return(list(fbar = fbar, f2bar = f2bar,
+              fbar_o = fbar_o, f2bar_o = f2bar_o))
+}
+
+
+init_beta <- function(p, which_beta=NULL,
+                      beta_m_init = NULL,
+                      fix_beta = FALSE){
+  #if(!is.null(which_beta) & beta_joint){
+  #  stop("Joint update only implemented for standard problem.\n")
+  #}
+  if(is.null(which_beta)){
     beta_j <- rep(1, p-1)
     beta_k <- 2:p
   }else if(!is.null(which_beta)){
     beta_j <- which_beta[,1]
     beta_k <- which_beta[,2]
   }
-  el <- length(beta_j)
+  nb <- length(beta_j)
   if(is.null(beta_m_init)){
-    beta_m <- rep(0, el)
-    beta_s <- rep(0, el)
+    beta_m <- rep(0, nb)
+    beta_s <- rep(0, nb)
   }else{
-    if(!length(beta_m_init) == el) stop(paste0("Expected beta_m_init to have length ", el, ", found ", length(beta_m_init), "\n"))
+    if(!length(beta_m_init) == nb) stop(paste0("Expected beta_m_init to have length ", nb, ", found ", length(beta_m_init), "\n"))
     beta_m <- beta_m_init
-    beta_s <- rep(0, el)
+    beta_s <- rep(0, nb)
   }
-  return(list(beta_m = beta_m, beta_s = beta_s, beta_j = beta_j, beta_k = beta_k))
+
+  if(length(fix_beta) == 1){
+    fix_beta <- rep(fix_beta, nb)
+  }else if(length(fix_beta) != nb){
+    stop("fix_beta and expected to have length 1 or ", nb, ". Found ", length(fix_beta), ".\n")
+  }
+  stopifnot(class(fix_beta) == "logical")
+  return(list(beta_m = beta_m, beta_s = beta_s,
+              beta_j = beta_j, beta_k = beta_k, fix_beta = fix_beta))
 }
 
 init_l <- function(n, p){

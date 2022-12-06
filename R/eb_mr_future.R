@@ -25,12 +25,12 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
                   g_type = c("gfa", "svd"),
                   svd_zthresh = 0,
                   augment_G = FALSE){
-                  #est_tau = FALSE,
-                  #ll = FALSE){
 
-  if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
+
+  #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
   g_type <- match.arg(g_type, g_type)
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
+
 
   if(is.null(G)){
     if(dat$p == 2){
@@ -53,6 +53,10 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
   dat$G <- check_matrix(G, "G", n = dat$p)
   dat$k <- ncol(dat$G)
 
+  dat$beta <- init_beta(dat$p, which_beta, beta_m_init, fix_beta)
+  #dat$f_fun <- make_f_fun_future(dat$p, dat$beta$beta_j, dat$beta$beta_k, dat$G)
+  #dat$f <- dat$f_fun(dat$beta$beta_m, dat$beta$beta_s)
+  dat$f <- make_f(dat)
 
 
   dat$pval_thresh <- pval_thresh
@@ -70,13 +74,9 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
     dat <- subset_data(dat, ix)
   }
 
-
-  dat$beta <- init_beta(dat$p, which_beta, beta_joint, beta_m_init)
-  dat$f_fun <- make_f_fun_future(dat$p, dat$beta$beta_j, dat$beta$beta_k, G)
-
   dat$l <- init_l_future(dat$n, dat$k)
-  dat$f <- dat$f_fun(dat$beta$beta_m, dat$beta$beta_s)
-  dat$fix_beta <- fix_beta
+
+
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta

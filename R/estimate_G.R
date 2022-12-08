@@ -44,7 +44,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
         which_add <- (1:p)[!(1:p) %in% which_st]
         A <- matrix(0, nrow = p, ncol = n_add)
         for(j in seq_along(which_add)) A[which_add[j],j] <- 1
-        G <- cbind(myG, A)
+        myG <- cbind(myG, A)
       }
     }else{
       myG <- cbind(myG, diag(p))

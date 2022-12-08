@@ -16,13 +16,13 @@ eb_mr_future(
   sigma_beta = Inf,
   tol = default_precision(c(ncol(beta_hat_X) + 1, nrow(beta_hat_X))),
   pval_thresh = 1,
-  post_prob_thresh = 0,
   beta_m_init = NULL,
   which_beta = NULL,
   fix_beta = FALSE,
   beta_joint = TRUE,
   g_type = c("gfa", "svd"),
-  svd_zthresh = 0
+  svd_zthresh = 0,
+  augment_G = FALSE
 )
 }
 \arguments{
@@ -34,11 +34,25 @@ eb_mr_future(
 
 \item{se_X}{matrix of standard errors of beta_hat_X}
 
+\item{G}{G matrix. If NULL, G will be estimated using the method given in g_type.}
+
 \item{R}{Optional correlation matrix for overlapping samples.}
 
 \item{ebnm_fn}{Options prior distribution family. Defaults to point-normal.}
 
-\item{pval_thresh}{p-value threshold for beta update}
+\item{max_iter}{Maximum number of iterations}
+
+\item{sigma_beta}{Optional prior variance for causal parameters}
+
+\item{tol}{Convergence tolerance}
+
+\item{pval_thresh}{p-value threshold (suggest 1)}
+
+\item{beta_joint}{Use joint updates for beta (suggest TRUE)}
+
+\item{g_type}{Method to estimate G. Suggest "gfa"}
+
+\item{augment_G}{Augment estimated G}
 }
 \description{
 Empirical Shrinkage Multivariable MR

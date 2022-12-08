@@ -4,9 +4,16 @@
 #'@param se_Y Standard errors of beta_hat_Y
 #'@param beta_hat_X Matrix of SNP-exposure associations (p by K)
 #'@param se_X matrix of standard errors of beta_hat_X
+#'@param G G matrix. If NULL, G will be estimated using the method given in g_type.
 #'@param R Optional correlation matrix for overlapping samples.
 #'@param ebnm_fn Options prior distribution family. Defaults to point-normal.
-#'@param pval_thresh p-value threshold for beta update
+#'@param max_iter Maximum number of iterations
+#'@param sigma_beta Optional prior variance for causal parameters
+#'@param tol Convergence tolerance
+#'@param pval_thresh p-value threshold (suggest 1)
+#'@param beta_joint Use joint updates for beta (suggest TRUE)
+#'@param g_type Method to estimate G. Suggest "gfa"
+#'@param augment_G Augment estimated G
 #'@export
 eb_mr_future <- function(beta_hat_Y, se_Y,
                          beta_hat_X, se_X,

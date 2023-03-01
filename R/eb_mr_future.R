@@ -48,7 +48,7 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
     }else{
       G <- estimate_G(beta_hat_X <- dat$Y[,-1],
                       se_X = dat$S[,-1],
-                      R = R,
+                      R = R[-1, -1, drop = FALSE],
                       type = g_type,
                       svd_zthresh = svd_zthresh,
                       augment = augment_G)

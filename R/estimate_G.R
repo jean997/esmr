@@ -56,7 +56,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
     if(ncol(myG) < p){
       n_add <- p-ncol(myG)
       r <- rowSums(myG^2)
-      which_add <- order(r)[1:n_cols_need]
+      which_add <- order(r)[1:n_add]
       A <- matrix(0, nrow = p, ncol = n_add)
       for(j in seq_along(which_add)) A[which_add[j],j] <- 1
       myG <- cbind(myG, A)

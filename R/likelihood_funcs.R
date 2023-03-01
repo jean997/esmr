@@ -95,10 +95,10 @@ calc_ell2 <- function(Y, lbar, l2bar, fbar, omega){
 
     diagA <- map(seq(n), function(i){
       colSums(crossprod(omega[[i]],fbar) * fbar)
-    }) %>% unlist() %>% matrix(ncol = p, byrow = T)
+    }) %>% unlist() %>% matrix(ncol = k, byrow = T)
 
-    #part_b <- sum(varlbar*diagA)
-    part_b <- t(t(varlbar)*diagA) %>% sum()
+    part_b <- sum(varlbar*diagA)
+    #part_b <- t(t(varlbar)*diagA) %>% sum()
     ell <- -0.5*(part_a + part_b)
   }
   return(ell)

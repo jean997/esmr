@@ -63,7 +63,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
     }
   }
   myG <- myG*trait_scale
-  myG <- sumstatFactors:::norm_cols(myG)
+  myG <- sumstatFactors:::norm_cols(myG)$A
   k <- ncol(myG)
   G <- rbind(c(1, rep(0, k)),
              cbind(rep(0, p), myG))

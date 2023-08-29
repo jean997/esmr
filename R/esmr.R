@@ -15,27 +15,27 @@
 #'@param g_type Method to estimate G. Suggest "gfa"
 #'@param augment_G Augment estimated G
 #'@export
-eb_mr_future <- function(beta_hat_Y, se_Y,
-                         beta_hat_X, se_X,
-                         G = NULL,
-                  R = NULL,
-                  ebnm_fn = flashier:::as.ebnm.fn(prior_family = "point_normal", optmethod = "nlm"),
-                  max_iter = 100,
-                  sigma_beta = Inf,
-                  tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
-                  pval_thresh =1,
-                  #post_prob_thresh = 0,
-                  beta_m_init = NULL,
-                  which_beta = NULL,
-                  fix_beta = FALSE,
-                  beta_joint = TRUE,
-                  g_type = c("gfa", "svd"),
-                  svd_zthresh = 0,
-                  augment_G = FALSE){
+esmr <- function(beta_hat_Y, se_Y,
+                 beta_hat_X, se_X,
+                 G = NULL,
+                 R = NULL,
+                 ebnm_fn = flashier:::as.ebnm.fn(prior_family = "point_normal", optmethod = "nlm"),
+                 max_iter = 100,
+                 sigma_beta = Inf,
+                 tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
+                 pval_thresh =1,
+                 #post_prob_thresh = 0,
+                 beta_m_init = NULL,
+                 which_beta = NULL,
+                 fix_beta = FALSE,
+                 beta_joint = TRUE,
+                 g_type = c("gfa", "svd"),
+                 svd_zthresh = 0,
+                 augment_G = FALSE){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
-  g_type <- match.arg(g_type, g_type)
+  g_type <- match.arg(g_type, choices = c("gfa", "svd"))
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
 
 
@@ -79,7 +79,7 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
   #   dat <- subset_data(dat, ix)
   # }
 
-  dat$l <- init_l_future(dat$n, dat$k)
+  dat$l <- init_l(dat$n, dat$k)
 
 
   dat$beta_joint <- beta_joint
@@ -89,7 +89,7 @@ eb_mr_future <- function(beta_hat_Y, se_Y,
   #dat$est_tau <- est_tau
   #dat$ll <- ll
 
-  dat <- ebmr_solve_future(dat, max_iter, tol )
+  dat <- esmr_solve(dat, max_iter, tol )
 
   return(dat)
 }

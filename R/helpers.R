@@ -2,44 +2,6 @@ default_precision <- function(dims){
   sqrt(.Machine$double.eps)*prod(dims)
 }
 
-
-make_f_fun <- function(p, beta_j, beta_k){
-  if(length(beta_j) == 0 | is.null(beta_j)){
-    ff <- function(beta_m, beta_s){
-      return(list(fbar = diag(p), f2bar = diag(p)))
-    }
-    return(ff)
-  }
-  ff <- function(beta_m, beta_s){
-    fbar <- f2bar <- diag(p)
-    for(i in seq(length(beta_j))) fbar[beta_j[i],beta_k[i]] <- beta_m[i]
-    for(i in seq(length(beta_j))) f2bar[beta_j[i],beta_k[i]] <- beta_m[i]^2 + beta_s[i]^2
-    return(list(fbar = fbar, f2bar = f2bar))
-  }
-  return(ff)
-}
-
-make_f_fun_future <- function(p, beta_j, beta_k, G){
-  if(length(beta_j) == 0 | is.null(beta_j)){
-    ff <- function(beta_m, beta_s){ ## No betas to estimate, F is identity, FG = G
-      return(list(fbar = G, f2bar = G))
-    }
-    return(ff)
-  }
-  ff <- function(beta_m, beta_s){
-    fbar_o <- f2bar_o <- diag(p)
-    for(i in seq(length(beta_j))) fbar_o[beta_j[i],beta_k[i]] <- beta_m[i]
-    fbar <- fbar_o %*% G
-    V <- matrix(0, nrow = p, ncol = p)
-    for(i in seq(length(beta_j))) V[beta_j[i],beta_k[i]] <- beta_s[i]^2
-    f2bar_o <- (fbar_o^2) + V
-    f2bar <- (fbar^2) + (V %*% (G^2))
-    return(list(fbar = fbar, f2bar = f2bar,
-                fbar_o = fbar_o, f2bar_o = f2bar_o))
-  }
-  return(ff)
-}
-
 make_f <- function(dat){
   if(length(dat$beta$beta_j) == 0 | is.null(dat$beta$beta_j)){
     return(list(fbar_o = diag(dat$p), f2bar_o = diag(dat$p),
@@ -91,16 +53,9 @@ init_beta <- function(p, which_beta=NULL,
               beta_j = beta_j, beta_k = beta_k, fix_beta = fix_beta))
 }
 
-init_l <- function(n, p){
-  lbar <- matrix(0, nrow = n, ncol = p)
-  lfsr <- matrix(1, nrow = n, ncol = p)
-  g_hat <- list()
-  return(list(lbar = lbar, l2bar = lbar,
-              wpost = lbar, mupost = lbar, s2post = lbar,
-              lfsr = lfsr, g_hat = g_hat))
-}
 
-init_l_future <- function(n, p){
+# previously init_l_future
+init_l <- function(n, p){
   lbar <- matrix(0, nrow = n, ncol = p)
   lfsr <- matrix(1, nrow = n, ncol = p)
   g_hat <- list()
@@ -251,7 +206,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
   R <- check_R(R)
 
   dat <- check_missing(cbind(beta_hat_Y, beta_hat_X), cbind(se_Y, se_X))
-  dat$omega <- get_omega(R, dat$S, dat$any_missing)
+  dat$omega <- get_omega(R, dat$S, dat$any_missing) # omega is row correlation of data, either list or single matrix
   dat$n <- n
   dat$p <- p
 
@@ -281,6 +236,9 @@ check_equal_omega <- function(omega){
   return(s_equal)
 }
 
+
+
+## unused
 check_omega <- function(omega, n, p, s_equal){
   if(s_equal){
     if(!"matrix" %in% class(omega)) stop("omega is not of class matrix\n")
@@ -296,7 +254,7 @@ check_omega <- function(omega, n, p, s_equal){
   }
 }
 
-
+## unused
 get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_normal"){
   wpost <- purrr::map_dfc(col_ix, function(ii){
     cat(ii, "\n")

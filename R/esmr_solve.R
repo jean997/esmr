@@ -1,4 +1,4 @@
-ebmr_solve_future <- function(dat, max_iter, tol){
+esmr_solve <- function(dat, max_iter, tol){
 
   check <- 1
   obj <- c()
@@ -9,14 +9,14 @@ ebmr_solve_future <- function(dat, max_iter, tol){
   nb <- length(dat$beta$beta_j)
   while(i < max_iter & check > tol){
     # l update
-    dat <- update_l_sequential_future(dat)
+    dat <- update_l_sequential(dat)
 
     ll <- with(dat, calc_ell2(Y, l$lbar_o, l$l2bar_o, f$fbar, omega))
     obj <- c(obj, ll + dat$l$kl)
 
     # beta update
     if(!dat$beta_joint){
-      dat <- update_beta_sequential_future(dat)
+      dat <- update_beta_sequential(dat)
     }else{
       V <- matrix(0, nrow = nb, ncol = nb)
       jj <- unique(dat$beta$beta_j)
@@ -24,7 +24,7 @@ ebmr_solve_future <- function(dat, max_iter, tol){
         ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)
         if(length(ii) == 0) next
         ix <- dat$beta$beta_k[ii]
-        beta_upd <- update_beta_joint_future(dat, j = j, ix = ix)
+        beta_upd <- update_beta_joint(dat, j = j, ix = ix)
         dat$beta$beta_m[ii] <- beta_upd$m
         dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
         V[ii,ii] <- beta_upd$S

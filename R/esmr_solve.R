@@ -11,8 +11,14 @@ esmr_solve <- function(dat, max_iter, tol){
     # l update
     dat <- update_l_sequential(dat)
 
-    ll <- with(dat, calc_ell2(Y, l$lbar_o, l$l2bar_o, f$fbar, omega))
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega))
     obj <- c(obj, ll + dat$l$kl)
+
+    ### Temporary Code
+    minlfsr <- apply(dat$l$lfsr, 1, min)
+    ixk <- which(minlfsr < dat$lfsr_thresh)
+    du <- subset_data(dat, ix = ixk)
+    ###
 
     # beta update
     if(!dat$beta_joint){
@@ -24,7 +30,8 @@ esmr_solve <- function(dat, max_iter, tol){
         ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)
         if(length(ii) == 0) next
         ix <- dat$beta$beta_k[ii]
-        beta_upd <- update_beta_joint(dat, j = j, ix = ix)
+        #beta_upd <- update_beta_joint(dat, j = j, ix = ix)
+        beta_upd <- update_beta_joint(du, j = j, ix = ix) ## temporary
         dat$beta$beta_m[ii] <- beta_upd$m
         dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
         V[ii,ii] <- beta_upd$S
@@ -33,7 +40,7 @@ esmr_solve <- function(dat, max_iter, tol){
       }
     }
 
-    ll <- with(dat, calc_ell2(Y, l$lbar_o, l$l2bar_o, f$fbar, omega))
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega))
 
     obj <- c(obj, ll + dat$l$kl)
     obj_new <- obj[length(obj)]

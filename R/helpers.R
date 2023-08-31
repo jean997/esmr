@@ -4,19 +4,19 @@ default_precision <- function(dims){
 
 make_f <- function(dat){
   if(length(dat$beta$beta_j) == 0 | is.null(dat$beta$beta_j)){
-    return(list(fbar_o = diag(dat$p), f2bar_o = diag(dat$p),
-                fbar = dat$G, f2bar = dat$G^2))
+    return(list(fbar = diag(dat$p), f2bar = diag(dat$p),
+                fgbar = dat$G, fg2bar = dat$G^2))
   }
-  fbar_o <- f2bar_o <- diag(dat$p)
+  fbar <- f2bar <- diag(dat$p)
   nb <- length(dat$beta$beta_j)
-  for(i in seq(nb)) fbar_o[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_m[i]
-  fbar <- fbar_o %*% dat$G
+  for(i in seq(nb)) fbar[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_m[i]
+  fgbar <- fbar %*% dat$G
   V <- matrix(0, nrow = dat$p, ncol = dat$p)
   for(i in seq(nb)) V[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_s[i]^2
-  f2bar_o <- (fbar_o^2) + V
-  f2bar <- (fbar^2) + (V %*% (dat$G^2))
-  return(list(fbar = fbar, f2bar = f2bar,
-              fbar_o = fbar_o, f2bar_o = f2bar_o))
+  f2bar <- (fbar^2) + V
+  fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
+  return(list(fgbar = fgbar, fg2bar = fg2bar,
+              fbar = fbar, f2bar = f2bar))
 }
 
 
@@ -60,7 +60,7 @@ init_l <- function(n, p){
   lfsr <- matrix(1, nrow = n, ncol = p)
   g_hat <- list()
   return(list(lbar = lbar, l2bar = lbar,
-              lbar_o = lbar, l2bar_o = lbar,
+              abar = lbar, a2bar = lbar,
               wpost = lbar, mupost = lbar, s2post = lbar,
               lfsr = lfsr, g_hat = g_hat))
 }
@@ -219,6 +219,10 @@ subset_data <- function(dat, ix){
   dat$Y <- dat$Y[ix,]
   dat$S <- dat$S[ix,]
   dat$n <- length(ix)
+  dat$l$lbar <- dat$l$lbar[ix,]
+  dat$l$l2bar <- dat$l$l2bar[ix,]
+  dat$l$abar <- dat$l$abar[ix,]
+  dat$l$a2bar <- dat$l$a2bar[ix,]
   if(!s_equal){
     dat$omega <- dat$omega[ix]
   }
@@ -254,7 +258,7 @@ check_omega <- function(omega, n, p, s_equal){
   }
 }
 
-## unused
+
 get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_normal"){
   wpost <- purrr::map_dfc(col_ix, function(ii){
     cat(ii, "\n")

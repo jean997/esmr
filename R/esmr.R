@@ -24,7 +24,9 @@ esmr <- function(beta_hat_Y, se_Y,
                  sigma_beta = Inf,
                  tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
                  pval_thresh =1,
+                 nrand = 0,
                  #post_prob_thresh = 0,
+                 lfsr_thresh = 0.01,
                  beta_m_init = NULL,
                  which_beta = NULL,
                  fix_beta = FALSE,
@@ -58,8 +60,6 @@ esmr <- function(beta_hat_Y, se_Y,
   dat$k <- ncol(dat$G)
 
   dat$beta <- init_beta(dat$p, which_beta, beta_m_init, fix_beta)
-  #dat$f_fun <- make_f_fun_future(dat$p, dat$beta$beta_j, dat$beta$beta_k, dat$G)
-  #dat$f <- dat$f_fun(dat$beta$beta_m, dat$beta$beta_s)
   dat$f <- make_f(dat)
 
 
@@ -70,6 +70,11 @@ esmr <- function(beta_hat_Y, se_Y,
     pval <- with(dat, 2*pnorm(-abs(Y/S)))
     pval_min <- apply(pval[,-1,drop = FALSE], 1, min)
     ix <- which(pval_min < pval_thresh)
+    if(nrand > 0){
+      nrand <- min(nrand, dat$n - length(ix))
+      nullix <- sample(setdiff(1:dat$n, ix), size = nrand, replace = FALSE)
+      ix <- sort(c(ix, nullix))
+    }
     dat <- subset_data(dat, ix)
   }
   # }else if(post_prob_thresh > 0){
@@ -85,6 +90,7 @@ esmr <- function(beta_hat_Y, se_Y,
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
+  dat$lfsr_thresh <- lfsr_thresh
 
   #dat$est_tau <- est_tau
   #dat$ll <- ll

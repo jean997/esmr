@@ -69,10 +69,3 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
              cbind(rep(0, p), myG))
   return(G)
 }
-
-pad_G <- function(Gx, p, xindex){
-  Gx <- check_matrix(Gx, "Gx", length(xindex), length(xindex))
-  G <- diag(p)
-  G[xindex, xindex] <- Gx
-  return(G)
-}

@@ -27,10 +27,10 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL){
     T0 <- solve(prior_cov)
   }
   #s2l <- l2bar - (lbar^2)
-  Vl <- dat$l$l2bar_o - (dat$l$lbar_o^2)
+  Va <- dat$l$a2bar - (dat$l$abar^2)
 
   if(s_equal){
-    A <- t(dat$l$lbar_o) %*% dat$l$lbar_o + diag(colSums(Vl))
+    A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
     Astar <- dat$G %*% A %*% t(dat$G)
     # R <- dat$omega[j,j]*Astar[ix,ix] + T0
     # a1 <- colSums(dat$l$lbar[,ix]*rowSums(t(t(dat$Y)*dat$omega[,j])))
@@ -42,27 +42,27 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL){
     Rfull <- dat$omega[j,j]*Astar
     a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j])))
     a20 <- lapply(seq(p)[-j], function(jj){
-      Astar%*% dat$f$fbar_o[,jj,drop = FALSE]*dat$omega[j,jj]
+      Astar%*% dat$f$fbar[,jj,drop = FALSE]*dat$omega[j,jj]
     }) %>% Reduce(`+`, .)
     afull <- matrix(a10 - a20, nrow = p)
   }else{
     Oj <- map(dat$omega, function(o){o[j,]}) %>% unlist() %>%
       matrix(nrow = n, byrow = TRUE)
     Astar <- lapply(seq(p), function(jj){
-      A <- t(dat$l$lbar_o * Oj[,jj]) %*% dat$l$lbar_o + diag(colSums(Vl * Oj[,jj]))
+      A <- t(dat$l$abar * Oj[,jj]) %*% dat$l$abar + diag(colSums(Va * Oj[,jj]))
       dat$G %*% A %*% t(dat$G)
     })
     Rfull <- Astar[[j]]
     a10 <- colSums(dat$l$lbar *rowSums(dat$Y*Oj))
     a20 <- lapply(seq(p)[-j], function(jj){
-      Astar[[jj]]%*% dat$f$fbar_o[,jj,drop = FALSE]
+      Astar[[jj]]%*% dat$f$fbar[,jj,drop = FALSE]
     }) %>% Reduce(`+`, .)
     afull <- matrix(a10 - a20, nrow = p)
   }
   if(length(ix) < p){
     R <- Rfull[ix,ix]
     R12 <- Rfull[ix,-ix]
-    a <- afull[ix] - R12 %*% t(dat$f$fbar_o[j,-ix,drop = FALSE])
+    a <- afull[ix] - R12 %*% t(dat$f$fbar[j,-ix,drop = FALSE])
   }else{
     R <- Rfull
     a <- afull

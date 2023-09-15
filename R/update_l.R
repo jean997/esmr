@@ -3,11 +3,6 @@ update_l_sequential <- function(dat, jj){
   abar <- dat$l$abar
   a2bar <- dat$l$a2bar
 
-  # wpost <- dat$l$wpost
-  # mupost <- dat$l$mupost
-  # s2post <- dat$l$s2post
-
-
   lfsr <- dat$l$lfsr
   g_hat <- dat$l$g_hat
   if(!missing(jj)){
@@ -22,15 +17,12 @@ update_l_sequential <- function(dat, jj){
 
     abar[lu$posterior$index,j] <- lu$posterior$mean
     a2bar[lu$posterior$index,j] <- lu$posterior$second_moment
-    # wpost[lu$posterior$index,j] <- lu$posterior$wpost
-    # mupost[lu$posterior$index,j] <- lu$posterior$mu
-    # s2post[lu$posterior$index,j] <- lu$posterior$s2
+
     lfsr[lu$posterior$index,j] <- lu$posterior$lfsr
     g_hat[[j]] <- lu$fitted_g
     l_update[[j]] <- lu
   }
   kl <- map(l_update, "KL") %>% unlist() %>% sum()
-
 
   lbar <- abar %*% t(dat$G)
   Va <- a2bar - (abar^2)
@@ -39,7 +31,6 @@ update_l_sequential <- function(dat, jj){
   dat$l <- list(lbar =lbar, l2bar = l2bar,
                 abar = abar, a2bar= a2bar,
                 lfsr = lfsr,
-                #wpost = wpost, mupost = mupost, s2post = s2post,
                 kl = kl, g_hat = g_hat)
   return(dat)
 }
@@ -98,6 +89,7 @@ update_l_k <- function(R_k, fgbar_k, fg2bar_k, omega, ebnm_fn){
   # ebnm_res$posterior$wpost <- ebnm:::wpost_normal(x, s, w, a, 0)
   # ebnm_res$posterior$mu <- ebnm:::pmean_cond_normal(x, s, a, 0)
   # ebnm_res$posterior$s2 <- ebnm:::pvar_cond_normal(s, a)
+  # ebnm_res$posterior$post_mode <- round(ebnm_res$posterior$wpost)*ebnm_res$posterior$mu
   return(ebnm_res)
 
 

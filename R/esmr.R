@@ -77,14 +77,8 @@ esmr <- function(beta_hat_Y, se_Y,
     }
     dat <- subset_data(dat, ix)
   }
-  # }else if(post_prob_thresh > 0){
-  #   wpost <- get_wpost(dat$Y, dat$S, 2:dat$p, prior_family = "point_normal")
-  #   wpost_max <- apply(wpost, 1, max)
-  #   ix <- which(wpost_max >= post_prob_thresh)
-  #   dat <- subset_data(dat, ix)
-  # }
 
-  dat$l <- init_l(dat$n, dat$k)
+  dat$l <- init_l(dat$n, dat$k, ncol(dat$G))
 
 
   dat$beta_joint <- beta_joint
@@ -93,7 +87,6 @@ esmr <- function(beta_hat_Y, se_Y,
   dat$lfsr_thresh <- lfsr_thresh
 
   #dat$est_tau <- est_tau
-  #dat$ll <- ll
 
   dat <- esmr_solve(dat, max_iter, tol )
 

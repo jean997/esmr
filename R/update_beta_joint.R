@@ -26,7 +26,6 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL){
     T0 <- check_matrix(prior_cov, m, m)
     T0 <- solve(prior_cov)
   }
-  #s2l <- l2bar - (lbar^2)
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
   if(s_equal){

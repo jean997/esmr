@@ -17,7 +17,7 @@ esmr_solve <- function(dat, max_iter, tol){
     ### Temporary Code
     minlfsr <- apply(dat$l$lfsr, 1, min)
     ixk <- which(minlfsr < dat$lfsr_thresh)
-    du <- subset_data(dat, ix = ixk)
+    du <- subset_data(dat, ixk)
     ###
 
     # beta update

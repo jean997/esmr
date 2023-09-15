@@ -55,13 +55,15 @@ init_beta <- function(p, which_beta=NULL,
 
 
 # previously init_l_future
-init_l <- function(n, p){
+init_l <- function(n, p, m){
   lbar <- matrix(0, nrow = n, ncol = p)
-  lfsr <- matrix(1, nrow = n, ncol = p)
+  abar <- matrix(0, nrow = n, ncol = m)
+  lfsr <- matrix(1, nrow = n, ncol = m)
   g_hat <- list()
   return(list(lbar = lbar, l2bar = lbar,
-              abar = lbar, a2bar = lbar,
-              wpost = lbar, mupost = lbar, s2post = lbar,
+              abar = abar, a2bar = abar,
+              #wpost = lbar, mupost = lbar, s2post = lbar,
+              #post_mode = abar,
               lfsr = lfsr, g_hat = g_hat))
 }
 

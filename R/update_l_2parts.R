@@ -1,4 +1,4 @@
-update_l_sequential <- function(dat, jj){
+update_l_sequential_2parts <- function(dat, jj){
   l_update <- list()
   abar <- dat$l$abar
   a2bar <- dat$l$a2bar
@@ -11,9 +11,16 @@ update_l_sequential <- function(dat, jj){
     coords <- seq(dat$k)
   }
 
+  ix1 <- dat$ix1
+  ix0 <- dat$ix0
+
   for(j in coords){
-    R_j <- dat$Y - (abar[,-j,drop=FALSE] %*% t(dat$f$fgbar[,-j,drop=FALSE]))
-    lu <- update_l_k(R_j, dat$f$fgbar[,j], dat$f$fg2bar[,j], dat$omega, dat$ebnm_fn)
+    R_j <- matrix(nrow = dat$n, ncol = dat$p)
+    R_j[ix0,] <- dat$Y[ix0,] - (abar[ix0,-j,drop=FALSE] %*% t(dat$f$fgbar[,-j,drop=FALSE]))
+    R_j[ix1,] <- dat$Y[ix1,] - (abar[ix1,-j,drop=FALSE] %*% t(dat$f0$fgbar[,-j,drop=FALSE]))
+    lu <- update_l_k_2parts(R_j, dat$f$fgbar[,j], dat$f$fg2bar[,j],
+                            dat$f0$fgbar[,j], dat$f0$fg2bar[,j],
+                            dat$omega, dat$ebnm_fn, ix0)
 
     abar[lu$posterior$index,j] <- lu$posterior$mean
     a2bar[lu$posterior$index,j] <- lu$posterior$second_moment
@@ -41,7 +48,10 @@ update_l_sequential <- function(dat, jj){
 
 
 #'@export
-update_l_k <- function(R_k, fgbar_k, fg2bar_k, omega, ebnm_fn){
+update_l_k_2parts <- function(R_k, fgbar_k, fg2bar_k,
+                              fgbar0_k, fg2bar0_k,
+                              omega, ebnm_fn,
+                              ix0){
   n <- nrow(R_k)
   p <- ncol(R_k)
   stopifnot(length(fgbar_k) == p)
@@ -52,19 +62,40 @@ update_l_k <- function(R_k, fgbar_k, fg2bar_k, omega, ebnm_fn){
   fgbar_k <- matrix(fgbar_k, ncol = 1)
   fgbar <- fgbar_k %*% t(fgbar_k)
   diag(fgbar) <- fg2bar_k
+
+  fgbar0_k <- matrix(fgbar0_k, ncol = 1)
+  fgbar0 <- fgbar0_k %*% t(fgbar0_k)
+  diag(fgbar0) <- fg2bar0_k
+
   # fgbar is 2 by 2
   if(s_equal){
-    A <- (fgbar * omega) %>% sum()
-    A <- rep(A, n)
-    B <- R_k %*% omega %*% fgbar_k
+    A1 <- (fgbar * omega) %>% sum()
+    A0 <- (fgbar0 * omega) %>% sum()
+    A <- rep(A1, n)
+    A[ix0] <- A0
+    B1 <- R_k %*% omega %*% fgbar_k
+    B0 <- R_k %*% omega %*% fgbar0_k
+    B <- B1
+    B[ix0] <- B0[ix0]
   }else{
-    A <- map(omega, function(o){
+    A1 <- map(omega, function(o){
       (fgbar * o) %>% sum()
     }) %>% unlist()
-    B <- map(seq(n), function(i){
+    A0 <- map(omega, function(o){
+      (fgbar0 * o) %>% sum()
+    }) %>% unlist()
+    A <- A1
+    A[ix0] <- A0[ix0]
+    B1 <- map(seq(n), function(i){
       R_i <- R_k[i,, drop = FALSE]
       R_i %*% omega[[i]] %*% fgbar_k
     }) %>% unlist()
+    B0 <- map(seq(n), function(i){
+      R_i <- R_k[i,, drop = FALSE]
+      R_i %*% omega[[i]] %*% fgbar0_k
+    }) %>% unlist()
+    B <- B1
+    B[ix0] <- B0[ix0]
   }
 
   x <- B/A

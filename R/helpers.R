@@ -225,6 +225,7 @@ subset_data <- function(dat, ix){
   dat$l$l2bar <- dat$l$l2bar[ix,]
   dat$l$abar <- dat$l$abar[ix,]
   dat$l$a2bar <- dat$l$a2bar[ix,]
+  dat$l$lfsr <- dat$l$lfsr[ix,]
   if(!s_equal){
     dat$omega <- dat$omega[ix]
   }
@@ -242,7 +243,40 @@ check_equal_omega <- function(omega){
   return(s_equal)
 }
 
-
+get_ix1_ix0 <- function(dat, ix1){
+  if("integer" %in% class(ix1) | "numeric" %in% class(ix1)){
+    stopifnot(all(ix1 %in% (1:dat$n)))
+    dat$ix1 <- sort(ix1)
+  }else if("character" %in% class(ix1)){
+    ix1 <- stringr::str_split(ix1, "-", n = 2)[[1]]
+    type <- ix1[1]
+    thresh <- as.numeric(ix1[2])
+    if(type == "pval"){
+      pval <- with(dat, 2*pnorm(-abs(Y/S)))
+      vals <- apply(pval[,-1,drop = FALSE], 1, min)
+      dat$ix1 <- which(vals < thresh)
+    }else if(type == "lfsr" | type == "zl"){
+      for(i in 1:5){
+        dat <- update_l_sequential(dat)
+      }
+      if(type == "lfsr"){
+        vals <- apply(dat$l$lfsr[,-1, drop = F], 1, min)
+        dat$ix1 <- which(vals < thresh)
+      }else{
+        vl <- with(dat$l, l2bar - (lbar^2))
+        zl <- dat$l$lbar/sqrt(vl)
+        vals <- apply(abs(zl[,-1,drop = F]), 1,max)
+        dat$ix1 <- which(vals > thresh)
+      }
+    }else{
+      stop("Unknown option to ix1\n")
+    }
+  }else{
+    stop("Unknown option to ix1\n")
+  }
+  dat$ix0 <- setdiff((1:dat$n), dat$ix1) |> sort()
+  return(dat)
+}
 
 ## unused
 check_omega <- function(omega, n, p, s_equal){

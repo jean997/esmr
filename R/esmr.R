@@ -23,17 +23,17 @@ esmr <- function(beta_hat_Y, se_Y,
                  max_iter = 100,
                  sigma_beta = Inf,
                  tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
-                 pval_thresh =1,
-                 nrand = 0,
-                 #post_prob_thresh = 0,
-                 lfsr_thresh = 0.01,
+                 #####
                  beta_m_init = NULL,
                  which_beta = NULL,
                  fix_beta = FALSE,
                  beta_joint = TRUE,
                  g_type = c("gfa", "svd"),
                  svd_zthresh = 0,
-                 augment_G = FALSE){
+                 augment_G = TRUE,
+                 ix1 = NULL,
+                 ix0 = FALSE,
+                 lfsr_thresh = 0.01){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
@@ -61,22 +61,7 @@ esmr <- function(beta_hat_Y, se_Y,
 
   dat$beta <- init_beta(dat$p, which_beta, beta_m_init, fix_beta)
   dat$f <- make_f(dat)
-
-
-  dat$pval_thresh <- pval_thresh
-  #dat$post_prob_thresh <- post_prob_thresh
-
-  if(pval_thresh < 1){
-    pval <- with(dat, 2*pnorm(-abs(Y/S)))
-    pval_min <- apply(pval[,-1,drop = FALSE], 1, min)
-    ix <- which(pval_min < pval_thresh)
-    if(nrand > 0){
-      nrand <- min(nrand, dat$n - length(ix))
-      nullix <- sample(setdiff(1:dat$n, ix), size = nrand, replace = FALSE)
-      ix <- sort(c(ix, nullix))
-    }
-    dat <- subset_data(dat, ix)
-  }
+  #dat$f0 <- make_f(dat)
 
   dat$l <- init_l(dat$n, dat$k, ncol(dat$G))
 
@@ -86,9 +71,17 @@ esmr <- function(beta_hat_Y, se_Y,
   dat$sigma_beta <- sigma_beta
   dat$lfsr_thresh <- lfsr_thresh
 
-  #dat$est_tau <- est_tau
-
-  dat <- esmr_solve(dat, max_iter, tol )
+  if(is.null(ix1)){
+    dat <- esmr_solve(dat, max_iter, tol )
+  }else if(ix0){
+    dat <- get_ix1_ix0(dat, ix1)
+    dat$f0 <- make_f(dat)
+    dat <- esmr_solve_2part(dat, max_iter, tol )
+  }else{
+    dat <- get_ix1_ix0(dat, ix1)
+    dat <- subset_data(dat, dat$ix1)
+    dat <- esmr_solve(dat, max_iter, tol)
+  }
 
   return(dat)
 }

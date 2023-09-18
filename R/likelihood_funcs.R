@@ -1,6 +1,8 @@
 
 # Calculates E_q[log lik(l, f | Y, omega)]
 # The objective function is E_q[log lik(l, f | Y, omega)] - KL(q_l || g_l)
+## E[ sum (Y, - y_j)^T Omega (Y_j - y_j)]
+## currenly ignores variability in f...
 #'@export
 calc_ell2 <- function(Y, lbar, l2bar, fgbar, omega){
   n <- nrow(Y)
@@ -39,3 +41,4 @@ calc_ell2 <- function(Y, lbar, l2bar, fgbar, omega){
   }
   return(ell)
 }
+

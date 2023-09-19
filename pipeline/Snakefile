@@ -50,8 +50,7 @@ if "ldsc_full" in config["analysis"]["R"]["type"]:
 if "none" in config["analysis"]["R"]["type"]:
     R_strings.append("none")
 
-esmr_files = expand(out_dir + prefix + "esmr{T}_{ix1}.ldpruned_{ldstring}.R_{Rstring}.RDS", 
-                        T = ["N", "P"],
+esmr_files = expand(out_dir + prefix + "esmr_{ix1}.ldpruned_{ldstring}.R_{Rstring}.RDS",
                         ix1 = config["analysis"]["ix1_options"],
                         ldstring = ld_strings,
                         Rstring = R_strings)
@@ -63,19 +62,19 @@ max_pt = max([float(i) for i in all_pt])
 #print(max_pt)
 max_pt = 1 # this is 1 because testing esmr with p-value prioritized pruning
 
-grapple_files = expand(out_dir + prefix + "grapple_{pt}.ldpruned_{ldstring}.R_{Rstring}.RDS", 
+grapple_files = expand(out_dir + prefix + "grapple_{pt}.ldpruned_{ldstring}.R_{Rstring}.RDS",
                         pt = config["analysis"]["grapple_pt"],
                         ldstring = ld_strings,
                         Rstring = R_strings)
-print(grapple_files)
+# print(grapple_files)
 
-bee_files = expand(out_dir + prefix + "bee_{pt}_{pleio_pt}.ldpruned_{ldstring}.R_{Rstring}.RDS", 
+bee_files = expand(out_dir + prefix + "bee_{pt}_{pleio_pt}.ldpruned_{ldstring}.R_{Rstring}.RDS",
                         pt = config["analysis"]["bee_pt"],
                         pleio_pt = config["analysis"]["bee_pleio_pt"],
                         ldstring = ld_strings,
                         Rstring = R_strings)
 
-ivw_files = expand(out_dir + prefix + "ivw_{pt}.ldpruned_{ldstring}.RDS", 
+ivw_files = expand(out_dir + prefix + "ivw_{pt}.ldpruned_{ldstring}.RDS",
                         pt = config["analysis"]["ivw_pt"],
                         ldstring = ld_strings)
 rule all:
@@ -147,36 +146,28 @@ rule ldsc_R:
     output: out = data_dir + prefix + "R_estimate.R_ldsc_full.RDS"
     shell: 'Rscript R/4_ldsc_mat.R {l2_dir} {input.inf} {output.out} {input.inp}'
 
-
-## Run ESMR:
-rule esmrN: 
-    input: NB = expand(data_dir + prefix + "beta.ldpruned_r2{{r2}}_kb{{kb}}_seed{{ls}}_ttypenone_tthresh1.{chrom}.RDS", chrom = range(1, 23)),
-           R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
-    output: out = out_dir + prefix + "esmrN_{ix1}.ldpruned_r2{r2}_kb{kb}_seed{ls}.R_{Rstring}.RDS",
-    shell: 'Rscript R/5_run_esmr.R {output.out} {input.R} {wildcards.ix1} {input.NB}'
-
 ## Run ESMR with variants prioritized by p-value:
-rule esmrP: 
+rule esmr:
     input: NB = expand(data_dir + prefix + "beta.ldpruned_r2{{r2}}_kb{{kb}}_seed{{ls}}_ttypepvalue_tthresh1.{chrom}.RDS", chrom = range(1, 23)),
            R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
     output: out = out_dir + prefix + "esmrP_{ix1}.ldpruned_r2{r2}_kb{kb}_seed{ls}.R_{Rstring}.RDS",
     shell: 'Rscript R/5_run_esmr.R {output.out} {input.R} {wildcards.ix1} {input.NB}'
 
 ## Run GRAPPLE
-rule grapple: 
+rule grapple:
     input: NB = expand(data_dir + prefix + "beta.ldpruned_{{ldstring}}_ttypepvalue_tthresh{p}.{chrom}.RDS", chrom = range(1, 23), p = max_pt),
            R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
     output: out = out_dir + prefix + "grapple_{pt}.ldpruned_{ldstring}.R_{Rstring}.RDS",
     shell: 'Rscript R/5_run_grapple.R {output.out} {input.R} {wildcards.pt} {input.NB}'
 
-## Run IVW 
-rule ivw: 
+## Run IVW
+rule ivw:
     input: NB = expand(data_dir + prefix + "beta.ldpruned_{{ldstring}}_ttypepvalue_tthresh{p}.{chrom}.RDS", chrom = range(1, 23), p = max_pt)
     output: out = out_dir + prefix + "ivw_{pt}.ldpruned_{ldstring}.RDS",
     shell: 'Rscript R/5_run_ivw.R {output.out} {wildcards.pt} {input.NB}'
 
-## Run MRBEE 
-rule bee: 
+## Run MRBEE
+rule bee:
     input: NB = expand(data_dir + prefix + "beta.ldpruned_{{ldstring}}_ttypepvalue_tthresh{p}.{chrom}.RDS", chrom = range(1, 23), p = max_pt),
            R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
     output: out = out_dir + prefix + "bee_{pt}_{pleio_pt}.ldpruned_{ldstring}.R_{Rstring}.RDS",

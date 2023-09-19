@@ -33,7 +33,7 @@ esmr <- function(beta_hat_Y, se_Y,
                  augment_G = TRUE,
                  ix1 = NULL,
                  ix0 = FALSE,
-                 lfsr_thresh = 0.01){
+                 lfsr_thresh = 1){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")

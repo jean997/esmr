@@ -6,7 +6,7 @@ args <- commandArgs(trailingOnly=TRUE)
 
 out = args[1]
 R <- readRDS(args[2])
-p_thresh = args[3]
+p_thresh = as.numeric(args[3])
 nb_files = args[-c(1:3)]
 
 
@@ -16,13 +16,13 @@ nb_files = args[-c(1:3)]
 X <- map_dfr(nb_files, readRDS)
 
 beta_hat <- X %>%
-         select(ends_with(".beta")) 
+         select(ends_with(".beta"))
 
 se <- X %>%
-      select(ends_with(".se")) 
+      select(ends_with(".se"))
 
 p <- X %>%
-      select(ends_with(".p")) 
+      select(ends_with(".p"))
 snps <- X$snp
 
 nms <- names(X)[grep(".beta$", names(X))]
@@ -40,11 +40,18 @@ names(grapple_dat) <- c("gamma_out", paste0("gamma_exp", 1:(i-1)),
                         "se_out", paste0("se_exp", 1:(i-1)));
 grapple_dat$selection_pvals <- apply(p[,-1, drop = F],1, min);
 
+ix <- which(grapple_dat$selection_pvals < p_thresh)
+if(length(ix) > 5000){
+  ixn <- sample(ix, size = 5000, replace = FALSE)
+  grapple_dat <- grapple_dat[ixn,]
+}
+
+
 t <- system.time(
-        res <- grappleRobustEst(data = grapple_dat, 
-                                plot.it =FALSE, 
-                                p.thres = p_thresh, 
-                                cor.mat = Rcor, 
+        res <- grappleRobustEst(data = grapple_dat,
+                                plot.it =FALSE,
+                                p.thres = p_thresh,
+                                cor.mat = Rcor,
                                 niter = 100000));
 
 res$time <- t

@@ -78,7 +78,7 @@ ivw_files = expand(out_dir + prefix + "ivw_{pt}.ldpruned_{ldstring}.RDS",
                         pt = config["analysis"]["ivw_pt"],
                         ldstring = ld_strings)
 rule all:
-    input: esmr_files, ivw_files, bee_files #, grapple_files
+    input: esmr_files, ivw_files, bee_files, grapple_files
 
 # convert data to standardized format and harmonize
 rule format:

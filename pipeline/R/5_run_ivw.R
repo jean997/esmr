@@ -5,7 +5,7 @@ library(purrr)
 args <- commandArgs(trailingOnly=TRUE)
 
 out = args[1]
-p_thresh = args[2]
+p_thresh = as.numeric(args[2])
 nb_files = args[-c(1, 2)]
 
 

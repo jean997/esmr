@@ -1,0 +1,42 @@
+# sum_stats is a csv file
+# neale_var_ref is only required if using files from the Neale lab round 2 2018 analysis
+input:
+    sum_stats: "cad_traits.csv"
+    label: "cad_v3"
+    neale_var_ref: "/nfs/turbo/sph-jvmorr/gwas_summary_statistics/NealeRound2_2018/variants.tsv.bgz"
+
+analysis:
+    # LD pruning options:
+    # r2_thresh: threshold for pairwise r^2 between variants
+    # clump_kb Maximum distance for pruning.
+    # ref_path Path to plink format reference data
+    ldprune:
+        r2_thresh: 0.01
+        ld_seed: [0]
+        clump_kb: [10000]
+        ref_path: "/nfs/turbo/sph-jvmorr/ld_reference_files/1kg_plink/EUR"
+    # esmr options
+    ix1_options: ["NULL", "zl-3", "pval-0.00001", "zl-4", "zl-2", "pval-5e-8"]
+    max_iter: 100
+    nmiss_thresh: 0
+    max_snps: Inf
+    # other method options
+    grapple_pt: [1e-3, 1e-5]
+    ivw_pt: [5e-8]
+    bee_pt: [1e-5, 1e-6, 5e-8]
+    bee_pleio_pt: [0, 0.05]
+    # options for calculating R
+    R:
+        type: ["ldsc_full"] # currently only option is ldsc_full
+        pthresh: 0.05
+        l2_dir: "/nfs/turbo/sph-jvmorr/ld_reference_files/ldsc_reference_files/eur_w_ld_chr/"
+
+out:
+    # Output data options:
+    # data_dir: Directory to store reformatted data
+    # formatted_gwas_dir: Where do store formatted gwas data
+    # output_dir: Where to store results
+    data_dir: "data/"
+    formatted_gwas_dir: "/nfs/turbo/sph-jvmorr/gwas_summary_statistics/formatted_data/gfa/"
+    output_dir: "results/"
+

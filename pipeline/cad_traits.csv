@@ -1,0 +1,11 @@
+name,raw_data_path,snp,A1,A2,beta_hat,se,pos,p_value,sample_size,effect_is_or,chrom,pub_sample_size,neale_format
+van-der-Harst_2017_29212778__CAD,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/van-der-Harst_2017_29212778/ebi-a-GCST005195.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,No,NA,547261,FALSE
+GIANT_2018_30124842__BMI,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/GIANT_2018_30124842/ieu-b-40.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,no,NA,681275,FALSE
+Willer_2013_24097068__HDL-Cholesterol,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/Willer_2013_24097068/ieu-a-299.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,no,NA,188577,FALSE
+Willer_2013_24097068__LDL-Cholesterol,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/Willer_2013_24097068/ieu-a-300.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,no,NA,188577,FALSE
+Willer_2013_24097068__Triglyceride-Measurement,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/Willer_2013_24097068/ieu-a-302.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,no,NA,188577,FALSE
+manning_fg,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/from_midway/standard_formats/mrcieu/ebi-a-GCST005186.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,No,NA,58074,FALSE
+Evangelou_2018_30224653__DBP,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/Evangelou_2018_30224653/ieu-b-39.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,no,NA,757601,FALSE
+Evangelou_2018_30224653__SBP,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/Evangelou_2018_30224653/ieu-b-38.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,no,NA,757601,FALSE
+Shungin_2015_25673412__Waist_to_hip_ratio,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/Shungin_2015_25673412/ieu-a-72.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,no,NA,224459,FALSE
+Ligthart_2018_30388399__CRP,/nfs/turbo/sph-jvmorr/gwas_summary_statistics/Ligthart_2018_30388399/ieu-b-35.vcf.gz,NA,NA,NA,NA,NA,NA,NA,NA,no,NA,204402,FALSE

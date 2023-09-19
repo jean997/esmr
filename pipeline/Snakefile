@@ -1,0 +1,184 @@
+# Snakemake pipeline for analyzing gwas summary statistic data using esmr
+#
+#
+# LICENSE: CC0. Do what you want with the code, but it has no guarantees.
+#          https://creativecommons.org/share-your-work/public-domain/cc0/
+#
+#
+# source activate cause_large
+#
+# ./run_snakemake.sh
+#
+# don't forget to update cluster.yaml
+
+
+import pandas as pd
+import random
+import string
+from snakemake.utils import validate
+
+###### Load configuration file
+configfile: "config.yaml"
+#validate(config, schema="schemas/config.schema.yaml")
+
+ss = pd.read_csv(config["input"]["sum_stats"], na_filter=False)
+
+# output options
+data_dir = config["out"]["data_dir"] #where the data is
+out_dir = config["out"]["output_dir"] #where results will go
+formatted_gwas_dir = config["out"]["formatted_gwas_dir"]
+
+prefix = config["input"]["label"] + "_"
+
+ld_strings = expand("r2{r2}_kb{kb}_seed{s}",
+                    r2 = config["analysis"]["ldprune"]["r2_thresh"],
+                    kb = config["analysis"]["ldprune"]["clump_kb"],
+                    s = config["analysis"]["ldprune"]["ld_seed"])
+l2_dir = config["analysis"]["R"]["l2_dir"]
+
+if "pt" in config["analysis"]["R"]["type"]:
+    R_strings = expand("pt{pt}", pt = config["analysis"]["R"]["pthresh"])
+else:
+    R_strings = []
+
+if "ldsc" in config["analysis"]["R"]["type"]:
+    R_strings.append("ldsc")
+
+if "ldsc_full" in config["analysis"]["R"]["type"]:
+    R_strings.append("ldsc_full")
+
+if "none" in config["analysis"]["R"]["type"]:
+    R_strings.append("none")
+
+esmr_files = expand(out_dir + prefix + "esmr{T}_{ix1}.ldpruned_{ldstring}.R_{Rstring}.RDS", 
+                        T = ["N", "P"],
+                        ix1 = config["analysis"]["ix1_options"],
+                        ldstring = ld_strings,
+                        Rstring = R_strings)
+
+all_pt = config["analysis"]["grapple_pt"][:]
+all_pt.extend(config["analysis"]["bee_pt"])
+all_pt.extend(config["analysis"]["ivw_pt"])
+max_pt = max([float(i) for i in all_pt])
+#print(max_pt)
+max_pt = 1 # this is 1 because testing esmr with p-value prioritized pruning
+
+grapple_files = expand(out_dir + prefix + "grapple_{pt}.ldpruned_{ldstring}.R_{Rstring}.RDS", 
+                        pt = config["analysis"]["grapple_pt"],
+                        ldstring = ld_strings,
+                        Rstring = R_strings)
+print(grapple_files)
+
+bee_files = expand(out_dir + prefix + "bee_{pt}_{pleio_pt}.ldpruned_{ldstring}.R_{Rstring}.RDS", 
+                        pt = config["analysis"]["bee_pt"],
+                        pleio_pt = config["analysis"]["bee_pleio_pt"],
+                        ldstring = ld_strings,
+                        Rstring = R_strings)
+
+ivw_files = expand(out_dir + prefix + "ivw_{pt}.ldpruned_{ldstring}.RDS", 
+                        pt = config["analysis"]["ivw_pt"],
+                        ldstring = ld_strings)
+rule all:
+    input: esmr_files, ivw_files, bee_files #, grapple_files
+
+# convert data to standardized format and harmonize
+rule format:
+    input: raw_data  = lambda wildcards: ss[ss['name'] == wildcards.name]['raw_data_path'].tolist()[0]
+    output: out = formatted_gwas_dir + "{name}.vcf.bgz"
+    params:
+        snp = lambda wildcards: ss[ss['name'] == wildcards.name]['snp'].tolist()[0],
+        A1 = lambda wildcards: ss[ss['name'] == wildcards.name]['A1'].tolist()[0],
+        A2 = lambda wildcards: ss[ss['name'] == wildcards.name]['A2'].tolist()[0],
+        beta_hat = lambda wildcards: ss[ss['name'] == wildcards.name]['beta_hat'].tolist()[0],
+        se = lambda wildcards: ss[ss['name'] == wildcards.name]['se'].tolist()[0],
+        chrom = lambda wildcards: ss[ss['name'] == wildcards.name]['chrom'].tolist()[0],
+        pos = lambda wildcards: ss[ss['name'] == wildcards.name]['pos'].tolist()[0],
+        p_value = lambda wildcards: ss[ss['name'] == wildcards.name]['p_value'].tolist()[0],
+        sample_size = lambda wildcards: ss[ss['name'] == wildcards.name]['sample_size'].tolist()[0],
+        is_or = lambda wildcards: ss[ss['name'] ==wildcards.name]['effect_is_or'].tolist()[0],
+        neale_format = lambda wildcards: ss[ss['name'] ==wildcards.name]['neale_format'].tolist()[0],
+        neale_var_ref = config["input"]["neale_var_ref"]
+    shell: 'Rscript R/1_format_data_withukb.R {input.raw_data} {params.snp} {params.A1} \
+            {params.A2} {params.beta_hat} {params.se} {params.chrom} {params.pos} {params.p_value} \
+            {params.is_or} {params.sample_size} {output.out} {params.neale_format} {params.neale_var_ref}'
+
+# This produces one data frame per chromosome with columns for snp info
+# and columns <study>.z, <study>.ss for z-score and sample size of each snp
+# The info file has columns for snp, min p-value, max wpost, number of traits missing
+rule snp_table_chrom:
+    input: files = expand(formatted_gwas_dir + "{name}.vcf.bgz", name = ss['name'])
+    output: out =  data_dir + prefix + "beta.{chrom}.RDS",
+            info = data_dir + prefix + "info.{chrom}.RDS"
+    params: gwas_info = config["input"]["sum_stats"], d = formatted_gwas_dir, nmiss_thresh = config["analysis"]["nmiss_thresh"]
+    wildcard_constraints: chrom = "\d+"
+    shell: 'Rscript R/2_combine_data_vcf.R {wildcards.chrom} {params.gwas_info} \
+           {params.d} {params.nmiss_thresh} {output.out} {output.info}'
+
+
+# LD prune with plink
+# LD prune prioritizing snps by minimum p-value or randomly
+rule ld_prune_plink:
+    input: info = data_dir + prefix + "info.{chrom}.RDS",
+           bfile = config["analysis"]["ldprune"]["ref_path"] + ".bed"
+    output: out = data_dir + prefix + "info.ldpruned_r2{r2_thresh}_kb{kb}_seed{s}_ttype{ttype}_tthresh{tth}.{chrom}.RDS"
+                                                                                 # threshold type       threhshold
+    params: ref_path = config["analysis"]["ldprune"]["ref_path"], nmiss_thresh = config["analysis"]["nmiss_thresh"]
+    wildcard_constraints: chrom = "\d+"
+    shell:   'Rscript R/3_ld_prune_chrom_plink_seed.R {input.info}   \
+                   {wildcards.r2_thresh} {wildcards.kb} {params.ref_path} {params.nmiss_thresh} \
+                   {wildcards.tth} {wildcards.ttype} {wildcards.s} {output.out}'
+
+# After this step, we don't need to keep the full data
+rule subset_beta:
+    input: beta =  data_dir + prefix + "beta.{chrom}.RDS",
+           keep = data_dir + prefix + "info.ldpruned_r2{r2_thresh}_kb{kb}_seed{s}_ttype{ttype}_tthresh{tth}.{chrom}.RDS"
+    output: beta = data_dir + prefix + "beta.ldpruned_r2{r2_thresh}_kb{kb}_seed{s}_ttype{ttype}_tthresh{tth}.{chrom}.RDS"
+    wildcard_constraints: chrom = "\d+"
+    shell: 'Rscript R/3_subset_zmat.R {input.beta} {input.keep} {output.beta}'
+
+# Full LDSC compute by pair
+# M doesn't matter so this could be modified to leave it out.
+# This step uses Jean's fork of the bigsnpr R package to compute cross-trait LDSC intercepts.
+rule ldsc_R:
+    input: l2 = expand(l2_dir + "{chrom}.l2.ldscore.gz", chrom = range(1, 23)),
+           m = expand(l2_dir + "{chrom}.l2.M_5_50", chrom = range(1, 23)),
+           inp =  expand(data_dir + prefix + "beta.{chrom}.RDS", chrom = range(1, 23)),
+           inf = config["input"]["sum_stats"]
+    output: out = data_dir + prefix + "R_estimate.R_ldsc_full.RDS"
+    shell: 'Rscript R/4_ldsc_mat.R {l2_dir} {input.inf} {output.out} {input.inp}'
+
+
+## Run ESMR:
+rule esmrN: 
+    input: NB = expand(data_dir + prefix + "beta.ldpruned_r2{{r2}}_kb{{kb}}_seed{{ls}}_ttypenone_tthresh1.{chrom}.RDS", chrom = range(1, 23)),
+           R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
+    output: out = out_dir + prefix + "esmrN_{ix1}.ldpruned_r2{r2}_kb{kb}_seed{ls}.R_{Rstring}.RDS",
+    shell: 'Rscript R/5_run_esmr.R {output.out} {input.R} {wildcards.ix1} {input.NB}'
+
+## Run ESMR with variants prioritized by p-value:
+rule esmrP: 
+    input: NB = expand(data_dir + prefix + "beta.ldpruned_r2{{r2}}_kb{{kb}}_seed{{ls}}_ttypepvalue_tthresh1.{chrom}.RDS", chrom = range(1, 23)),
+           R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
+    output: out = out_dir + prefix + "esmrP_{ix1}.ldpruned_r2{r2}_kb{kb}_seed{ls}.R_{Rstring}.RDS",
+    shell: 'Rscript R/5_run_esmr.R {output.out} {input.R} {wildcards.ix1} {input.NB}'
+
+## Run GRAPPLE
+rule grapple: 
+    input: NB = expand(data_dir + prefix + "beta.ldpruned_{{ldstring}}_ttypepvalue_tthresh{p}.{chrom}.RDS", chrom = range(1, 23), p = max_pt),
+           R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
+    output: out = out_dir + prefix + "grapple_{pt}.ldpruned_{ldstring}.R_{Rstring}.RDS",
+    shell: 'Rscript R/5_run_grapple.R {output.out} {input.R} {wildcards.pt} {input.NB}'
+
+## Run IVW 
+rule ivw: 
+    input: NB = expand(data_dir + prefix + "beta.ldpruned_{{ldstring}}_ttypepvalue_tthresh{p}.{chrom}.RDS", chrom = range(1, 23), p = max_pt)
+    output: out = out_dir + prefix + "ivw_{pt}.ldpruned_{ldstring}.RDS",
+    shell: 'Rscript R/5_run_ivw.R {output.out} {wildcards.pt} {input.NB}'
+
+## Run MRBEE 
+rule bee: 
+    input: NB = expand(data_dir + prefix + "beta.ldpruned_{{ldstring}}_ttypepvalue_tthresh{p}.{chrom}.RDS", chrom = range(1, 23), p = max_pt),
+           R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
+    output: out = out_dir + prefix + "bee_{pt}_{pleio_pt}.ldpruned_{ldstring}.R_{Rstring}.RDS",
+    shell: 'Rscript R/5_run_bee.R {output.out} {input.R} {wildcards.pt} {wildcards.pleio_pt} {input.NB}'
+

@@ -13,7 +13,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
   Z <- beta_hat_X/se_X
 
   trait_scale <- c(1, apply(se_X[, -1, drop = FALSE]/se_X[,1], 2, median))
-
+  colnames(Z) <- NULL
   if(is.null(R)){
     if(type == "gfa"){
       gfit <- sumstatFactors::gfa_fit(Z_hat = Z)

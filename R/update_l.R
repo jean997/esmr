@@ -77,7 +77,7 @@ update_l_k <- function(R_k, fgbar_k, fg2bar_k, omega, ebnm_fn){
   }
 
 
-  ebnm_res <- ebnm_fn( x= as.numeric(x), s = s, g_init = NULL, fix_g= FALSE, output = ebnm::output_all())
+  ebnm_res <- ebnm_fn( x= as.numeric(x), s = s, g_init = NULL, fix_g= FALSE, output = ebnm::ebnm_output_all())
   ebnm_res$KL <-  (ebnm_res$log_likelihood
                    - flashier:::normal.means.loglik(x,s,
                                                     ebnm_res$posterior$mean,

@@ -41,20 +41,20 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL){
     Rfull <- dat$omega[j,j]*Astar
     a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j])))
     a20 <- lapply(seq(p)[-j], function(jj){
-      Astar%*% dat$f$fbar[,jj,drop = FALSE]*dat$omega[j,jj]
+      Astar%*% t(dat$f$fbar[jj,,drop = FALSE])*dat$omega[j,jj]
     }) %>% Reduce(`+`, .)
     afull <- matrix(a10 - a20, nrow = p)
   }else{
     Oj <- map(dat$omega, function(o){o[j,]}) %>% unlist() %>%
       matrix(nrow = n, byrow = TRUE)
-    Astar <- lapply(seq(p), function(jj){
+    Astar <- lapply(seq(p), function(jj){ # this is a list of W^{(a,j)}
       A <- t(dat$l$abar * Oj[,jj]) %*% dat$l$abar + diag(colSums(Va * Oj[,jj]))
       dat$G %*% A %*% t(dat$G)
     })
     Rfull <- Astar[[j]]
     a10 <- colSums(dat$l$lbar *rowSums(dat$Y*Oj))
     a20 <- lapply(seq(p)[-j], function(jj){
-      Astar[[jj]]%*% dat$f$fbar[,jj,drop = FALSE]
+      Astar[[jj]]%*% t(dat$f$fbar[jj,,drop = FALSE])
     }) %>% Reduce(`+`, .)
     afull <- matrix(a10 - a20, nrow = p)
   }

@@ -32,8 +32,8 @@ esmr <- function(beta_hat_Y, se_Y,
                  svd_zthresh = 0,
                  augment_G = TRUE,
                  ix1 = NULL,
-                 ix0 = FALSE,
-                 lfsr_thresh = 1){
+                 ix0 = FALSE){
+                 #lfsr_thresh = 1){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
@@ -69,7 +69,7 @@ esmr <- function(beta_hat_Y, se_Y,
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
-  dat$lfsr_thresh <- lfsr_thresh
+  #dat$lfsr_thresh <- lfsr_thresh
 
   if(is.null(ix1)){
     dat <- esmr_solve(dat, max_iter, tol )

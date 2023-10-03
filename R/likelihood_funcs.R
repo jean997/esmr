@@ -42,6 +42,64 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega){
 }
 
 
+## likelihood function, very slow
+log_py <- function(Y, ghat, fgbar, omega){
+  n <- nrow(Y)
+  k <- ncol(fgbar)
+  p <- ncol(Y)
+
+  lpi <- lapply(ghat, function(x){log(x$pi)})
+  LPi <- expand.grid(lpi)
+  lpi <- apply(LPi, 1, sum)
+
+  s <- lapply(ghat, function(x){x$sd})
+  S <- expand.grid(s)
+  V <- apply(S, 1, function(s){
+    fgbar %*% diag(s) %*% t(fgbar)
+  }, simplify = F)
+
+  m <- length(V)
+
+  equal_omega <- check_equal_omega(omega)
+
+  if(equal_omega){
+    somega <- solve(omega)
+    lprob <- lapply(seq(m), function(mm){
+      myV <- V[[mm]] + somega
+      smV <- solve(myV)
+      c <- -(p/2)*log(2*base::pi) - (1/2)* as.numeric(determinant(myV, logarithm = TRUE)$modulus)
+
+      d <- sapply(1:n, function(i){
+        crossprod(crossprod(smV, Y[i,]), Y[i,])
+      })
+
+      lpi[mm] + c -(1/2)*d
+    })
+    A <- matrix(unlist(lprob), nrow = n, byrow = F)
+    lp <- apply(A, 1, matrixStats::logSumExp)
+    return(sum(lp))
+  }else{
+
+    lp <- sapply(1:n, function(i){
+      somega <- solve(omega[[i]])
+      lprob <- sapply(seq(m), function(mm){
+        myV <- V[[mm]] + somega
+        smV <- solve(myV)
+        c <- -(p/2)*log(2*base::pi) - (1/2)* as.numeric(determinant(myV, logarithm = TRUE)$modulus)
+
+        d <- crossprod(crossprod(smV, Y[i,]), Y[i,])
+
+        lpi[mm] + c -(1/2)*d
+      })
+      matrixStats::logSumExp(lprob)
+    })
+    return(sum(lp))
+  }
+}
+
+
+
+
 ## calculate E_q[log g(a_i) - log q(a_i)]
 ## E_q[log g(a_i)] = E_q[ log( \sum_K pi_k P(a_i; m_k, s_k))]
 calc_kl_k <- function(x, s, w, a, mu, post_mean, post_second){

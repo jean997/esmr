@@ -102,10 +102,10 @@ sandwich_cov <- function(beta, pi0, s1, j = 1, dat,
 
   theta <- c(beta, log(pi0/(1-pi0)), -log(1/s1^2))
 
-  k <- ncol(dat$G)
+  k <- dat$k
   psi_ln <- 2*k
   N <- nrow(dat$Y)
-  p <- ncol(dat$Y)
+  p <- dat$p
   ix1 <- seq(length(beta))
   ix1_ln <- length(beta)
   ix2 <- seq(4*k) + length(beta)
@@ -199,4 +199,63 @@ get_abar_a2bar <- function(Y, omega, G, ghat, fbar, ebnm_fn, tol = 1e-8, nmax = 
     a2bar0 <- a2bar
   }
   return(list(abar = abar, a2bar = a2bar, kl = sum(kl)))
+}
+
+one_step <- function(dat, beta, pi0, s1, j = 1, nodes = 1, verbose = TRUE){
+
+  n <- dat$n
+  k <- dat$k
+  p <- dat$p
+
+  if(missing(beta)){
+    beta <- dat$beta$beta_m
+  }
+  if(missing(pi0)){
+    pi0 <- sapply(dat$l$g_hat, function(x){x$pi[1]})
+  }
+  if(missing(s1)){
+    s1 <- sapply(dat$l$g_hat, function(x){x$sd[2]})
+  }
+
+  theta <- c(beta, log(pi0/(1-pi0)), -log(1/s1^2))
+  ln <- length(theta)
+
+  si <- mclapply(1:n, function(i) {
+    if(verbose ) cat(i, " of ", n, " \n")
+
+    f <- function(theta){
+      beta <- theta[1:(p-1)]
+      alpha <- theta[p:(p + k -1)]
+      pi0  <- 1 / (exp(-alpha) + 1) # pi0 <- expit(alpha), alpha <- logit(pi0)
+      gamma <- theta[(p + k):(p + 2*k-1)]
+      # gamma <- -log( 1/s1^2), s1 <- sqrt(1/exp(-gamma))
+      s1 <- sqrt(1/exp(-gamma))
+
+      ghat <- lapply(1:k, function(kk){
+        ashr::normalmix(pi = c(pi0[kk], 1-pi0[kk]), mean = c(0, 0), sd = c(0, s1[kk]))
+      })
+
+      fbar <- dat$f$fbar
+      fbar[j, -j] <- beta
+      fgbar <- fbar %*% dat$G
+
+      log_py(dat$Y[i,,drop=F],
+             ghat = ghat, fgbar = fgbar, omega = dat$omega[[i]])
+
+    }
+
+    grad <- maxLik::numericGradient(f, t0 = theta)
+
+    s <- grad
+
+    I <- outer(grad, grad)
+    c(s, I)
+  }, mc.cores=nodes)
+
+  si <- matrix(unlist(si), nrow=length(si), byrow=TRUE)
+  sihat <- colMeans(si)
+  shat <- matrix(sihat[1:ln], nrow=ln)
+  Ihat <- matrix(sihat[-(1:ln)], nrow=ln)
+  upd_est <- theta - solve(Ihat)%*% shat
+  return(upd_est[1:(p-1)])
 }

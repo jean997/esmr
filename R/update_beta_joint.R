@@ -1,13 +1,6 @@
 
 #'@export
-update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL){
-  #stopifnot(j == 1)
-  #Y, lbar, l2bar, omega, prior_cov = NULL){
-  #n <- nrow(Y)
-  #p <- ncol(Y)
-  #stopifnot(nrow(lbar) == n & ncol(lbar) == p)
-  #stopifnot(nrow(l2bar) == n & ncol(l2bar) == p)
-
+update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = FALSE){
   s_equal <- check_equal_omega(dat$omega)
 
   p <- dat$p
@@ -68,5 +61,9 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL){
   }
   S <- solve(R)
   mu <- S %*% a
+
+  if(return_W){
+    return(list(m = mu, S = S, W = R, b = a))
+  }
   return(list(m = mu, S = S))
 }

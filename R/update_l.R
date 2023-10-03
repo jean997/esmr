@@ -41,7 +41,9 @@ update_l_sequential <- function(dat, jj){
 
 
 #'@export
-update_l_k <- function(R_k, fgbar_k, fg2bar_k, omega, ebnm_fn){
+update_l_k <- function(R_k, fgbar_k, fg2bar_k, omega, ebnm_fn,
+                       g_init = NULL, fix_g = FALSE,
+                       return_post = FALSE, return_x_s = FALSE){
   n <- nrow(R_k)
   p <- ncol(R_k)
   stopifnot(length(fgbar_k) == p)
@@ -70,6 +72,10 @@ update_l_k <- function(R_k, fgbar_k, fg2bar_k, omega, ebnm_fn){
   x <- B/A
   s <- 1/sqrt(A)
 
+  if(return_x_s){
+    return(list(x = x, s = s))
+  }
+
   ixnmiss <- which(A > 0)
   if(length(ixnmiss)  != n){
     x <- x[ixnmiss]
@@ -77,19 +83,21 @@ update_l_k <- function(R_k, fgbar_k, fg2bar_k, omega, ebnm_fn){
   }
 
 
-  ebnm_res <- ebnm_fn( x= as.numeric(x), s = s, g_init = NULL, fix_g= FALSE, output = ebnm::ebnm_output_all())
+  ebnm_res <- ebnm_fn( x= as.numeric(x), s = s, g_init = g_init, fix_g= fix_g, output = ebnm::ebnm_output_all())
   ebnm_res$KL <-  (ebnm_res$log_likelihood
                    - flashier:::normal.means.loglik(x,s,
                                                     ebnm_res$posterior$mean,
                                                     ebnm_res$posterior$second_moment))
   ebnm_res$posterior$index <- ixnmiss
   # This is only for point normal
-  # a <- 1/ebnm_res$fitted_g$sd[2]^2
-  # w <- ebnm_res$fitted_g$pi[2]
-  # ebnm_res$posterior$wpost <- ebnm:::wpost_normal(x, s, w, a, 0)
-  # ebnm_res$posterior$mu <- ebnm:::pmean_cond_normal(x, s, a, 0)
-  # ebnm_res$posterior$s2 <- ebnm:::pvar_cond_normal(s, a)
-  # ebnm_res$posterior$post_mode <- round(ebnm_res$posterior$wpost)*ebnm_res$posterior$mu
+  if(return_post){
+    a <- 1/ebnm_res$fitted_g$sd[2]^2
+    w <- ebnm_res$fitted_g$pi[2]
+    ebnm_res$posterior$wpost <- ebnm:::wpost_normal(x, s, w, a, 0)
+    ebnm_res$posterior$mu <- ebnm:::pmean_cond_normal(x, s, a, 0)
+    ebnm_res$posterior$s2 <- ebnm:::pvar_cond_normal(s, a)
+    #ebnm_res$posterior$post_mode <- round(ebnm_res$posterior$wpost)*ebnm_res$posterior$mu
+  }
   return(ebnm_res)
 
 

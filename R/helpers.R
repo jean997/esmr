@@ -218,14 +218,14 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
 subset_data <- function(dat, ix){
   s_equal <- check_equal_omega(dat$omega)
-  dat$Y <- dat$Y[ix,]
-  dat$S <- dat$S[ix,]
+  dat$Y <- dat$Y[ix,,drop=F]
+  dat$S <- dat$S[ix,,drop=F]
   dat$n <- length(ix)
-  dat$l$lbar <- dat$l$lbar[ix,]
-  dat$l$l2bar <- dat$l$l2bar[ix,]
-  dat$l$abar <- dat$l$abar[ix,]
-  dat$l$a2bar <- dat$l$a2bar[ix,]
-  dat$l$lfsr <- dat$l$lfsr[ix,]
+  dat$l$lbar <- dat$l$lbar[ix,,drop=F]
+  dat$l$l2bar <- dat$l$l2bar[ix,,drop=F]
+  dat$l$abar <- dat$l$abar[ix,,drop=F]
+  dat$l$a2bar <- dat$l$a2bar[ix,,drop=F]
+  dat$l$lfsr <- dat$l$lfsr[ix,,drop=F]
   if(!s_equal){
     dat$omega <- dat$omega[ix]
   }

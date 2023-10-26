@@ -16,13 +16,6 @@ esmr_solve <- function(dat, max_iter, tol){
     ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega))
     obj <- c(obj, ll + dat$l$kl)
 
-    ### Temporary Code
-    # minlfsr <- apply(dat$l$lfsr, 1, min)
-    # ixk <- which(minlfsr < dat$lfsr_thresh)
-    # du <- subset_data(dat, ixk)
-    # ixlist[[i]] <- ixk
-    ###
-
     # beta update
     if(!dat$beta_joint){
       dat <- update_beta_sequential(dat)

@@ -1,10 +1,10 @@
-#' mrScan
+#' esmr
 #'
 #'
 #'
 #' @docType package
 #' @author Jean Morrison <jvmorr@umich.edu>
-#' @import ashr ieugwasr TwoSampleMR
-#' @import dplyr purrr tidyr
-#' @name mrScan
+#' @import ashr ebnm flashier
+#' @import dplyr purrr
+#' @name esmr
 NULL

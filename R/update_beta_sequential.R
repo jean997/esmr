@@ -4,9 +4,12 @@ update_beta_k <- function(j, k, dat){
 
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
+
+
   if(s_equal){
+
     A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
-    Astar <- dat$G %*% A %*% t(dat$G)
+    Astar <- dat$G %*% A %*% t(dat$G) # E[t(L) %*% L]
 
     s2inv <- (1/dat$sigma_beta^2) + Astar[k,k]*dat$omega[j,j]
     s2 <- 1/s2inv
@@ -18,6 +21,7 @@ update_beta_k <- function(j, k, dat){
     m <- (m_pt1 - m_pt2 - m_pt3) * s2
   }else{
     stop("Not implemented yet.")
+
     ojj <- map(dat$omega, function(o){o[j,j]}) %>% unlist()
 
     s2inv <- (1/dat$sigma_beta^2) + sum(dat$l$l2bar[,k]*ojj)
@@ -37,15 +41,6 @@ update_beta_k <- function(j, k, dat){
 }
 
 update_beta_sequential <- function(dat){
-  #p <- dat$p
-
-  #beta_j <- dat$beta$beta_j
-  #beta_k <- dat$beta$beta_k
-
-  # fbar <- dat$f$fbar
-  # f2bar <- dat$f$f2bar
-  # beta_m <- dat$beta$beta_m
-  # beta_s <- dat$beta$beta_s
 
   coords <- seq(length(dat$beta$beta_j))
   coords <- coords[!dat$beta$fix_beta]
@@ -54,15 +49,13 @@ update_beta_sequential <- function(dat){
     k <- dat$beta$beta_k[i]
     j <- dat$beta$beta_j[i]
 
-    b <- update_beta_k(j,k,dat)
+    #b <- update_beta_k(j,k,dat)
+    b <- update_beta_joint(dat, j = j, ix = k)
     dat$beta$beta_m[i] <- b$m
-    dat$beta$beta_s[i] <- b$s
+    #dat$beta$beta_s[i] <- b$s
+    dat$beta$beta_s[i] <- b$S
     dat$f <- make_f(dat)
-    # fbar <- f$fbar
-    # f2bar <- f$f2bar
+
   }
-  # dat$beta$beta_m <- beta_m
-  # dat$beta$beta_s <- beta_s
-  #dat$f <- dat$f_fun(dat$beta$beta_m, dat$beta$beta_s)
   return(dat)
 }

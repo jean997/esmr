@@ -29,7 +29,7 @@ init_beta <- function(p, which_beta=NULL,
   if(is.null(which_beta)){
     beta_j <- rep(1, p-1)
     beta_k <- 2:p
-  }else if(!is.null(which_beta)){
+  }else{
     beta_j <- which_beta[,1]
     beta_k <- which_beta[,2]
   }

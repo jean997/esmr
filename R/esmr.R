@@ -39,7 +39,7 @@ esmr <- function(beta_hat_Y, se_Y,
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
   g_type <- match.arg(g_type, choices = c("gfa", "svd"))
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
-
+  stopifnot(beta_joint %in% c(TRUE, FALSE))
 
   if(is.null(G)){
     if(dat$p == 2){
@@ -57,13 +57,14 @@ esmr <- function(beta_hat_Y, se_Y,
     }
   }
   dat$G <- check_matrix(G, "G", n = dat$p)
+
   dat$k <- ncol(dat$G)
 
   dat$beta <- init_beta(dat$p, which_beta, beta_m_init, fix_beta)
   dat$f <- make_f(dat)
   #dat$f0 <- make_f(dat)
 
-  dat$l <- init_l(dat$n, dat$k, ncol(dat$G))
+  dat$l <- init_l(dat$n, dat$p, dat$k)
 
 
   dat$beta_joint <- beta_joint

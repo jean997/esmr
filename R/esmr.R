@@ -48,7 +48,7 @@ esmr <- function(beta_hat_Y, se_Y,
       warning("Cannot estimate G for network problem yet.\n")
       G <- diag(dat$p)
     }else{
-      G <- estimate_G(beta_hat_X <- dat$Y[,-1,drop =F],
+      G <- estimate_G(beta_hat_X = dat$Y[,-1,drop =F],
                       se_X = dat$S[,-1, drop = F],
                       R = R[-1, -1, drop = FALSE],
                       type = g_type,

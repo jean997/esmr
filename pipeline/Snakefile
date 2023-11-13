@@ -57,7 +57,7 @@ esmr_files = expand(out_dir + prefix + "esmr_{ix1}.ldpruned_{ldstring}.R_{Rstrin
 
 all_pt = config["analysis"]["grapple_pt"][:]
 all_pt.extend(config["analysis"]["bee_pt"])
-all_pt.extend(config["analysis"]["ivw_pt"])
+all_pt.extend(config["analysis"]["ivw_pt"]) 
 max_pt = max([float(i) for i in all_pt])
 #print(max_pt)
 max_pt = 1 # this is 1 because testing esmr with p-value prioritized pruning
@@ -150,7 +150,7 @@ rule ldsc_R:
 rule esmr:
     input: NB = expand(data_dir + prefix + "beta.ldpruned_r2{{r2}}_kb{{kb}}_seed{{ls}}_ttypepvalue_tthresh1.{chrom}.RDS", chrom = range(1, 23)),
            R = data_dir + prefix + "R_estimate.R_{Rstring}.RDS",
-    output: out = out_dir + prefix + "esmrP_{ix1}.ldpruned_r2{r2}_kb{kb}_seed{ls}.R_{Rstring}.RDS",
+    output: out = out_dir + prefix + "esmr_{ix1}.ldpruned_r2{r2}_kb{kb}_seed{ls}.R_{Rstring}.RDS",
     shell: 'Rscript R/5_run_esmr.R {output.out} {input.R} {wildcards.ix1} {input.NB}'
 
 ## Run GRAPPLE

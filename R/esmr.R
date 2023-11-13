@@ -24,22 +24,27 @@ esmr <- function(beta_hat_Y, se_Y,
                  sigma_beta = Inf,
                  tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
                  #####
-                 beta_m_init = NULL,
-                 which_beta = NULL,
-                 fix_beta = FALSE,
+                 direct_effect_template = NULL,
+                 direct_effect_init = NULL,
+                 # add ability to fix some effects later
+                 #fix_beta = FALSE,
                  beta_joint = TRUE,
                  g_type = c("gfa", "svd"),
                  svd_zthresh = 0,
                  augment_G = TRUE,
-                 ix1 = NULL,
-                 ix0 = FALSE){
-                 #lfsr_thresh = 1){
+                 ix1 = NULL){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
   g_type <- match.arg(g_type, choices = c("gfa", "svd"))
-  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   stopifnot(beta_joint %in% c(TRUE, FALSE))
+
+  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
+  dat$beta_joint <- beta_joint
+  dat$ebnm_fn <- ebnm_fn
+  dat$sigma_beta <- sigma_beta
+
+
 
   if(is.null(G)){
     if(dat$p == 2){
@@ -60,24 +65,33 @@ esmr <- function(beta_hat_Y, se_Y,
 
   dat$k <- ncol(dat$G)
 
+
+  if(!is.null(direct_effect_template)){
+    B <- check_B_template(direct_effect_template)
+    which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1)] ## transpose
+    colnames(which_beta) <- c("row", "col")
+    if(!is.null(direct_effect_init)){ ## to do: add check for valid initialization
+      beta_m_init <- direct_effect_init(which_beta)
+    }else{
+      beta_m_init <- NULL
+    }
+    fix_beta <- c(rep(FALSE, nrow(B$which_tot_u)), rep(TRUE, nrow(B$which_tot_c)))
+    if(nrow(B$which_tot_c) > 0){
+      dat$which_tot_c <- B$which_tot_c # no transpose[,c(2, 1)]
+      #colnames(dat$which_tot_c) <- c("row", "col")
+    }
+  }else{
+    which_beta <- beta_m_init <- fix_beta <- NULL
+  }
+
   dat$beta <- init_beta(dat$p, which_beta, beta_m_init, fix_beta)
   dat$f <- make_f(dat)
   #dat$f0 <- make_f(dat)
 
   dat$l <- init_l(dat$n, dat$p, dat$k)
 
-
-  dat$beta_joint <- beta_joint
-  dat$ebnm_fn <- ebnm_fn
-  dat$sigma_beta <- sigma_beta
-  #dat$lfsr_thresh <- lfsr_thresh
-
   if(is.null(ix1)){
     dat <- esmr_solve(dat, max_iter, tol )
-  }else if(ix0){
-    dat <- get_ix1_ix0(dat, ix1)
-    dat$f0 <- make_f(dat)
-    dat <- esmr_solve_2part(dat, max_iter, tol )
   }else{
     dat <- get_ix1_ix0(dat, ix1)
     dat <- subset_data(dat, dat$ix1)

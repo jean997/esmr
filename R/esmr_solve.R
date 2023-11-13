@@ -27,7 +27,6 @@ esmr_solve <- function(dat, max_iter, tol){
         if(length(ii) == 0) next
         ix <- dat$beta$beta_k[ii]
         beta_upd <- update_beta_joint(dat, j = j, ix = ix)
-        #beta_upd <- update_beta_joint(du, j = j, ix = ix) ## temporary
 
         dat$beta$beta_m[ii] <- beta_upd$m
         dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
@@ -35,6 +34,19 @@ esmr_solve <- function(dat, max_iter, tol){
         dat$f <- make_f(dat)
       }
     }
+    ## new step, update total effects based on constraints
+    if(!is.null(dat$which_tot_c)){
+      f <- t(complete_T(t(dat$f$fbar), dat$which_tot_c)$total_effects)
+      f2 <- t(complete_T(t(dat$f$f2bar), dat$which_tot_c)$total_effects) ## assumes independent estimates
+      vf <- f2 - (f^2)
+      ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+      dat$beta$beta_m <- f[ix]
+      dat$beta$beta_s <- sqrt((f2[ix]) - (f[ix])^2)
+      diag(dat$beta$V) <- dat$beta$beta_s^2
+      dat$f <- make_f(dat)
+    }
+
+    ###
     ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega))
     obj <- c(obj, ll + dat$l$kl)
 

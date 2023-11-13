@@ -9,10 +9,13 @@ make_f <- function(dat){
   }
   fbar <- f2bar <- diag(dat$p)
   nb <- length(dat$beta$beta_j)
-  for(i in seq(nb)) fbar[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_m[i]
+  ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+  fbar[ix] <- dat$beta$beta_m
+  #for(i in seq(nb)) fbar[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_m[i]
   fgbar <- fbar %*% dat$G
   V <- matrix(0, nrow = dat$p, ncol = dat$p)
-  for(i in seq(nb)) V[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_s[i]^2
+  V[ix] <- dat$beta$beta_s^2
+  #for(i in seq(nb)) V[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_s[i]^2
   f2bar <- (fbar^2) + V
   fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
   return(list(fgbar = fgbar, fg2bar = fg2bar,
@@ -278,6 +281,50 @@ get_ix1_ix0 <- function(dat, ix1){
   return(dat)
 }
 
+
+## check structure of direct effects, return structure of total effects
+direct_to_total <- function(B_dir){
+  n <- nrow(B_dir)
+  B_total <- solve(diag(n) - B_dir) - diag(n)
+  if(!all(diag(B_total) == 0)){
+    stop("Failed to compute total effects from direct. Check that supplied B_dir corresponds to a valid DAG.\n")
+  }
+  return(B_total)
+}
+
+total_to_direct <- function(B_tot){
+  n <- nrow(B_tot)
+  B_dir <-diag(n) - solve(diag(n) + B_tot)
+  if(!all(diag(B_dir) == 0)){
+    stop("Failed to compute total effects from direct. Check that supplied B_tot corresponds to a valid DAG.\n")
+  }
+  return(B_dir)
+}
+
+
+check_B_template <- function(B){
+  if(! inherits(B, "matrix")){
+    stop("Direct effects template is not a matrix. \n")
+  }
+  n <- nrow(B)
+  if(!ncol(B) == n) stop("Direct effects template is not square.\n")
+  if(!all(B %in% c(0, 1))) stop("Direct effects template should contain only 0 and 1 entries.")
+  if(!all(diag(B) ==0)){
+    stop("Direct effects template must have 0s on the diagonal.")
+  }
+  B_tot <- tryCatch(direct_to_total(B), error = function(e){
+    stop("Failed to compute total effects from direct. Check that supplied template corresponds to a valid DAG.\n")
+  })
+  if(!all(diag(B_tot) == 0)){
+    stop("Supplied template does not correspond to a valid DAG.\n")
+  }
+  B_tot[!B_tot == 0] <- 1
+  which_tot_u <- which(B_tot != 0 & B != 0, arr.ind = TRUE)
+  which_tot_c <- which(B_tot != 0 & B == 0, arr.ind = TRUE)
+  return(list(B_dir = B, B_tot = B_tot, which_tot_u = which_tot_u, which_tot_c = which_tot_c ))
+}
+
+
 ## unused
 check_omega <- function(omega, n, p, s_equal){
   if(s_equal){
@@ -294,7 +341,7 @@ check_omega <- function(omega, n, p, s_equal){
   }
 }
 
-
+## unused
 get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_normal"){
   wpost <- purrr::map_dfc(col_ix, function(ii){
     cat(ii, "\n")

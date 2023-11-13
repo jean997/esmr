@@ -49,7 +49,7 @@ esmr <- function(beta_hat_Y, se_Y,
   if(is.null(G)){
     if(dat$p == 2){
       G <- diag(dat$p)
-    }else if(!missing(which_beta)){
+    }else if(!missing(direct_effect_template)){
       warning("Cannot estimate G for network problem yet.\n")
       G <- diag(dat$p)
     }else{
@@ -81,7 +81,8 @@ esmr <- function(beta_hat_Y, se_Y,
       #colnames(dat$which_tot_c) <- c("row", "col")
     }
   }else{
-    which_beta <- beta_m_init <- fix_beta <- NULL
+    which_beta <- beta_m_init <-  NULL
+    fix_beta <- FALSE
   }
 
   dat$beta <- init_beta(dat$p, which_beta, beta_m_init, fix_beta)

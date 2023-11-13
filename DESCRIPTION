@@ -20,8 +20,8 @@ Imports:
     Matrix,
     matrixStats,
     purrr,
-    sumstatFactors (>= 0.1.2.319)
+    sumstatFactors (>= 0.1.2.319),
+    ebnm,
+    flashier    
 Remotes: 
-    stephens99/ebnm,
-    willwershcheid/flashier,
     jean997/sumstatFactors

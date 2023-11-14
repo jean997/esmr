@@ -201,16 +201,21 @@ get_omega <- function(R, S, any_missing){
 
 set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
-  beta_hat_Y <- check_numeric(beta_hat_Y, "beta_hat_Y")
-  n <- length(beta_hat_Y)
-  se_Y <- check_numeric(se_Y, "se_Y", n)
   beta_hat_X <- check_matrix(beta_hat_X, "beta_hat_X", n)
-  p <- ncol(beta_hat_X) + 1
-  se_X <- check_matrix(se_X, "se_X", n, p-1)
+  p <- ncol(beta_hat_X)
+  se_X <- check_matrix(se_X, "se_X", n, p)
+  if(!is.null(beta_hat_Y)){
+    beta_hat_Y <- check_numeric(beta_hat_Y, "beta_hat_Y")
+    n <- length(beta_hat_Y)
+    se_Y <- check_numeric(se_Y, "se_Y", n)
+    p <- p + 1
+    beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)
+    se_X <- cbind(se_Y, se_X)
+  }
   R <- check_matrix(R, "R", p, p)
   R <- check_R(R)
 
-  dat <- check_missing(cbind(beta_hat_Y, beta_hat_X), cbind(se_Y, se_X))
+  dat <- check_missing( beta_hat_X, se_X)
   dat$omega <- get_omega(R, dat$S, dat$any_missing) # omega is row correlation of data, either list or single matrix
   dat$n <- n
   dat$p <- p

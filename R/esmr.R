@@ -15,8 +15,8 @@
 #'@param g_type Method to estimate G. Suggest "gfa"
 #'@param augment_G Augment estimated G
 #'@export
-esmr <- function(beta_hat_Y, se_Y,
-                 beta_hat_X, se_X,
+esmr <- function(beta_hat_X, se_X,
+                 beta_hat_Y=NULL, se_Y = NULL,
                  G = NULL,
                  R = NULL,
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),

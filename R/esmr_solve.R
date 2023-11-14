@@ -21,18 +21,27 @@ esmr_solve <- function(dat, max_iter, tol){
       dat <- update_beta_sequential(dat)
     }else{
       dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
-      jj <- unique(dat$beta$beta_j)
-      for(j in jj){
-        ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)
-        if(length(ii) == 0) next
-        ix <- dat$beta$beta_k[ii]
-        beta_upd <- update_beta_joint(dat, j = j, ix = ix)
+      if(dat$R_is_id){
+        # if all omega are diagonal, update F by rows
+        jj <- unique(dat$beta$beta_j)
+        for(j in jj){
+          ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)
+          if(length(ii) == 0) next
+          ix <- dat$beta$beta_k[ii]
+          beta_upd <- update_beta_joint(dat, j = j, ix = ix)
 
-        dat$beta$beta_m[ii] <- beta_upd$m
-        dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
-        dat$beta$V[ii,ii] <- beta_upd$S
-        dat$f <- make_f(dat)
+          dat$beta$beta_m[ii] <- beta_upd$m
+          dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
+          dat$beta$V[ii,ii] <- beta_upd$S
+        }
+      }else{
+        e_ix <- which(!dat$beta$fix_beta)
+        ub <- update_beta_full_joint(dat, prior_cov = NULL)
+        dat$beta$beta_m[e_ix] <- ub$m
+        dat$beta$V[e_ix,e_ix] <- ub$S
+        dat$beta$beta_s[e_ix] <- sqrt(diag(ub$S))
       }
+      dat$f <- make_f(dat)
     }
     ## new step, update total effects based on constraints
     if(!is.null(dat$which_tot_c)){

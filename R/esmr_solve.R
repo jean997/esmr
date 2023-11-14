@@ -21,8 +21,8 @@ esmr_solve <- function(dat, max_iter, tol){
       dat <- update_beta_sequential(dat)
     }else{
       dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
-      if(dat$R_is_id){
-        # if all omega are diagonal, update F by rows
+      if(dat$R_is_id | length(unique(dat$beta$beta_j)) == 1){
+        # if all omega are diagonal or only estimating one row, update F by rows
         jj <- unique(dat$beta$beta_j)
         for(j in jj){
           ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)

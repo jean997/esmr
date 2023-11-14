@@ -201,12 +201,12 @@ get_omega <- function(R, S, any_missing){
 
 set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
+  n <- nrow(beta_hat_X)
   beta_hat_X <- check_matrix(beta_hat_X, "beta_hat_X", n)
   p <- ncol(beta_hat_X)
   se_X <- check_matrix(se_X, "se_X", n, p)
   if(!is.null(beta_hat_Y)){
-    beta_hat_Y <- check_numeric(beta_hat_Y, "beta_hat_Y")
-    n <- length(beta_hat_Y)
+    beta_hat_Y <- check_numeric(beta_hat_Y, "beta_hat_Y", n)
     se_Y <- check_numeric(se_Y, "se_Y", n)
     p <- p + 1
     beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)

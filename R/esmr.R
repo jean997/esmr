@@ -43,7 +43,7 @@ esmr <- function(beta_hat_X, se_X,
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
-  dat$R_is_id <- is.null(R) | all(R == diag(p))
+  dat$R_is_id <- is.null(R) | all(R == diag(dat$p))
 
 
 

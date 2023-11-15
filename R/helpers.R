@@ -224,6 +224,20 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
 }
 
+reorder_data <- function(dat, cols) {
+  dat$Y <- dat$Y[,cols,drop=F]
+  dat$S <- dat$S[,cols,drop=F]
+  if ('l' %in% names(dat)) {
+    dat$l$lbar <- dat$l$lbar[,cols,drop=F]
+    dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
+    dat$l$abar <- dat$l$abar[,cols,drop=F]
+    dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
+    dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
+  }
+
+  return(dat)
+}
+
 subset_data <- function(dat, ix){
   s_equal <- check_equal_omega(dat$omega)
   dat$Y <- dat$Y[ix,,drop=F]
@@ -323,6 +337,7 @@ check_B_template <- function(B){
   if(!all(diag(B_tot) == 0)){
     stop("Supplied template does not correspond to a valid DAG.\n")
   }
+
   B_tot[!B_tot == 0] <- 1
   which_tot_u <- which(B_tot != 0 & B != 0, arr.ind = TRUE)
   which_tot_c <- which(B_tot != 0 & B == 0, arr.ind = TRUE)

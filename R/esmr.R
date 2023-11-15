@@ -45,8 +45,6 @@ esmr <- function(beta_hat_X, se_X,
   dat$sigma_beta <- sigma_beta
   dat$R_is_id <- is.null(R) | all(R == diag(dat$p))
 
-
-
   if(is.null(G)){
     if(dat$p == 2){
       G <- diag(dat$p)
@@ -66,9 +64,23 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$k <- ncol(dat$G)
 
-
+  topo_order <- NULL
   if(!is.null(direct_effect_template)){
-    B <- check_B_template(direct_effect_template)
+    # Check if we have lower triangular
+    B_prop <- direct_effect_template
+    if (any(B_prop[upper.tri(B_prop)] != 0)) {
+      # Direct effect template is not an lower triangular matrix
+      # Attempt to re-order with topo-sort
+      topo_order <- tryCatch({
+        topo_sort_mat(B_prop)
+      }, error = function(e){
+        stop("Failed to compute total effects from direct. Check that supplied template corresponds to a valid DAG.\n")
+      })
+
+      B_prop <- B_prop[topo_order, topo_order]
+    }
+
+    B <- check_B_template(B_prop)
     which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1)] ## transpose
     colnames(which_beta) <- c("row", "col")
     if(!is.null(direct_effect_init)){ ## to do: add check for valid initialization
@@ -92,12 +104,20 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$l <- init_l(dat$n, dat$p, dat$k)
 
+  if (!is.null(topo_order)) {
+    dat <- reorder_data(dat, topo_order)
+  }
   if(is.null(ix1)){
     dat <- esmr_solve(dat, max_iter, tol )
   }else{
     dat <- get_ix1_ix0(dat, ix1)
     dat <- subset_data(dat, dat$ix1)
     dat <- esmr_solve(dat, max_iter, tol)
+  }
+
+  if (!is.null(topo_order)) {
+    inv_topo_order <- order(topo_order)
+    dat <- reorder_data(dat, inv_topo_order)
   }
 
   return(dat)

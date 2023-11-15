@@ -39,6 +39,26 @@ esmr <- function(beta_hat_X, se_X,
   g_type <- match.arg(g_type, choices = c("gfa", "svd"))
   stopifnot(beta_joint %in% c(TRUE, FALSE))
 
+  topo_order <- NULL
+  if(!is.null(direct_effect_template)){
+    # Check if we have lower triangular
+    B_prop <- direct_effect_template
+    if (any(B_prop[upper.tri(B_prop)] != 0)) {
+      # Direct effect template is not an lower triangular matrix
+      # Attempt to re-order with topo-sort
+      topo_order <- tryCatch({
+        topo_sort_mat(B_prop)
+      }, error = function(e){
+        stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
+      })
+
+      B_prop <- B_prop[topo_order, topo_order]
+      beta_hat_X <- beta_hat_X[, topo_order]
+      se_X <- se_X[, topo_order]
+      R <- R[, topo_order]
+    }
+  }
+
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
@@ -64,22 +84,7 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$k <- ncol(dat$G)
 
-  topo_order <- NULL
   if(!is.null(direct_effect_template)){
-    # Check if we have lower triangular
-    B_prop <- direct_effect_template
-    if (any(B_prop[upper.tri(B_prop)] != 0)) {
-      # Direct effect template is not an lower triangular matrix
-      # Attempt to re-order with topo-sort
-      topo_order <- tryCatch({
-        topo_sort_mat(B_prop)
-      }, error = function(e){
-        stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
-      })
-
-      B_prop <- B_prop[topo_order, topo_order]
-    }
-
     B <- check_B_template(B_prop)
     which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1)] ## transpose
     colnames(which_beta) <- c("row", "col")
@@ -104,9 +109,6 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$l <- init_l(dat$n, dat$p, dat$k)
 
-  if (!is.null(topo_order)) {
-    dat <- reorder_data(dat, topo_order, fields = c('Y', 'S'))
-  }
   if(is.null(ix1)){
     dat <- esmr_solve(dat, max_iter, tol )
   }else{

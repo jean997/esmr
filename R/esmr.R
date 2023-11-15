@@ -105,7 +105,7 @@ esmr <- function(beta_hat_X, se_X,
   dat$l <- init_l(dat$n, dat$p, dat$k)
 
   if (!is.null(topo_order)) {
-    dat <- reorder_data(dat, topo_order)
+    dat <- reorder_data(dat, topo_order, fields = c('Y', 'S'))
   }
   if(is.null(ix1)){
     dat <- esmr_solve(dat, max_iter, tol )
@@ -118,6 +118,7 @@ esmr <- function(beta_hat_X, se_X,
   if (!is.null(topo_order)) {
     inv_topo_order <- order(topo_order)
     dat <- reorder_data(dat, inv_topo_order)
+    dat$topo_order <- topo_order
   }
 
   return(dat)

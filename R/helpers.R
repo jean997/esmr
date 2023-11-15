@@ -224,15 +224,28 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
 }
 
-reorder_data <- function(dat, cols) {
-  dat$Y <- dat$Y[,cols,drop=F]
-  dat$S <- dat$S[,cols,drop=F]
-  if ('l' %in% names(dat)) {
+reorder_data <- function(dat, cols, fields = c('Y', 'S', 'l', 'f', 'beta')) {
+  fields <- match.arg(fields, several.ok = TRUE)
+  if ('Y' %in% fields) dat$Y <- dat$Y[,cols,drop=F]
+  if ('S' %in% fields) dat$S <- dat$S[,cols,drop=F]
+  if ('l' %in% fields) {
     dat$l$lbar <- dat$l$lbar[,cols,drop=F]
     dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
     dat$l$abar <- dat$l$abar[,cols,drop=F]
     dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
     dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
+  }
+  if ('f' %in% fields) {
+    dat$f <- lapply(dat$f, function(x) {
+      x[cols, cols]
+    })
+  }
+  if ('beta' %in% fields) {
+    dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
+    dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
+    ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+    dat$beta$beta_m <- dat$beta$beta_m[ix]
+    dat$beta$beta_s <- dat$beta$beta_s[ix]
   }
 
   return(dat)

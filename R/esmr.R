@@ -74,7 +74,7 @@ esmr <- function(beta_hat_X, se_X,
       topo_order <- tryCatch({
         topo_sort_mat(B_prop)
       }, error = function(e){
-        stop("Failed to compute total effects from direct. Check that supplied template corresponds to a valid DAG.\n")
+        stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
       })
 
       B_prop <- B_prop[topo_order, topo_order]

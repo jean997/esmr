@@ -235,17 +235,17 @@ reorder_data <- function(dat, cols, fields = c('Y', 'S', 'l', 'f', 'beta')) {
     dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
     dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
   }
-  if ('f' %in% fields) {
+  if (any(c('f', 'beta') %in% fields)) {
     dat$f <- lapply(dat$f, function(x) {
       x[cols, cols]
     })
-  }
-  if ('beta' %in% fields) {
     dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
     dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
     ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
-    dat$beta$beta_m <- dat$beta$beta_m[ix]
-    dat$beta$beta_s <- dat$beta$beta_s[ix]
+    dat$beta$beta_m <- dat$f$fbar[ix]
+    dat$beta$beta_s <- sqrt((dat$f$f2bar[ix]) - dat$beta$beta_m^2)
+    diag(dat$beta$V) <- dat$beta$beta_s^2
+    dat$f <- make_f(dat)
   }
 
   return(dat)

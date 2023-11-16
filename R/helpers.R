@@ -224,7 +224,8 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
 }
 
-reorder_data <- function(dat, cols, fields = c('Y', 'S', 'l', 'f', 'beta')) {
+reorder_data <- function(
+    dat, cols, fields = c('Y', 'S', 'l', 'f', 'beta', 'omega')) {
   fields <- match.arg(fields, several.ok = TRUE)
   if ('Y' %in% fields) dat$Y <- dat$Y[,cols,drop=F]
   if ('S' %in% fields) dat$S <- dat$S[,cols,drop=F]
@@ -246,6 +247,9 @@ reorder_data <- function(dat, cols, fields = c('Y', 'S', 'l', 'f', 'beta')) {
     dat$beta$beta_s <- sqrt((dat$f$f2bar[ix]) - dat$beta$beta_m^2)
     diag(dat$beta$V) <- dat$beta$beta_s^2
     dat$f <- make_f(dat)
+  }
+  if ("omega" %in% fields) {
+    dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
   }
 
   return(dat)

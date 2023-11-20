@@ -34,7 +34,6 @@ esmr <- function(beta_hat_X, se_X,
                  augment_G = TRUE,
                  ix1 = NULL){
 
-
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
   g_type <- match.arg(g_type, choices = c("gfa", "svd"))
   stopifnot(beta_joint %in% c(TRUE, FALSE))
@@ -121,6 +120,12 @@ esmr <- function(beta_hat_X, se_X,
     inv_topo_order <- order(topo_order)
     dat <- reorder_data(dat, inv_topo_order)
     dat$topo_order <- topo_order
+  }
+
+  class(dat) <- c('esmr', class(dat))
+
+  if(!is.null(direct_effect_template)){
+   class(data) <- c('nesmr', class(dat))
   }
 
   return(dat)

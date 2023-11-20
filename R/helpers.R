@@ -235,6 +235,7 @@ reorder_data <- function(
     dat$l$abar <- dat$l$abar[,cols,drop=F]
     dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
     dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
+    dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
   }
   if (any(c('f', 'beta') %in% fields)) {
     dat$f <- lapply(dat$f, function(x) {

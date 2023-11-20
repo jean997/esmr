@@ -19,6 +19,7 @@ esmr_solve <- function(dat, max_iter, tol){
     # beta update
     if(!dat$beta_joint){
       dat <- update_beta_sequential(dat)
+      dat$beta$V <- diag(dat$beta$beta_s^2)
     }else{
       dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
       if(dat$R_is_id | length(unique(dat$beta$beta_j)) == 1){
@@ -46,7 +47,8 @@ esmr_solve <- function(dat, max_iter, tol){
     ## new step, update total effects based on constraints
     if(!is.null(dat$which_tot_c)){
       f <- t(complete_T(t(dat$f$fbar), dat$which_tot_c)$total_effects)
-      f2 <- t(complete_T(t(dat$f$f2bar), dat$which_tot_c)$total_effects) ## assumes independent estimates
+      ## temporary fix for negative variance
+      f2 <- pmax(t(complete_T(t(dat$f$f2bar), dat$which_tot_c)$total_effects), f^2) ## assumes independent estimates
       vf <- f2 - (f^2)
       ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
       dat$beta$beta_m <- f[ix]

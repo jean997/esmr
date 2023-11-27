@@ -81,23 +81,16 @@ three_sim <- function(seed = NULL) {
   )
 
   res$true_ll <- logLik(true_model)
-  res$true_ll <- logLik(full_model)
+  res$full_ll <- logLik(full_model)
 
-  res$log_lik <- lapply(1:3, function(i) {
-    pchisq(
-      - 2 * (logLik(true_model) - logLik(full_model)),
+  res$log_lik <- pchisq(
+      - 2 * (res$true_ll - res$full_ll),
       df = sum(B_alt1) - sum(B_true),
       lower.tail = FALSE
     )
-  })
 
-  res$direct_true <- lapply(true_model, function(x) {
-    total_to_direct(t(x$f$fbar) - diag(3))
-  })
-
-  res$direct_full <- lapply(full_model, function(x) {
-    total_to_direct(t(x$f$fbar) - diag(3))
-  })
+  res$true_fbar <- true_model$f$fbar
+  res$full_fbar <- full_model$f$fbar
 
   return(res)
 }
@@ -112,7 +105,9 @@ if (length(args) <= 1) {
   out_path <- args[1]
 }
 
+cat('Seed set to:', seed, '\nSaving output to: ', out_path, '\n')
+
 saveRDS(
   three_sim(seed = seed),
-  file = sprintf('three_node_%s.rds', seed)
+  file = file.path(out_path, sprintf('three_node_%s.rds', seed))
   )

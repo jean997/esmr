@@ -108,6 +108,7 @@ if (n_args >= 1) {
 
 for (s in 1:n_seeds) {
   seed <- as.integer(Sys.time()) - 1.7e+09
+  seed <- as.integer(paste0(sample(1:9, 1), seed))
   cat('Seed set to:', seed, '\nSaving output to: ', out_path, '\n')
   saveRDS(
     three_sim(seed = seed),

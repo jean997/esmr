@@ -95,19 +95,23 @@ three_sim <- function(seed = NULL) {
   return(res)
 }
 
-if (length(args) == 0) {
+n_args <- length(args)
+if (n_args == 0) {
   out_path <- '/nfs/turbo/sph-jvmorr/NESMR/simulations/three_node/'
-}
-if (length(args) <= 1) {
-  seed <- as.integer(Sys.time()) - 1.7e+09
 } else {
-  seed <- args[[2]]
   out_path <- args[1]
 }
 
-cat('Seed set to:', seed, '\nSaving output to: ', out_path, '\n')
+if (n_args >= 1) {
+  n_seeds <- args[[2]]
+}
 
-saveRDS(
-  three_sim(seed = seed),
-  file = file.path(out_path, sprintf('three_node_%s.rds', seed))
+for (s in 1:n_seeds) {
+  seed <- as.integer(Sys.time()) - 1.7e+09
+  cat('Seed set to:', seed, '\nSaving output to: ', out_path, '\n')
+  saveRDS(
+    three_sim(seed = seed),
+    file = file.path(out_path, sprintf('three_node_%s.rds', seed))
   )
+}
+

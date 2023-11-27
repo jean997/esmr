@@ -1,5 +1,5 @@
 library(esmr)
-library(simGWAS)
+library(GWASBrewer)
 
 G <- matrix(c(0, 0, 0, 0, 0,
               sqrt(0.3), 0, 0, 0, 0,

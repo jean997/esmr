@@ -53,7 +53,7 @@ esmr_solve <- function(dat, max_iter, tol){
       f2_1 <- t(complete_T(t(dat$f$f2bar), dat$which_tot_c)$total_effects)
       f2_2 <- f^2
       f2_3 <- t(complete_T(t(dat$f$fbar)^2, dat$which_tot_c)$total_effects)
-      f2 <- f2_1 + f2_2 - f2_3
+      f2 <- f2_1 + f2_2 - f2_3 ## E[f^2] = g(E[f^2*]) + g(f^2*) - g(E[f*]^2)
       ###
       vf <- f2 - (f^2)
       ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)

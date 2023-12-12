@@ -43,7 +43,13 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega){
 
 
 ## likelihood function, very slow
-log_py <- function(Y, ghat, fgbar, omega){
+log_py <- function(Y, ghat, fgbar, omega, col_order = NULL){
+  if (!is.null(col_order)) {
+    Y <- Y[, col_order]
+    ghat <- ghat[col_order]
+    fgbar <- fgbar[col_order, col_order]
+    omega <- lapply(omega, function(x) x[col_order, col_order])
+  }
   n <- nrow(Y)
   k <- ncol(fgbar)
   p <- ncol(Y)

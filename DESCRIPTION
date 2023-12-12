@@ -22,6 +22,7 @@ Imports:
     purrr,
     sumstatFactors (>= 0.1.2.319),
     ebnm,
-    flashier    
+    flashier,
+    igraph
 Remotes: 
     jean997/sumstatFactors

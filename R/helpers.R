@@ -224,6 +224,38 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
 }
 
+reorder_data <- function(
+    dat, cols, fields = c('Y', 'S', 'l', 'f', 'beta', 'omega')) {
+  fields <- match.arg(fields, several.ok = TRUE)
+  if ('Y' %in% fields) dat$Y <- dat$Y[,cols,drop=F]
+  if ('S' %in% fields) dat$S <- dat$S[,cols,drop=F]
+  if ('l' %in% fields) {
+    dat$l$lbar <- dat$l$lbar[,cols,drop=F]
+    dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
+    dat$l$abar <- dat$l$abar[,cols,drop=F]
+    dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
+    dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
+    dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
+  }
+  if (any(c('f', 'beta') %in% fields)) {
+    dat$f <- lapply(dat$f, function(x) {
+      x[cols, cols]
+    })
+    dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
+    dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
+    ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+    dat$beta$beta_m <- dat$f$fbar[ix]
+    dat$beta$beta_s <- sqrt((dat$f$f2bar[ix]) - dat$beta$beta_m^2)
+    diag(dat$beta$V) <- dat$beta$beta_s^2
+    dat$f <- make_f(dat)
+  }
+  if ("omega" %in% fields) {
+    dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
+  }
+
+  return(dat)
+}
+
 subset_data <- function(dat, ix){
   s_equal <- check_equal_omega(dat$omega)
   dat$Y <- dat$Y[ix,,drop=F]
@@ -323,6 +355,7 @@ check_B_template <- function(B){
   if(!all(diag(B_tot) == 0)){
     stop("Supplied template does not correspond to a valid DAG.\n")
   }
+
   B_tot[!B_tot == 0] <- 1
   which_tot_u <- which(B_tot != 0 & B != 0, arr.ind = TRUE)
   which_tot_c <- which(B_tot != 0 & B == 0, arr.ind = TRUE)

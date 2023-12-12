@@ -27,6 +27,7 @@ esmr <- function(beta_hat_X, se_X,
                  direct_effect_template = NULL,
                  direct_effect_init = NULL,
                  # add ability to fix some effects later
+                 # direct_effect_fix = NULL,
                  #fix_beta = FALSE,
                  beta_joint = TRUE,
                  g_type = c("gfa", "svd"),
@@ -39,32 +40,7 @@ esmr <- function(beta_hat_X, se_X,
   g_type <- match.arg(g_type, choices = c("gfa", "svd"))
   stopifnot(beta_joint %in% c(TRUE, FALSE))
 
-  topo_order <- NULL
-  if(!is.null(direct_effect_template)){
-    # Check if we have lower triangular
-    B_prop <- direct_effect_template
-    if (any(B_prop[upper.tri(B_prop)] != 0)) {
-      # Direct effect template is not an lower triangular matrix
-      # Attempt to re-order with topo-sort
-      topo_order <- tryCatch({
-        topo_sort_mat(B_prop)
-      }, error = function(e){
-        stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
-      })
-
-      B_prop <- B_prop[topo_order, topo_order]
-      beta_hat_X <- beta_hat_X[, topo_order]
-      se_X <- se_X[, topo_order]
-      R <- R[, topo_order]
-    }
-  }
-
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
-  dat$beta_joint <- beta_joint
-  dat$ebnm_fn <- ebnm_fn
-  dat$sigma_beta <- sigma_beta
-  dat$R_is_id <- is.null(R) | all(R == diag(dat$p))
-
   if(is.null(G)){
     if(dat$p == 2){
       G <- diag(dat$p)
@@ -80,32 +56,17 @@ esmr <- function(beta_hat_X, se_X,
                       augment = augment_G)
     }
   }
-  dat$G <- check_matrix(G, "G", n = dat$p)
+  dat$G <- check_matrix(G, n = dat$p)
+  dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init)
+  dat <- init_beta(dat)
+  dat$beta_joint <- beta_joint
+  dat$ebnm_fn <- ebnm_fn
+  dat$sigma_beta <- sigma_beta
+  dat$R_is_id <- is.null(R) | all(R == diag(dat$p))
 
   dat$k <- ncol(dat$G)
 
-  if(!is.null(direct_effect_template)){
-    B <- check_B_template(B_prop)
-    which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1)] ## transpose
-    colnames(which_beta) <- c("row", "col")
-    if(!is.null(direct_effect_init)){ ## to do: add check for valid initialization
-      beta_m_init <- direct_effect_init(which_beta)
-    }else{
-      beta_m_init <- NULL
-    }
-    fix_beta <- c(rep(FALSE, nrow(B$which_tot_u)), rep(TRUE, nrow(B$which_tot_c)))
-    if(nrow(B$which_tot_c) > 0){
-      dat$which_tot_c <- B$which_tot_c # no transpose[,c(2, 1)]
-      #colnames(dat$which_tot_c) <- c("row", "col")
-    }
-  }else{
-    which_beta <- beta_m_init <-  NULL
-    fix_beta <- FALSE
-  }
-
-  dat$beta <- init_beta(dat$p, which_beta, beta_m_init, fix_beta)
   dat$f <- make_f(dat)
-  #dat$f0 <- make_f(dat)
 
   dat$l <- init_l(dat$n, dat$p, dat$k)
 
@@ -117,12 +78,10 @@ esmr <- function(beta_hat_X, se_X,
     dat <- esmr_solve(dat, max_iter, tol)
   }
 
-  if (!is.null(topo_order)) {
-    inv_topo_order <- order(topo_order)
-    dat <- reorder_data(dat, inv_topo_order)
-    dat$topo_order <- topo_order
-  }
+  o <- match(1:dat$p, dat$traits)
+  dat <- reorder_data(dat, o)
 
+  dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
   return(dat)
 }
 

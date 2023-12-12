@@ -11,132 +11,17 @@ make_f <- function(dat){
   nb <- length(dat$beta$beta_j)
   ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
   fbar[ix] <- dat$beta$beta_m
-  #for(i in seq(nb)) fbar[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_m[i]
+
   fgbar <- fbar %*% dat$G
   V <- matrix(0, nrow = dat$p, ncol = dat$p)
   V[ix] <- dat$beta$beta_s^2
-  #for(i in seq(nb)) V[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_s[i]^2
+
   f2bar <- (fbar^2) + V
   fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
   return(list(fgbar = fgbar, fg2bar = fg2bar,
               fbar = fbar, f2bar = f2bar))
 }
 
-
-init_beta <- function(p, which_beta=NULL,
-                      beta_m_init = NULL,
-                      fix_beta = FALSE){
-  #if(!is.null(which_beta) & beta_joint){
-  #  stop("Joint update only implemented for standard problem.\n")
-  #}
-  if(is.null(which_beta)){
-    beta_j <- rep(1, p-1)
-    beta_k <- 2:p
-  }else{
-    beta_j <- which_beta[,1]
-    beta_k <- which_beta[,2]
-  }
-  nb <- length(beta_j)
-  if(is.null(beta_m_init)){
-    beta_m <- rep(0, nb)
-    beta_s <- rep(0, nb)
-  }else{
-    if(!length(beta_m_init) == nb) stop(paste0("Expected beta_m_init to have length ", nb, ", found ", length(beta_m_init), "\n"))
-    beta_m <- beta_m_init
-    beta_s <- rep(0, nb)
-  }
-
-  if(length(fix_beta) == 1){
-    fix_beta <- rep(fix_beta, nb)
-  }else if(length(fix_beta) != nb){
-    stop("fix_beta and expected to have length 1 or ", nb, ". Found ", length(fix_beta), ".\n")
-  }
-  stopifnot(class(fix_beta) == "logical")
-  return(list(beta_m = beta_m, beta_s = beta_s,
-              beta_j = beta_j, beta_k = beta_k, fix_beta = fix_beta))
-}
-
-
-# previously init_l_future
-init_l <- function(n, p, m){
-  lbar <- matrix(0, nrow = n, ncol = p)
-  abar <- matrix(0, nrow = n, ncol = m)
-  lfsr <- matrix(1, nrow = n, ncol = m)
-  g_hat <- list()
-  return(list(lbar = lbar, l2bar = lbar,
-              abar = abar, a2bar = abar,
-              #wpost = lbar, mupost = lbar, s2post = lbar,
-              #post_mode = abar,
-              lfsr = lfsr, g_hat = g_hat))
-}
-
-
-check_numeric <- function(x, string, n){
-  if(is.null(x)) return(x)
-  if("matrix" %in% class(x) | "data.frame" %in% class(x)){
-    if(ncol(x) > 1) stop(paste0(string, " must be a numeric vector or one column array."))
-    x <- as.numeric(x[,1])
-  }else if(!"numeric" %in% class(x)){
-    stop(paste0(string, " must be a numeric vector or one column array."))
-  }
-  if(!missing(n)){
-     if(length(x) != n) stop(paste0("Expected ", string, " to have length ", n, ", found ", length(x), "\n"))
-  }
-  return(x)
-}
-
-check_matrix <- function(x, string, n, p){
-  if(is.null(x)) return(x)
-  if("data.frame" %in% class(x)){
-    cat("Coercing ", string, " to matrix.\n")
-    x <- as.matrix(x)
-  }else if("numeric" %in% class(x)){
-    x <- as.matrix(x, ncol = 1)
-  }else if(!"matrix" %in% class(x)){
-    stop(paste0(string, " must be a numeric vector, matrix, or data.frame."))
-  }
-  if(!missing(n)){
-    if(nrow(x) != n) stop(paste0("Expected ", string, " to have ", n, " rows, found ", nrow(x), "\n"))
-  }
-  if(!missing(p)){
-    if(ncol(x) != p) stop(paste0("Expected ", string, " to have ", p, " columns, found ", ncol(x), "\n"))
-  }
-  return(x)
-}
-
-check_R <- function(R, tol = 1e-8){
-  if(is.null(R)) return(R)
-  if(!Matrix::isSymmetric(R)){
-    stop("R is not symmetric.\n")
-  }
-  evR <- eigen(R, only.values = TRUE)$values
-  if(!all(evR > tol)){
-    stop("R is not positive definite.\n")
-  }
-  if(!all(diag(R) == 1)){
-    stop("R should be a correlation matrix.\n")
-  }
-  return(R)
-}
-
-check_missing <- function(Y, S){
-  missing_ix <- which(is.na(Y))
-  any_missing <- length(missing_ix) > 0
-  if(length(missing_ix) == 0){
-    return(list(Y = Y, S = S, any_missing = FALSE))
-  }
-  if(any(is.na(S[-missing_ix]))) stop("Found missing SEs for non-missing effect estimates.\n")
-
-  nmiss_r <- rowSums(is.na(Y))
-  nmiss_c <- colSums(is.na(Y))
-  p <- ncol(Y)
-  n <- nrow(Y)
-  if(any(nmiss_r == p)) stop("Data cannot have variants missing for all traits.\n")
-  if(any(nmiss_c == n)) stop("At least one trait is missing for all variants.\n")
-  Y[missing_ix] <- 0
-  S[missing_ix] <- NA
-  return(list(Y = Y, S = S, any_missing = TRUE))
-}
 
 get_omega <- function(R, S, any_missing){
 
@@ -201,35 +86,74 @@ get_omega <- function(R, S, any_missing){
 
 set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
+  beta_hat_X <- check_matrix(beta_hat_X)
   n <- nrow(beta_hat_X)
-  beta_hat_X <- check_matrix(beta_hat_X, "beta_hat_X", n)
   p <- ncol(beta_hat_X)
-  se_X <- check_matrix(se_X, "se_X", n, p)
+  se_X <- check_matrix(se_X, n, p)
   if(!is.null(beta_hat_Y)){
-    beta_hat_Y <- check_numeric(beta_hat_Y, "beta_hat_Y", n)
-    se_Y <- check_numeric(se_Y, "se_Y", n)
+    beta_hat_Y <- check_numeric(beta_hat_Y, n)
+    se_Y <- check_numeric(se_Y, n)
     p <- p + 1
     beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)
     se_X <- cbind(se_Y, se_X)
   }
-  R <- check_matrix(R, "R", p, p)
+  R <- check_matrix(R, p, p)
   R <- check_R(R)
 
   dat <- check_missing( beta_hat_X, se_X)
   dat$omega <- get_omega(R, dat$S, dat$any_missing) # omega is row correlation of data, either list or single matrix
   dat$n <- n
   dat$p <- p
-
+  dat$traits <- 1:p
   return(dat)
 
 }
 
+order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_init= NULL){
+  if(!is.null(direct_effect_template)){
+    B <- check_B_template(direct_effect_template, dat$p)$B_dir
+
+    # Check if we have lower triangular
+    if (any(B[upper.tri(B)] != 0)) {
+      # Direct effect template is not an lower triangular matrix
+      # Attempt to re-order with topo-sort
+      topo_order <- tryCatch({
+        topo_sort_mat(B)
+      }, error = function(e){
+        stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
+      })
+      dat <- reorder_data(dat, topo_order)
+      # beta_hat_X <- beta_hat_X[, topo_order]
+      # se_X <- se_X[, topo_order]
+      # R <- R[topo_order, topo_order]
+      B <- B[topo_order, topo_order]
+    }
+  }else{
+    B <- matrix(0, nrow = dat$p, ncol = dat$p)
+    B[1, 2:dat$p] <- 1
+  }
+  dat$B_template <- B
+  if(!is.null(direct_effect_init)){
+    o <- match(dat$traits, 1:dat$p)
+    dat$B_init <- check_matrix(direct_effect_init, dat$p, dat$p)[o, o]
+    if(any(dat$B_init[!dat$B_template == 0] != 0)){
+      stop("Initialization pattern does not match template.\n")
+    }
+  }else{
+    dat$B_init <- matrix(0, nrow = dat$p, ncol = dat$p)
+  }
+  return(dat)
+}
+
+
+
 reorder_data <- function(
-    dat, cols, fields = c('Y', 'S', 'l', 'f', 'beta', 'omega')) {
-  fields <- match.arg(fields, several.ok = TRUE)
-  if ('Y' %in% fields) dat$Y <- dat$Y[,cols,drop=F]
-  if ('S' %in% fields) dat$S <- dat$S[,cols,drop=F]
-  if ('l' %in% fields) {
+    dat, cols) {
+
+  dat$Y <- dat$Y[,cols,drop=F]
+  dat$S <- dat$S[,cols,drop=F]
+
+  if(!is.null(dat$l)){
     dat$l$lbar <- dat$l$lbar[,cols,drop=F]
     dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
     dat$l$abar <- dat$l$abar[,cols,drop=F]
@@ -237,22 +161,28 @@ reorder_data <- function(
     dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
     dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
   }
-  if (any(c('f', 'beta') %in% fields)) {
+  if(!is.null(dat$f)){
     dat$f <- lapply(dat$f, function(x) {
       x[cols, cols]
     })
+  }
+  if(!is.null(dat$beta)){
     dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
     dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
-    ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
-    dat$beta$beta_m <- dat$f$fbar[ix]
-    dat$beta$beta_s <- sqrt((dat$f$f2bar[ix]) - dat$beta$beta_m^2)
-    diag(dat$beta$V) <- dat$beta$beta_s^2
-    dat$f <- make_f(dat)
   }
-  if ("omega" %in% fields) {
+  if(!is.null(dat$omega)) {
     dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
   }
-
+  if(!is.null(dat$G)){
+    dat$G <- dat$G[cols,cols]
+  }
+  if(!is.null(dat$B_template)){
+    dat$B_template <- dat$B_template[cols, cols]
+  }
+  if(!is.null(dat$B_init)){
+    dat$B_init <- dat$B_init[cols,cols]
+  }
+  dat$traits <- dat$traits[cols]
   return(dat)
 }
 
@@ -270,17 +200,6 @@ subset_data <- function(dat, ix){
     dat$omega <- dat$omega[ix]
   }
   return(dat)
-}
-
-check_equal_omega <- function(omega){
-  if("matrix" %in% class(omega)){
-    #check_matrix(omega, "omega", p, p)
-    s_equal <- TRUE
-  }else{
-    stopifnot(class(omega) == "list")
-    s_equal <- FALSE
-  }
-  return(s_equal)
 }
 
 get_ix1_ix0 <- function(dat, ix1){
@@ -338,46 +257,6 @@ total_to_direct <- function(B_tot){
   return(B_dir)
 }
 
-
-check_B_template <- function(B){
-  if(! inherits(B, "matrix")){
-    stop("Direct effects template is not a matrix. \n")
-  }
-  n <- nrow(B)
-  if(!ncol(B) == n) stop("Direct effects template is not square.\n")
-  if(!all(B %in% c(0, 1))) stop("Direct effects template should contain only 0 and 1 entries.")
-  if(!all(diag(B) ==0)){
-    stop("Direct effects template must have 0s on the diagonal.")
-  }
-  B_tot <- tryCatch(direct_to_total(B), error = function(e){
-    stop("Failed to compute total effects from direct. Check that supplied template corresponds to a valid DAG.\n")
-  })
-  if(!all(diag(B_tot) == 0)){
-    stop("Supplied template does not correspond to a valid DAG.\n")
-  }
-
-  B_tot[!B_tot == 0] <- 1
-  which_tot_u <- which(B_tot != 0 & B != 0, arr.ind = TRUE)
-  which_tot_c <- which(B_tot != 0 & B == 0, arr.ind = TRUE)
-  return(list(B_dir = B, B_tot = B_tot, which_tot_u = which_tot_u, which_tot_c = which_tot_c ))
-}
-
-
-## unused
-check_omega <- function(omega, n, p, s_equal){
-  if(s_equal){
-    if(!"matrix" %in% class(omega)) stop("omega is not of class matrix\n")
-    check_matrix(omega, "omega", p, p)
-  }else{
-    stopifnot(class(omega) == "list")
-    stopifnot(length(omega) == n)
-    d <- lapply(omega, dim)
-    nr <- map(d, 1) %>% unlist()
-    nc <- map(d, 2) %>% unlist()
-    stopifnot(all(nr == p))
-    stopifnot(all(nc == p))
-  }
-}
 
 ## unused
 get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_normal"){

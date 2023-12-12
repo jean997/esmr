@@ -7,9 +7,9 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega){
   n <- nrow(Y)
   p <- ncol(Y)
   k <- ncol(fgbar)
-  check_matrix(abar, "abar", n, k)
-  check_matrix(a2bar, "a2bar", n, k)
-  check_matrix(fgbar, "fgbar", p, k)
+  check_matrix(abar, n, k)
+  check_matrix(a2bar,  n, k)
+  check_matrix(fgbar, p, k)
 
   s_equal <- check_equal_omega(omega)
 

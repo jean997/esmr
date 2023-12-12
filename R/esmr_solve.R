@@ -45,14 +45,14 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$f <- make_f(dat)
     }
     ## new step, update total effects based on constraints
-    if(!is.null(dat$which_tot_c)){
-      f <- t(complete_T(t(dat$f$fbar), dat$which_tot_c)$total_effects)
-      ## temporary fix for negative variance
-      #f2 <- pmax(t(complete_T(t(dat$f$f2bar), dat$which_tot_c)$total_effects), f^2)
+    if(!all(!dat$beta$fix_beta)){
+      which_const <- cbind(dat$beta$beta_k, dat$beta$beta_j)[which(dat$beta$fix_beta),]
+      colnames(which_const) <- c("row", "col")
+      f <- t(complete_T(t(dat$f$fbar), which_const)$total_effects)
       ## assumes independent estimates
-      f2_1 <- t(complete_T(t(dat$f$f2bar), dat$which_tot_c)$total_effects)
+      f2_1 <- t(complete_T(t(dat$f$f2bar), which_const)$total_effects)
       f2_2 <- f^2
-      f2_3 <- t(complete_T(t(dat$f$fbar)^2, dat$which_tot_c)$total_effects)
+      f2_3 <- t(complete_T(t(dat$f$fbar)^2, which_const)$total_effects)
       f2 <- f2_1 + f2_2 - f2_3 ## E[f^2] = g(E[f^2*]) + g(f^2*) - g(E[f*]^2)
       ###
       vf <- f2 - (f^2)

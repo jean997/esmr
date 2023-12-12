@@ -257,6 +257,26 @@ total_to_direct <- function(B_tot){
   return(B_dir)
 }
 
+delta_method_pvals <- function(dat){
+  e_ix <- which(!dat$beta$fix_beta)
+  e_coords <- cbind(dat$beta$beta_k, dat$beta$beta_j)[e_ix,]
+  f <- function(tot){
+    myT <- matrix(0, nrow = dat$p, ncol = dat$p)
+    myT[e_coords] <- tot
+    myB <- total_to_direct(myT)
+    dir <- myB[e_coords]
+    return(dir)
+  }
+  jac <- numDeriv::jacobian(f, x = dat$beta$beta_m[e_ix])
+  V <- dat$beta$V[e_ix,e_ix]
+  VB <- jac %*% V %*% t(jac)
+  muB <- f(dat$beta$beta_m[e_ix])
+  log_pvals <- log(2) + pnorm(-abs(muB/sqrt(diag(VB))), log.p = TRUE)
+  pmat <- semat <- matrix(0, nrow = dat$p, ncol = dat$p)
+  pmat[e_coords] <- log_pvals
+  semat[e_coords] <- sqrt(diag(VB))
+  return(list(pmat = pmat, semat = semat))
+}
 
 ## unused
 get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_normal"){

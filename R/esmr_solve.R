@@ -46,7 +46,7 @@ esmr_solve <- function(dat, max_iter, tol){
     }
     ## new step, update total effects based on constraints
     if(!all(!dat$beta$fix_beta)){
-      which_const <- cbind(dat$beta$beta_k, dat$beta$beta_j)[which(dat$beta$fix_beta),]
+      which_const <- cbind(dat$beta$beta_k, dat$beta$beta_j)[dat$beta$fix_beta,]
       colnames(which_const) <- c("row", "col")
       f <- t(complete_T(t(dat$f$fbar), which_const)$total_effects)
       ## assumes independent estimates

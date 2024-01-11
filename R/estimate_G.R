@@ -6,13 +6,14 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
                        single_trait_thresh = 0.95,
                        add_trait1 = TRUE){
   type <- match.arg(type, type)
-  beta_hat_X <- check_matrix(beta_hat_X, "beta_hat_X")
+  beta_hat_X <- check_matrix(beta_hat_X)
   n <- nrow(beta_hat_X)
   p <- ncol(beta_hat_X)
-  se_X <- check_matrix(se_X, "se_X", n, p)
+   se_X <- check_matrix(se_X, n, p)
   #Z <- beta_hat_X/se_X
   #trait_scale <- c(1, apply(se_X[, -1, drop = FALSE]/se_X[,1], 2, median))
   colnames(beta_hat_X) <- colnames(se_X) <-  NULL
+
   if(is.null(R)){
     if(type == "gfa"){
       gfit <- sumstatFactors::gfa_fit(B_hat = beta_hat_X, S = se_X)
@@ -23,7 +24,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
       myG <- svd(Z)$v
     }
   }else{
-    R <- check_matrix(R, "R", p, p)
+    R <- check_matrix(R, p, p)
     R <- check_R(R)
     if(type == "gfa"){
       gfit <- sumstatFactors::gfa_fit(B_hat = beta_hat_X, S = se_X, R = R)

@@ -15,8 +15,8 @@
 #'@param g_type Method to estimate G. Suggest "gfa"
 #'@param augment_G Augment estimated G
 #'@export
-esmr <- function(beta_hat_Y, se_Y,
-                 beta_hat_X, se_X,
+esmr <- function(beta_hat_X, se_X,
+                 beta_hat_Y=NULL, se_Y = NULL,
                  G = NULL,
                  R = NULL,
                  pval_thresh = 5e-8,
@@ -25,9 +25,11 @@ esmr <- function(beta_hat_Y, se_Y,
                  sigma_beta = Inf,
                  tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
                  #####
-                 beta_m_init = NULL,
-                 which_beta = NULL,
-                 fix_beta = FALSE,
+                 direct_effect_template = NULL,
+                 direct_effect_init = NULL,
+                 # add ability to fix some effects later
+                 # direct_effect_fix = NULL,
+                 #fix_beta = FALSE,
                  beta_joint = TRUE,
                  augment_G = TRUE){
 
@@ -38,10 +40,11 @@ esmr <- function(beta_hat_Y, se_Y,
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   stopifnot(beta_joint %in% c(TRUE, FALSE))
 
+  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   if(is.null(G)){
     if(dat$p == 2){
       G <- diag(dat$p)
-    }else if(!missing(which_beta)){
+    }else if(!missing(direct_effect_template)){
       warning("Cannot estimate G for network problem yet.\n")
       G <- diag(dat$p)
     }else{
@@ -52,15 +55,20 @@ esmr <- function(beta_hat_Y, se_Y,
                       augment = augment_G)
     }
   }
-  dat$G <- check_matrix(G, "G", n = dat$p)
+  dat$G <- check_matrix(G, n = dat$p)
+  dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init)
+  dat <- init_beta(dat)
+  dat$beta_joint <- beta_joint
+  dat$ebnm_fn <- ebnm_fn
+  dat$sigma_beta <- sigma_beta
+  dat$R_is_id <- is.null(R) | all(R == diag(dat$p))
 
   dat$k <- ncol(dat$G)
 
-  dat$beta <- init_beta(dat$p, which_beta, beta_m_init, fix_beta)
   dat$f <- make_f(dat)
-  #dat$f0 <- make_f(dat)
 
   dat$l <- init_l(dat$n, dat$p, dat$k)
+
 
 
   dat$beta_joint <- beta_joint
@@ -72,6 +80,14 @@ esmr <- function(beta_hat_Y, se_Y,
   dat <- subset_data(dat, dat$ix1)
   dat <- esmr_solve(dat, max_iter, tol)
 
+
+  o <- match(1:dat$p, dat$traits)
+  dat <- reorder_data(dat, o)
+
+  dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
+  delt_pvals <- delta_method_pvals(dat)
+  dat$pvals_dm <- delt_pvals$pmat
+  dat$se_dm <- delt_pvals$semat
   return(dat)
 }
 

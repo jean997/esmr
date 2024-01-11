@@ -22,7 +22,6 @@ make_f <- function(dat){
               fbar = fbar, f2bar = f2bar))
 }
 
-
 get_omega <- function(R, S, any_missing){
 
   s_equal <- apply(S, 2, function(x){all(x == x[1])}) %>% all()
@@ -34,14 +33,14 @@ get_omega <- function(R, S, any_missing){
     omega <- diag(1/s^2)
   }else if(s_equal){
     s <- S[1,]
-    omega <- solve(diag(s) %*% R %*% diag(s))
+    omega <- solve_diag_psd_diag(R, s)
   }else if(R_is_id & !any_missing){
     omega <- apply(S, 1, function(s){
       diag(1/s^2, nrow = p)
     }, simplify = FALSE)
   }else if(!any_missing){
     omega <- apply(S, 1, function(s){
-      solve(diag(s) %*% R %*% diag(s))
+      solve_diag_psd_diag(R, s)
     }, simplify = FALSE)
   }else if(R_is_id){
     S[is.na(S)] <- Inf
@@ -62,7 +61,7 @@ get_omega <- function(R, S, any_missing){
       if(length(ixT) == 0){
         ome <- map(ii, function(j){
           s <- S[j,]
-          solve(diag(s) %*% R %*% diag(s))
+          solve_diag_psd_diag(R, s)
         })
         return(ome)
       }
@@ -71,7 +70,7 @@ get_omega <- function(R, S, any_missing){
       pn <- nrow(myR)
       ome <- map(ii, function(j){
         s <- S[j,-ixT]
-        o <- solve(diag(s, nrow = pn) %*% myR %*% diag(s, nrow = pn))
+        o <- solve_diag_psd_diag(myR, diag(s, nrow = pn))
         om <- z
         om[ixF, ixF] <- o
         om

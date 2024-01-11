@@ -19,6 +19,7 @@ esmr <- function(beta_hat_Y, se_Y,
                  beta_hat_X, se_X,
                  G = NULL,
                  R = NULL,
+                 pval_thresh = 5e-8,
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
                  max_iter = 100,
                  sigma_beta = Inf,
@@ -28,16 +29,12 @@ esmr <- function(beta_hat_Y, se_Y,
                  which_beta = NULL,
                  fix_beta = FALSE,
                  beta_joint = TRUE,
-                 g_type = c("gfa", "svd"),
-                 svd_zthresh = 0,
-                 augment_G = TRUE,
-                 ix1 = NULL,
-                 ix0 = FALSE){
-                 #lfsr_thresh = 1){
+                 augment_G = TRUE){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
-  g_type <- match.arg(g_type, choices = c("gfa", "svd"))
+  #g_type <- match.arg(g_type, choices = c("gfa", "svd"))
+  g_type <- "gfa"
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   stopifnot(beta_joint %in% c(TRUE, FALSE))
 
@@ -52,7 +49,6 @@ esmr <- function(beta_hat_Y, se_Y,
                       se_X = dat$S[,-1, drop = F],
                       R = R[-1, -1, drop = FALSE],
                       type = g_type,
-                      svd_zthresh = svd_zthresh,
                       augment = augment_G)
     }
   }
@@ -72,17 +68,9 @@ esmr <- function(beta_hat_Y, se_Y,
   dat$sigma_beta <- sigma_beta
   #dat$lfsr_thresh <- lfsr_thresh
 
-  if(is.null(ix1)){
-    dat <- esmr_solve(dat, max_iter, tol )
-  }else if(ix0){
-    dat <- get_ix1_ix0(dat, ix1)
-    dat$f0 <- make_f(dat)
-    dat <- esmr_solve_2part(dat, max_iter, tol )
-  }else{
-    dat <- get_ix1_ix0(dat, ix1)
-    dat <- subset_data(dat, dat$ix1)
-    dat <- esmr_solve(dat, max_iter, tol)
-  }
+  dat <- get_ix1_ix0(dat, paste0("pval-", pval_thresh))
+  dat <- subset_data(dat, dat$ix1)
+  dat <- esmr_solve(dat, max_iter, tol)
 
   return(dat)
 }

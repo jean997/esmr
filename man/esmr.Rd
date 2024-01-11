@@ -12,6 +12,7 @@ esmr(
   se_X,
   G = NULL,
   R = NULL,
+  pval_thresh = 5e-08,
   ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
   max_iter = 100,
   sigma_beta = Inf,
@@ -20,11 +21,7 @@ esmr(
   which_beta = NULL,
   fix_beta = FALSE,
   beta_joint = TRUE,
-  g_type = c("gfa", "svd"),
-  svd_zthresh = 0,
-  augment_G = TRUE,
-  ix1 = NULL,
-  ix0 = FALSE
+  augment_G = TRUE
 )
 }
 \arguments{
@@ -40,6 +37,8 @@ esmr(
 
 \item{R}{Optional correlation matrix for overlapping samples.}
 
+\item{pval_thresh}{p-value threshold (suggest 1)}
+
 \item{ebnm_fn}{Options prior distribution family. Defaults to point-normal.}
 
 \item{max_iter}{Maximum number of iterations}
@@ -50,11 +49,9 @@ esmr(
 
 \item{beta_joint}{Use joint updates for beta (suggest TRUE)}
 
-\item{g_type}{Method to estimate G. Suggest "gfa"}
-
 \item{augment_G}{Augment estimated G}
 
-\item{pval_thresh}{p-value threshold (suggest 1)}
+\item{g_type}{Method to estimate G. Suggest "gfa"}
 }
 \author{
 Jean Morrison <jvmorr@umich.edu>

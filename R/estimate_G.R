@@ -12,7 +12,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
   se_X <- check_matrix(se_X, "se_X", n, p)
   #Z <- beta_hat_X/se_X
   #trait_scale <- c(1, apply(se_X[, -1, drop = FALSE]/se_X[,1], 2, median))
-  #colnames(Z) <- NULL
+  colnames(beta_hat_X) <- colnames(se_X) <-  NULL
   if(is.null(R)){
     if(type == "gfa"){
       gfit <- sumstatFactors::gfa_fit(B_hat = beta_hat_X, S = se_X)
@@ -49,8 +49,8 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
       myG <- cbind(myG, A)
     }
   }
-  myG <- myG*trait_scale
-  myG <- sumstatFactors:::norm_cols(myG)$A
+  #myG <- myG*trait_scale
+  #myG <- sumstatFactors:::norm_cols(myG)$A
   k <- ncol(myG)
   if(!add_trait1) return(myG)
   G <- rbind(c(1, rep(0, k)),

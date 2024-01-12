@@ -110,8 +110,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
 order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_init= NULL){
   if(!is.null(direct_effect_template)){
-    B <- check_B_template(direct_effect_template, dat$p)$B_dir
-
+    B <- direct_effect_template
     # Check if we have lower triangular
     if (any(B[upper.tri(B)] != 0)) {
       # Direct effect template is not an lower triangular matrix

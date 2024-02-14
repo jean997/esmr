@@ -257,10 +257,21 @@ total_to_direct <- function(B_tot){
 
 delta_method_pvals <- function(dat){
   e_ix <- which(!dat$beta$fix_beta)
+  fix_ix <- which(dat$beta$fix_beta)
   e_coords <- cbind(dat$beta$beta_k, dat$beta$beta_j)[e_ix,]
+  if(length(fix_ix) > 0){
+    fix_coords <- cbind(dat$beta$beta_k, dat$beta$beta_j)[fix_ix,,drop=FALSE]
+    colnames(fix_coords) <- c("row", "col")
+  }
+
   f <- function(tot){
     myT <- matrix(0, nrow = dat$p, ncol = dat$p)
     myT[e_coords] <- tot
+
+    if(length(fix_ix) > 0){
+      myT <- complete_T(myT, fix_coords)$total_effects
+    }
+
     myB <- total_to_direct(myT)
     dir <- myB[e_coords]
     return(dir)

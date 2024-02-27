@@ -19,7 +19,7 @@ init_beta <- function(dat){
 
   B <- check_B_template(dat$B_template)
 
-  which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1)] ## transpose
+  which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1), drop=FALSE] ## transpose
   colnames(which_beta) <- c("row", "col")
   dat$beta$beta_j <- which_beta[,1]
   dat$beta$beta_k <- which_beta[,2]

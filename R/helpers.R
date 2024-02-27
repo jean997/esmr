@@ -258,7 +258,7 @@ total_to_direct <- function(B_tot){
 delta_method_pvals <- function(dat){
   e_ix <- which(!dat$beta$fix_beta)
   fix_ix <- which(dat$beta$fix_beta)
-  e_coords <- cbind(dat$beta$beta_k, dat$beta$beta_j)[e_ix,]
+  e_coords <- cbind(dat$beta$beta_k, dat$beta$beta_j)[e_ix,,drop=FALSE]
   if(length(fix_ix) > 0){
     fix_coords <- cbind(dat$beta$beta_k, dat$beta$beta_j)[fix_ix,,drop=FALSE]
     colnames(fix_coords) <- c("row", "col")

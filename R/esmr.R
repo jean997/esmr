@@ -19,7 +19,7 @@ esmr <- function(beta_hat_X, se_X,
                  beta_hat_Y=NULL, se_Y = NULL,
                  G = NULL,
                  R = NULL,
-                 pval_thresh = 5e-8,
+                 pval_thresh = NULL,
                  variant_ix = NULL,
                  ###
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
@@ -78,11 +78,11 @@ esmr <- function(beta_hat_X, se_X,
   dat$sigma_beta <- sigma_beta
   #dat$lfsr_thresh <- lfsr_thresh
 
-  if(!is.null(pval_thresh)){
+  if(!is.null(variant_ix)){
+    dat <- subset_data(dat, variant_ix)
+  }else if(!is.null(pval_thresh)){
     dat <- get_ix1_ix0(dat, paste0("pval-", pval_thresh))
     dat <- subset_data(dat, dat$ix1)
-  }else if(!is.null(variant_ix)){
-    dat <- subset_data(dat, variant_ix)
   }
   if(tol == "default"){
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))

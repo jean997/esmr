@@ -46,7 +46,7 @@ esmr <- function(beta_hat_X, se_X,
   if(is.null(G)){
     if(dat$p == 2){
       G <- diag(dat$p)
-    }else if(!missing(direct_effect_template)){
+    }else if(!missing(direct_effect_template) & !is.null(direct_effect_template)){
       warning("Cannot estimate G for network problem yet.\n")
       G <- diag(dat$p)
     }else{

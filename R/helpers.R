@@ -209,23 +209,12 @@ get_ix1_ix0 <- function(dat, ix1){
     ix1 <- stringr::str_split(ix1, "-", n = 2)[[1]]
     type <- ix1[1]
     thresh <- as.numeric(ix1[2])
+    out_order <- rowSums(dat$B_template != 0)
+    out_ix <- which(out_order > 0)
     if(type == "pval"){
       pval <- with(dat, 2*pnorm(-abs(Y/S)))
-      vals <- apply(pval[,-1,drop = FALSE], 1, min)
+      vals <- apply(pval[,out_ix,drop = FALSE], 1, min)
       dat$ix1 <- which(vals < thresh)
-    }else if(type == "lfsr" | type == "zl"){
-      for(i in 1:5){
-        dat <- update_l_sequential(dat)
-      }
-      if(type == "lfsr"){
-        vals <- apply(dat$l$lfsr[,-1, drop = F], 1, min)
-        dat$ix1 <- which(vals < thresh)
-      }else{
-        vl <- with(dat$l, l2bar - (lbar^2))
-        zl <- dat$l$lbar/sqrt(vl)
-        vals <- apply(abs(zl[,-1,drop = F]), 1,max)
-        dat$ix1 <- which(vals > thresh)
-      }
     }else{
       stop("Unknown option to ix1\n")
     }

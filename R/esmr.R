@@ -10,7 +10,8 @@
 #'@param max_iter Maximum number of iterations
 #'@param sigma_beta Optional prior variance for causal parameters
 #'@param tol Convergence tolerance
-#'@param pval_thresh p-value threshold (suggest 1)
+#'@param pval_thresh p-value threshold for estimation
+#'@param variant_ix Instead of using pval_thresh, directly specify the indices of variants used for estimation.
 #'@param beta_joint Use joint updates for beta (suggest TRUE)
 #'@param g_type Method to estimate G. Suggest "gfa"
 #'@param augment_G Augment estimated G
@@ -41,6 +42,9 @@ esmr <- function(beta_hat_X, se_X,
   g_type <- "gfa"
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   stopifnot(beta_joint %in% c(TRUE, FALSE))
+  if(!is.null(pval_thresh) & !is.null(variant_ix)){
+    stop("Please specify only one of pval_thresh or variant_ix.")
+  }
 
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   if(is.null(G)){

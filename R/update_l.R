@@ -25,12 +25,6 @@ update_l_sequential <- function(dat, jj){
   kl <- map(l_update, "KL") %>% unlist() %>% sum()
 
   lbar <- abar %*% t(dat$G)
-  all_zero_cols_lbar <- apply(zapsmall(lbar, digits = 10), 2, function(x){
-    all(x == 0)
-  })
-  if (any(all_zero_cols_lbar)) {
-    stop('lbar has a column of all zeros for column(s): ', which(all_zero_cols_lbar))
-  }
   Va <- a2bar - (abar^2)
   l2bar <- (lbar^2) + (Va %*% t(dat$G)^2)
 

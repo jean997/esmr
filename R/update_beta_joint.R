@@ -59,7 +59,19 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     R <- Rfull
     a <- afull
   }
-  S <- solve(R)
+
+  tryCatch({
+    S <- solve(R)
+  }, error = function(e){
+    all_zero_cols_lbar <- apply(zapsmall(dat$l$lbar, digits = 10), 2, function(x){
+      all(x == 0)
+    })
+    if (any(all_zero_cols_lbar)) {
+      stop('lbar has a column of all zeros for column(s): ', which(all_zero_cols_lbar))
+    } else {
+      stop('Cannot invert R matrix: ', R)
+    }
+  })
   mu <- S %*% a
 
   if(return_W){

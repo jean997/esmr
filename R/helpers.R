@@ -244,6 +244,7 @@ check_equal_omega <- function(omega){
   return(s_equal)
 }
 
+
 get_ix1_ix0 <- function(dat, ix1){
   if("integer" %in% class(ix1) | "numeric" %in% class(ix1)){
     stopifnot(all(ix1 %in% (1:dat$n)))
@@ -256,19 +257,6 @@ get_ix1_ix0 <- function(dat, ix1){
       pval <- with(dat, 2*pnorm(-abs(Y/S)))
       vals <- apply(pval[,-1,drop = FALSE], 1, min)
       dat$ix1 <- which(vals < thresh)
-    }else if(type == "lfsr" | type == "zl"){
-      for(i in 1:5){
-        dat <- update_l_sequential(dat)
-      }
-      if(type == "lfsr"){
-        vals <- apply(dat$l$lfsr[,-1, drop = F], 1, min)
-        dat$ix1 <- which(vals < thresh)
-      }else{
-        vl <- with(dat$l, l2bar - (lbar^2))
-        zl <- dat$l$lbar/sqrt(vl)
-        vals <- apply(abs(zl[,-1,drop = F]), 1,max)
-        dat$ix1 <- which(vals > thresh)
-      }
     }else{
       stop("Unknown option to ix1\n")
     }

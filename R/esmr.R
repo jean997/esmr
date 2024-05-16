@@ -20,10 +20,11 @@ esmr <- function(beta_hat_Y, se_Y,
                  G = NULL,
                  R = NULL,
                  pval_thresh = 5e-8,
+                 variant_ix = NULL,
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
                  max_iter = 100,
                  sigma_beta = Inf,
-                 tol = default_precision(c(ncol(beta_hat_X)+1, nrow(beta_hat_X))),
+                 tol = "default",
                  #####
                  beta_m_init = NULL,
                  which_beta = NULL,
@@ -68,8 +69,15 @@ esmr <- function(beta_hat_Y, se_Y,
   dat$sigma_beta <- sigma_beta
   #dat$lfsr_thresh <- lfsr_thresh
 
-  dat <- get_ix1_ix0(dat, paste0("pval-", pval_thresh))
-  dat <- subset_data(dat, dat$ix1)
+  if(!is.null(variant_ix)){
+    dat <- subset_data(dat, variant_ix)
+  }else if(!is.null(pval_thresh)){
+    dat <- get_ix1_ix0(dat, paste0("pval-", pval_thresh))
+    dat <- subset_data(dat, dat$ix1)
+  }
+  if(tol == "default"){
+    tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))
+  }
   dat <- esmr_solve(dat, max_iter, tol)
 
   return(dat)

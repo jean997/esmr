@@ -201,7 +201,7 @@ subset_data <- function(dat, ix){
   return(dat)
 }
 
-get_ix1_ix0 <- function(dat, ix1){
+get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
   if("integer" %in% class(ix1) | "numeric" %in% class(ix1)){
     stopifnot(all(ix1 %in% (1:dat$n)))
     dat$ix1 <- sort(ix1)
@@ -209,8 +209,13 @@ get_ix1_ix0 <- function(dat, ix1){
     ix1 <- stringr::str_split(ix1, "-", n = 2)[[1]]
     type <- ix1[1]
     thresh <- as.numeric(ix1[2])
-    out_order <- rowSums(dat$B_template != 0)
-    out_ix <- which(out_order > 0)
+    if (remove_empty_B_cols) {
+      out_order <- rowSums(dat$B_template != 0)
+      out_ix <- which(out_order > 0)
+    } else {
+      out_ix <- seq_len(ncol(dat$B_template))
+    }
+
     if(type == "pval"){
       pval <- with(dat, 2*pnorm(-abs(Y/S)))
       vals <- apply(pval[,out_ix,drop = FALSE], 1, min)

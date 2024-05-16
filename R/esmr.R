@@ -40,7 +40,6 @@ esmr <- function(beta_hat_X, se_X,
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
   #g_type <- match.arg(g_type, choices = c("gfa", "svd"))
   g_type <- "gfa"
-  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   stopifnot(beta_joint %in% c(TRUE, FALSE))
   if(!is.null(pval_thresh) & !is.null(variant_ix)){
     stop("Please specify only one of pval_thresh or variant_ix.")

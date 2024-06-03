@@ -201,6 +201,17 @@ subset_data <- function(dat, ix){
   return(dat)
 }
 
+check_equal_omega <- function(omega){
+  if("matrix" %in% class(omega)){
+    #check_matrix(omega, "omega", p, p)
+    s_equal <- TRUE
+  }else{
+    stopifnot(class(omega) == "list")
+    s_equal <- FALSE
+  }
+  return(s_equal)
+}
+
 get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
   if("integer" %in% class(ix1) | "numeric" %in% class(ix1)){
     stopifnot(all(ix1 %in% (1:dat$n)))

@@ -301,3 +301,7 @@ get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_norma
   });
   return(wpost)
 }
+
+get_lower_triangular <- function(x, diag = FALSE) {
+  x[lower.tri(x, diag)]
+}

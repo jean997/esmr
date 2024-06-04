@@ -20,7 +20,7 @@ esmr <- function(beta_hat_X, se_X,
                  beta_hat_Y=NULL, se_Y = NULL,
                  G = NULL,
                  R = NULL,
-                 pval_thresh = 5e-8,
+                 pval_thresh = NULL,
                  variant_ix = NULL,
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
                  max_iter = 100,
@@ -40,7 +40,7 @@ esmr <- function(beta_hat_X, se_X,
   #g_type <- match.arg(g_type, choices = c("gfa", "svd"))
   g_type <- "gfa"
   stopifnot(beta_joint %in% c(TRUE, FALSE))
-  if(!is.null(pval_thresh) & !is.null(variant_ix)){
+  if(! is.null(pval_thresh) && ! is.null(variant_ix)){
     stop("Please specify only one of pval_thresh or variant_ix.")
   }
 

@@ -44,6 +44,8 @@ esmr <- function(beta_hat_X, se_X,
     stop("Please specify only one of pval_thresh or variant_ix.")
   }
 
+  is_nesmr <- !is.null(direct_effect_template)
+
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   if(is.null(G)){
     if(dat$p == 2){
@@ -83,7 +85,11 @@ esmr <- function(beta_hat_X, se_X,
   if(!is.null(variant_ix)){
     dat <- subset_data(dat, variant_ix)
   }else if(!is.null(pval_thresh)){
-    dat <- get_ix1_ix0(dat, paste0("pval-", pval_thresh))
+    dat <- get_ix1_ix0(
+      dat,
+      paste0("pval-", pval_thresh),
+      remove_empty_B_cols = is_nesmr)
+
     dat <- subset_data(dat, dat$ix1)
   }
   if(tol == "default"){

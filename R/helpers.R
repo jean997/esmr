@@ -224,7 +224,8 @@ get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
       out_order <- rowSums(dat$B_template != 0)
       out_ix <- which(out_order > 0)
     } else {
-      out_ix <- seq_len(ncol(dat$B_template))
+      # Remove first column for esmr
+      out_ix <- -1
     }
 
     if(type == "pval"){

@@ -31,7 +31,7 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     # S <- solve(R)
     # mu <- S %*% a
 
-    Rfull <- dat$omega[j,j]*Astar
+    Rfull <- dat$omega[j,j]*Astar  # W in the manuscript
     a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j])))
     a20 <- lapply(seq(p)[-j], function(jj){
       Astar%*% t(dat$f$fbar[jj,,drop = FALSE])*dat$omega[j,jj]

@@ -22,6 +22,8 @@ esmr <- function(beta_hat_Y, se_Y,
                  pval_thresh = 5e-8,
                  variant_ix = NULL,
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
+                 g_init = NULL,
+                 fix_g = FALSE,
                  max_iter = 100,
                  sigma_beta = Inf,
                  tol = "default",
@@ -66,6 +68,9 @@ esmr <- function(beta_hat_Y, se_Y,
 
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
+  dat$g_init <- g_init
+  dat$fix_g <- fix_g
+
   dat$sigma_beta <- sigma_beta
   #dat$lfsr_thresh <- lfsr_thresh
 

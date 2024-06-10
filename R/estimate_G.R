@@ -15,7 +15,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
   colnames(beta_hat_X) <- colnames(se_X) <-  NULL
   if(is.null(R)){
     if(type == "gfa"){
-      gfit <- sumstatFactors::gfa_fit(B_hat = beta_hat_X, S = se_X)
+      gfit <- GFA::gfa_fit(B_hat = beta_hat_X, S = se_X)
       myG <- gfit$F_hat
     }else if(type == "svd"){
       Z <- beta_hat_X/se_X
@@ -26,7 +26,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
     R <- check_matrix(R, "R", p, p)
     R <- check_R(R)
     if(type == "gfa"){
-      gfit <- sumstatFactors::gfa_fit(B_hat = beta_hat_X, S = se_X, R = R)
+      gfit <- GFA::gfa_fit(B_hat = beta_hat_X, S = se_X, R = R)
       myG <- gfit$F_hat
     }else if(type == "svd"){
       Z <- beta_hat_X/se_X

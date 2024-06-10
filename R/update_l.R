@@ -1,4 +1,4 @@
-update_l_sequential <- function(dat, jj){
+update_l_sequential <- function(dat, jj, g_init, fix_g){
   l_update <- list()
   abar <- dat$l$abar
   a2bar <- dat$l$a2bar
@@ -11,9 +11,23 @@ update_l_sequential <- function(dat, jj){
     coords <- seq(dat$k)
   }
 
+  if(!missing(g_init)){
+    stopifnot(is.null(g_init) | length(g_init) == length(coords))
+  }else{
+    g_init <- NULL
+  }
+  if(!missing(fix_g)){
+    stopifnot(length(fix_g) == length(coords) | length(fix_g) == 1)
+    if(length(fix_g) == 1) fix_g <- rep(fix_g, length(coords))
+  }else{
+    fix_g <- rep(FALSE, length(coords))
+  }
+
+
   for(j in coords){
     R_j <- dat$Y - (abar[,-j,drop=FALSE] %*% t(dat$f$fgbar[,-j,drop=FALSE]))
-    lu <- update_l_k(R_j, dat$f$fgbar[,j], dat$f$fg2bar[,j], dat$omega, dat$ebnm_fn)
+    lu <- update_l_k(R_j, dat$f$fgbar[,j], dat$f$fg2bar[,j], dat$omega, dat$ebnm_fn,
+                     g_init = g_init[[j]], fix_g = fix_g[j])
 
     abar[lu$posterior$index,j] <- lu$posterior$mean
     a2bar[lu$posterior$index,j] <- lu$posterior$second_moment

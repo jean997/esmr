@@ -43,57 +43,59 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega){
 
 
 ## likelihood function, very slow
-log_py <- function(Y, ghat, fgbar, omega, col_order = NULL){
-  if (!is.null(col_order)) {
-    Y <- Y[, col_order]
-    ghat <- ghat[col_order]
-    fgbar <- fgbar[col_order, col_order]
-    omega <- lapply(omega, function(x) x[col_order, col_order])
+log_py <- function(fit, g_hat, beta){
+  if(missing(g_hat)){
+    g_hat <- fit$l$g_hat
   }
-  n <- nrow(Y)
-  k <- ncol(fgbar)
-  p <- ncol(Y)
+  if(missing(beta)){
+    beta <- fit$beta$beta_m
+  }
 
-  lpi <- lapply(ghat, function(x){log(x$pi)})
+  fbar <- fit$f$fbar
+  for(i in seq_along(beta)){
+    fbar[fit$beta$beta_j[i], fit$beta$beta_k[i]] <- beta[i]
+  }
+  fgbar <- fit$G %*% fbar
+
+  lpi <- lapply(g_hat, function(x){log(x$pi)})
   LPi <- expand.grid(lpi)
   lpi <- apply(LPi, 1, sum)
 
-  s <- lapply(ghat, function(x){x$sd})
+  s <- lapply(g_hat, function(x){x$sd})
   S <- expand.grid(s)
   V <- apply(S, 1, function(s){
-    fgbar %*% diag(s) %*% t(fgbar)
+    fgbar %*% diag(s^2) %*% t(fgbar)
   }, simplify = F)
 
   m <- length(V)
 
-  equal_omega <- check_equal_omega(omega)
+  equal_omega <- check_equal_omega(fit$omega)
 
   if(equal_omega){
-    somega <- solve(omega)
+    somega <- solve(fit$omega)
     lprob <- lapply(seq(m), function(mm){
       myV <- V[[mm]] + somega
       smV <- solve(myV)
-      c <- -(p/2)*log(2*base::pi) - (1/2)* as.numeric(determinant(myV, logarithm = TRUE)$modulus)
+      c <- -(fit$p/2)*log(2*base::pi) - (1/2)* as.numeric(determinant(myV, logarithm = TRUE)$modulus)
 
-      d <- sapply(1:n, function(i){
-        crossprod(crossprod(smV, Y[i,]), Y[i,])
+      d <- sapply(1:fit$n, function(i){
+        crossprod(crossprod(smV, fit$Y[i,]), fit$Y[i,])
       })
 
       lpi[mm] + c -(1/2)*d
     })
-    A <- matrix(unlist(lprob), nrow = n, byrow = F)
+    A <- matrix(unlist(lprob), nrow = fit$n, byrow = F)
     lp <- apply(A, 1, matrixStats::logSumExp)
     return(sum(lp))
   }else{
-
-    lp <- sapply(1:n, function(i){
-      somega <- solve(omega[[i]])
+    lp <- sapply(1:fit$n, function(i){
+      somega <- solve(fit$omega[[i]])
       lprob <- sapply(seq(m), function(mm){
         myV <- V[[mm]] + somega
         smV <- solve(myV)
-        c <- -(p/2)*log(2*base::pi) - (1/2)* as.numeric(determinant(myV, logarithm = TRUE)$modulus)
+        c <- -(fit$p/2)*log(2*base::pi) - (1/2)* as.numeric(determinant(myV, logarithm = TRUE)$modulus)
 
-        d <- crossprod(crossprod(smV, Y[i,]), Y[i,])
+        d <- crossprod(crossprod(smV, fit$Y[i,]), fit$Y[i,])
 
         lpi[mm] + c -(1/2)*d
       })

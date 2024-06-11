@@ -20,8 +20,6 @@ Imports:
     Matrix,
     matrixStats,
     purrr,
-    GFA,
-    ebnm,
-    flashier
+    GFA
 Remotes:
     jean997/GFA

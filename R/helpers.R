@@ -9,131 +9,17 @@ make_f <- function(dat){
   }
   fbar <- f2bar <- diag(dat$p)
   nb <- length(dat$beta$beta_j)
-  for(i in seq(nb)) fbar[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_m[i]
+  ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+  fbar[ix] <- dat$beta$beta_m
+
   fgbar <- fbar %*% dat$G
   V <- matrix(0, nrow = dat$p, ncol = dat$p)
-  for(i in seq(nb)) V[dat$beta$beta_j[i],dat$beta$beta_k[i]] <- dat$beta$beta_s[i]^2
+  V[ix] <- dat$beta$beta_s^2
+
   f2bar <- (fbar^2) + V
   fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
   return(list(fgbar = fgbar, fg2bar = fg2bar,
               fbar = fbar, f2bar = f2bar))
-}
-
-
-init_beta <- function(p, which_beta=NULL,
-                      beta_m_init = NULL,
-                      fix_beta = FALSE){
-  #if(!is.null(which_beta) & beta_joint){
-  #  stop("Joint update only implemented for standard problem.\n")
-  #}
-  if(is.null(which_beta)){
-    beta_j <- rep(1, p-1)
-    beta_k <- 2:p
-  }else{
-    beta_j <- which_beta[,1]
-    beta_k <- which_beta[,2]
-  }
-  nb <- length(beta_j)
-  if(is.null(beta_m_init)){
-    beta_m <- rep(0, nb)
-    beta_s <- rep(0, nb)
-  }else{
-    if(!length(beta_m_init) == nb) stop(paste0("Expected beta_m_init to have length ", nb, ", found ", length(beta_m_init), "\n"))
-    beta_m <- beta_m_init
-    beta_s <- rep(0, nb)
-  }
-
-  if(length(fix_beta) == 1){
-    fix_beta <- rep(fix_beta, nb)
-  }else if(length(fix_beta) != nb){
-    stop("fix_beta and expected to have length 1 or ", nb, ". Found ", length(fix_beta), ".\n")
-  }
-  stopifnot(class(fix_beta) == "logical")
-  return(list(beta_m = beta_m, beta_s = beta_s,
-              beta_j = beta_j, beta_k = beta_k, fix_beta = fix_beta))
-}
-
-
-# previously init_l_future
-init_l <- function(n, p, m){
-  lbar <- matrix(0, nrow = n, ncol = p)
-  abar <- matrix(0, nrow = n, ncol = m)
-  lfsr <- matrix(1, nrow = n, ncol = m)
-  g_hat <- list()
-  return(list(lbar = lbar, l2bar = lbar,
-              abar = abar, a2bar = abar,
-              #wpost = lbar, mupost = lbar, s2post = lbar,
-              #post_mode = abar,
-              lfsr = lfsr, g_hat = g_hat))
-}
-
-
-check_numeric <- function(x, string, n){
-  if(is.null(x)) return(x)
-  if("matrix" %in% class(x) | "data.frame" %in% class(x)){
-    if(ncol(x) > 1) stop(paste0(string, " must be a numeric vector or one column array."))
-    x <- as.numeric(x[,1])
-  }else if(!"numeric" %in% class(x)){
-    stop(paste0(string, " must be a numeric vector or one column array."))
-  }
-  if(!missing(n)){
-     if(length(x) != n) stop(paste0("Expected ", string, " to have length ", n, ", found ", length(x), "\n"))
-  }
-  return(x)
-}
-
-check_matrix <- function(x, string, n, p){
-  if(is.null(x)) return(x)
-  if("data.frame" %in% class(x)){
-    cat("Coercing ", string, " to matrix.\n")
-    x <- as.matrix(x)
-  }else if("numeric" %in% class(x)){
-    x <- as.matrix(x, ncol = 1)
-  }else if(!"matrix" %in% class(x)){
-    stop(paste0(string, " must be a numeric vector, matrix, or data.frame."))
-  }
-  if(!missing(n)){
-    if(nrow(x) != n) stop(paste0("Expected ", string, " to have ", n, " rows, found ", nrow(x), "\n"))
-  }
-  if(!missing(p)){
-    if(ncol(x) != p) stop(paste0("Expected ", string, " to have ", p, " columns, found ", ncol(x), "\n"))
-  }
-  return(x)
-}
-
-check_R <- function(R, tol = 1e-8){
-  if(is.null(R)) return(R)
-  if(!Matrix::isSymmetric(R)){
-    stop("R is not symmetric.\n")
-  }
-  stopifnot(is_psd(R, tol))
-  evR <- eigen(R, only.values = TRUE)$values
-  if(!all(evR > tol)){
-    stop("R is not positive definite.\n")
-  }
-  if(!all(diag(R) == 1)){
-    stop("R should be a correlation matrix.\n")
-  }
-  return(R)
-}
-
-check_missing <- function(Y, S){
-  missing_ix <- which(is.na(Y))
-  any_missing <- length(missing_ix) > 0
-  if(length(missing_ix) == 0){
-    return(list(Y = Y, S = S, any_missing = FALSE))
-  }
-  if(any(is.na(S[-missing_ix]))) stop("Found missing SEs for non-missing effect estimates.\n")
-
-  nmiss_r <- rowSums(is.na(Y))
-  nmiss_c <- colSums(is.na(Y))
-  p <- ncol(Y)
-  n <- nrow(Y)
-  if(any(nmiss_r == p)) stop("Data cannot have variants missing for all traits.\n")
-  if(any(nmiss_c == n)) stop("At least one trait is missing for all variants.\n")
-  Y[missing_ix] <- 0
-  S[missing_ix] <- NA
-  return(list(Y = Y, S = S, any_missing = TRUE))
 }
 
 get_omega <- function(R, S, any_missing){
@@ -199,22 +85,104 @@ get_omega <- function(R, S, any_missing){
 
 set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
 
-  beta_hat_Y <- check_numeric(beta_hat_Y, "beta_hat_Y")
-  n <- length(beta_hat_Y)
-  se_Y <- check_numeric(se_Y, "se_Y", n)
-  beta_hat_X <- check_matrix(beta_hat_X, "beta_hat_X", n)
-  p <- ncol(beta_hat_X) + 1
-  se_X <- check_matrix(se_X, "se_X", n, p-1)
-  R <- check_matrix(R, "R", p, p)
+  beta_hat_X <- check_matrix(beta_hat_X)
+  n <- nrow(beta_hat_X)
+  p <- ncol(beta_hat_X)
+  se_X <- check_matrix(se_X, n, p)
+  if(!is.null(beta_hat_Y)){
+    beta_hat_Y <- check_numeric(beta_hat_Y, n)
+    se_Y <- check_numeric(se_Y, n)
+    p <- p + 1
+    beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)
+    se_X <- cbind(se_Y, se_X)
+  }
+  R <- check_matrix(R, p, p)
   R <- check_R(R)
 
-  dat <- check_missing(cbind(beta_hat_Y, beta_hat_X), cbind(se_Y, se_X))
+  dat <- check_missing( beta_hat_X, se_X)
   dat$omega <- get_omega(R, dat$S, dat$any_missing) # omega is row correlation of data, either list or single matrix
   dat$n <- n
   dat$p <- p
-
+  dat$traits <- 1:p
   return(dat)
 
+}
+
+order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_init= NULL){
+  if(!is.null(direct_effect_template)){
+    B <- direct_effect_template
+  }else{
+    B <- matrix(0, nrow = dat$p, ncol = dat$p)
+    B[2:dat$p, 1] <- 1
+  }
+  # Check if we have lower triangular
+  if (any(B[upper.tri(B)] != 0)) {
+      # Direct effect template is not an lower triangular matrix
+      # Attempt to re-order with topo-sort
+      topo_order <- tryCatch({
+        topo_sort_mat(B)
+      }, error = function(e){
+        stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
+      })
+      dat <- reorder_data(dat, topo_order)
+      # beta_hat_X <- beta_hat_X[, topo_order]
+      # se_X <- se_X[, topo_order]
+      # R <- R[topo_order, topo_order]
+      B <- B[topo_order, topo_order]
+  }
+
+  dat$B_template <- B
+  if(!is.null(direct_effect_init)){
+    o <- match(dat$traits, 1:dat$p)
+    dat$B_init <- check_matrix(direct_effect_init, dat$p, dat$p)[o, o]
+    if(any(dat$B_init[!dat$B_template == 0] != 0)){
+      stop("Initialization pattern does not match template.\n")
+    }
+  }else{
+    dat$B_init <- matrix(0, nrow = dat$p, ncol = dat$p)
+  }
+  return(dat)
+}
+
+
+
+reorder_data <- function(
+    dat, cols) {
+
+  dat$Y <- dat$Y[,cols,drop=F]
+  dat$S <- dat$S[,cols,drop=F]
+
+  if(!is.null(dat$l)){
+    dat$l$lbar <- dat$l$lbar[,cols,drop=F]
+    dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
+    dat$l$abar <- dat$l$abar[,cols,drop=F]
+    dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
+    dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
+    dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
+  }
+  if(!is.null(dat$f)){
+    dat$f <- lapply(dat$f, function(x) {
+      x[cols, cols]
+    })
+  }
+  if(!is.null(dat$beta)){
+    dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
+    dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
+  }
+  if(!is.null(dat$omega)) {
+    dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
+  }
+  if(!is.null(dat$G)){
+    dat$G <- dat$G[cols,cols]
+  }
+  if(!is.null(dat$B_template)){
+    dat$B_template <- dat$B_template[cols, cols]
+  }
+  if(!is.null(dat$B_init)){
+    dat$B_init <- dat$B_init[cols,cols]
+  }
+  dat$traits <- dat$traits[cols]
+  return(dat)
 }
 
 subset_data <- function(dat, ix){
@@ -244,8 +212,7 @@ check_equal_omega <- function(omega){
   return(s_equal)
 }
 
-
-get_ix1_ix0 <- function(dat, ix1){
+get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
   if("integer" %in% class(ix1) | "numeric" %in% class(ix1)){
     stopifnot(all(ix1 %in% (1:dat$n)))
     dat$ix1 <- sort(ix1)
@@ -253,9 +220,17 @@ get_ix1_ix0 <- function(dat, ix1){
     ix1 <- stringr::str_split(ix1, "-", n = 2)[[1]]
     type <- ix1[1]
     thresh <- as.numeric(ix1[2])
+    if (remove_empty_B_cols) {
+      out_order <- rowSums(dat$B_template != 0)
+      out_ix <- which(out_order > 0)
+    } else {
+      # Remove first column for esmr
+      out_ix <- -1
+    }
+
     if(type == "pval"){
       pval <- with(dat, 2*pnorm(-abs(Y/S)))
-      vals <- apply(pval[,-1,drop = FALSE], 1, min)
+      vals <- apply(pval[,out_ix,drop = FALSE], 1, min)
       dat$ix1 <- which(vals < thresh)
     }else{
       stop("Unknown option to ix1\n")
@@ -267,23 +242,59 @@ get_ix1_ix0 <- function(dat, ix1){
   return(dat)
 }
 
-## unused
-check_omega <- function(omega, n, p, s_equal){
-  if(s_equal){
-    if(!"matrix" %in% class(omega)) stop("omega is not of class matrix\n")
-    check_matrix(omega, "omega", p, p)
-  }else{
-    stopifnot(class(omega) == "list")
-    stopifnot(length(omega) == n)
-    d <- lapply(omega, dim)
-    nr <- map(d, 1) %>% unlist()
-    nc <- map(d, 2) %>% unlist()
-    stopifnot(all(nr == p))
-    stopifnot(all(nc == p))
+
+## check structure of direct effects, return structure of total effects
+direct_to_total <- function(B_dir){
+  n <- nrow(B_dir)
+  B_total <- solve(diag(n) - B_dir) - diag(n)
+  if(!all(diag(B_total) == 0)){
+    stop("Failed to compute total effects from direct. Check that supplied B_dir corresponds to a valid DAG.\n")
   }
+  return(B_total)
 }
 
+total_to_direct <- function(B_tot){
+  n <- nrow(B_tot)
+  B_dir <-diag(n) - solve(diag(n) + B_tot)
+  if(!all(diag(B_dir) == 0)){
+    stop("Failed to compute total effects from direct. Check that supplied B_tot corresponds to a valid DAG.\n")
+  }
+  return(B_dir)
+}
 
+delta_method_pvals <- function(dat){
+  e_ix <- which(!dat$beta$fix_beta)
+  fix_ix <- which(dat$beta$fix_beta)
+  e_coords <- cbind(dat$beta$beta_k, dat$beta$beta_j)[e_ix,,drop=FALSE]
+  if(length(fix_ix) > 0){
+    fix_coords <- cbind(dat$beta$beta_k, dat$beta$beta_j)[fix_ix,,drop=FALSE]
+    colnames(fix_coords) <- c("row", "col")
+  }
+
+  f <- function(tot){
+    myT <- matrix(0, nrow = dat$p, ncol = dat$p)
+    myT[e_coords] <- tot
+
+    if(length(fix_ix) > 0){
+      myT <- complete_T(myT, fix_coords)$total_effects
+    }
+
+    myB <- total_to_direct(myT)
+    dir <- myB[e_coords]
+    return(dir)
+  }
+  jac <- numDeriv::jacobian(f, x = dat$beta$beta_m[e_ix])
+  V <- dat$beta$V[e_ix,e_ix]
+  VB <- jac %*% V %*% t(jac)
+  muB <- f(dat$beta$beta_m[e_ix])
+  log_pvals <- log(2) + pnorm(-abs(muB/sqrt(diag(VB))), log.p = TRUE)
+  pmat <- semat <- matrix(0, nrow = dat$p, ncol = dat$p)
+  pmat[e_coords] <- log_pvals
+  semat[e_coords] <- sqrt(diag(VB))
+  return(list(pmat = pmat, semat = semat))
+}
+
+## unused
 get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_normal"){
   wpost <- purrr::map_dfc(col_ix, function(ii){
     cat(ii, "\n")
@@ -301,4 +312,8 @@ get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_norma
     return(df);
   });
   return(wpost)
+}
+
+get_lower_triangular <- function(x, diag = FALSE) {
+  x[lower.tri(x, diag)]
 }

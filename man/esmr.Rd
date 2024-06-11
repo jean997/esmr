@@ -17,9 +17,8 @@ esmr(
   max_iter = 100,
   sigma_beta = Inf,
   tol = default_precision(c(ncol(beta_hat_X) + 1, nrow(beta_hat_X))),
-  beta_m_init = NULL,
-  which_beta = NULL,
-  fix_beta = FALSE,
+  direct_effect_template = NULL,
+  direct_effect_init = NULL,
   beta_joint = TRUE,
   augment_G = TRUE
 )

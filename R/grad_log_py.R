@@ -332,7 +332,7 @@ optimize_lpy <- function(fit,
   }
   fit$beta$beta_m <- beta
   if(calc_hess){
-    h <- grad_log_py(fit, fbar)
+    h <- hess_log_py(fit, fbar)
     fit$beta$V <- solve(h$hess)
   }
   return(fit)

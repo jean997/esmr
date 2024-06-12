@@ -22,8 +22,9 @@ esmr <- function(beta_hat_X, se_X,
                  R = NULL,
                  pval_thresh = NULL,
                  variant_ix = NULL,
-                 ###
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
+                 g_init = NULL,
+                 fix_g = FALSE,
                  max_iter = 100,
                  sigma_beta = Inf,
                  tol = "default",
@@ -41,9 +42,11 @@ esmr <- function(beta_hat_X, se_X,
   #g_type <- match.arg(g_type, choices = c("gfa", "svd"))
   g_type <- "gfa"
   stopifnot(beta_joint %in% c(TRUE, FALSE))
-  if(!is.null(pval_thresh) & !is.null(variant_ix)){
+  if(! is.null(pval_thresh) && ! is.null(variant_ix)){
     stop("Please specify only one of pval_thresh or variant_ix.")
   }
+
+  is_nesmr <- !is.null(direct_effect_template)
 
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
   if(is.null(G)){
@@ -78,13 +81,20 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
+  dat$g_init <- g_init
+  dat$fix_g <- fix_g
+
   dat$sigma_beta <- sigma_beta
   #dat$lfsr_thresh <- lfsr_thresh
 
   if(!is.null(variant_ix)){
     dat <- subset_data(dat, variant_ix)
   }else if(!is.null(pval_thresh)){
-    dat <- get_ix1_ix0(dat, paste0("pval-", pval_thresh))
+    dat <- get_ix1_ix0(
+      dat,
+      paste0("pval-", pval_thresh),
+      remove_empty_B_cols = is_nesmr)
+
     dat <- subset_data(dat, dat$ix1)
   }
   if(tol == "default"){

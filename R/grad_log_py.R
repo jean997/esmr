@@ -331,9 +331,16 @@ optimize_lpy <- function(fit,
     i <- i + 1
   }
   fit$beta$beta_m <- beta
+  fit$f$fbar <- fbar
+  fit$f$fgbar <- fit$G %*% fbar
   if(calc_hess){
     h <- hess_log_py(fit, fbar)
     fit$beta$V <- solve(h$hess)
+    fit$beta$beta_s <- sqrt(diag(fit$beta$V))
+    fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
+    delt_pvals <- delta_method_pvals(fit)
+    fit$pvals_dm <- delt_pvals$pmat
+    fit$se_dm <- delt_pvals$semat
   }
   return(fit)
 }

@@ -341,6 +341,7 @@ optimize_lpy <- function(fit,
     delt_pvals <- delta_method_pvals(fit)
     fit$pvals_dm <- delt_pvals$pmat
     fit$se_dm <- delt_pvals$semat
+    fit$likelihood <- h$log_py
   }
   return(fit)
 }

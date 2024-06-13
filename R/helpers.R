@@ -245,7 +245,7 @@ direct_to_total <- function(B_dir){
 total_to_direct <- function(B_tot){
   n <- nrow(B_tot)
   B_dir <-diag(n) - solve(diag(n) + B_tot)
-  if(!all(diag(B_dir) == 0)){
+  if(!all.equal(diag(B_dir), rep(0, n))){
     stop("Failed to compute total effects from direct. Check that supplied B_tot corresponds to a valid DAG.\n")
   }
   return(B_dir)

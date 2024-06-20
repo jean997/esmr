@@ -6,17 +6,18 @@
 \title{Empirical Shrinkage Multivariable MR}
 \usage{
 esmr(
-  beta_hat_Y,
-  se_Y,
   beta_hat_X,
   se_X,
+  beta_hat_Y = NULL,
+  se_Y = NULL,
   G = NULL,
   R = NULL,
-  pval_thresh = 5e-08,
+  pval_thresh = NULL,
+  variant_ix = NULL,
   ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
   max_iter = 100,
   sigma_beta = Inf,
-  tol = default_precision(c(ncol(beta_hat_X) + 1, nrow(beta_hat_X))),
+  tol = "default",
   direct_effect_template = NULL,
   direct_effect_init = NULL,
   beta_joint = TRUE,
@@ -24,19 +25,21 @@ esmr(
 )
 }
 \arguments{
-\item{beta_hat_Y}{Vector of SNP-outcome associations (length p)}
-
-\item{se_Y}{Standard errors of beta_hat_Y}
-
 \item{beta_hat_X}{Matrix of SNP-exposure associations (p by K)}
 
 \item{se_X}{matrix of standard errors of beta_hat_X}
+
+\item{beta_hat_Y}{Vector of SNP-outcome associations (length p)}
+
+\item{se_Y}{Standard errors of beta_hat_Y}
 
 \item{G}{G matrix. If NULL, G will be estimated using the method given in g_type.}
 
 \item{R}{Optional correlation matrix for overlapping samples.}
 
-\item{pval_thresh}{p-value threshold (suggest 1)}
+\item{pval_thresh}{p-value threshold for estimation}
+
+\item{variant_ix}{Instead of using pval_thresh, directly specify the indices of variants used for estimation.}
 
 \item{ebnm_fn}{Options prior distribution family. Defaults to point-normal.}
 

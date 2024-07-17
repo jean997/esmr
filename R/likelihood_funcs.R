@@ -3,19 +3,20 @@
 # The objective function is E_q[log lik(l, f | Y, omega)] - KL(q_l || g_l)
 ## E[ sum (Y, - y_j)^T Omega (Y_j - y_j)]
 #'@export
-calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal){
+calc_ell2 <- function(Y, abar, a2bar, fbar, G, omega, fVo, s_equal){
   n <- nrow(Y)
   p <- ncol(Y)
-  k <- ncol(fgbar)
-  check_matrix(abar, n, k)
-  check_matrix(a2bar,  n, k)
-  check_matrix(fgbar, p, k)
+  k <- ncol(G)
+  # check_matrix(abar, n, k)
+  # check_matrix(a2bar,  n, k)
+  # check_matrix(fgbar, p, k)
+  fgbar <- fbar %*% G
 
   #s_equal <- check_equal_omega(omega)
 
   ybar <- abar %*% t(fgbar)
   R <- Y - ybar
-
+  AG <- abar %*% t(G)
   varabar <- a2bar - (abar^2)
 
   if(s_equal){
@@ -31,12 +32,21 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal){
     }) %>% sum()
 
     diagA <- map(seq(n), function(i){
-      colSums(crossprod(omega[[i]],fgbar) * fgbar)
+      colSums(crossprod(omega[[i]],fgbar) * fgbar) +
+        colSums(crossprod(fVo[[i]],G) * G)
     }) %>% unlist() %>% matrix(ncol = k, byrow = T)
 
-    part_b <- sum(varabar*diagA)
+    part_b <- sum(varabar*(diagA))
+
+    part_c <- map_dbl(seq(n), function(i){
+      #quad.tform(omega[[i]], R[i,,drop = FALSE])
+      r <- AG[i,,drop = FALSE]
+      tcrossprod(r, tcrossprod(r, fVo[[i]]))
+    }) %>% sum()
+
+
     #part_b <- t(t(varlbar)*diagA) %>% sum()
-    ell <- -0.5*(part_a + part_b)
+    ell <- -0.5*(part_a + part_b + part_c)
   }
   return(ell)
 }

@@ -13,7 +13,8 @@ esmr_solve <- function(dat, max_iter, tol){
     dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
     dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, dat$s_equal))
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
+    # Y, abar, a2bar, fbar, G, omega, fVo, s_equal
     obj <- c(obj, ll + dat$l$kl)
 
     # beta update
@@ -64,7 +65,8 @@ esmr_solve <- function(dat, max_iter, tol){
     }
 
     ###
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, dat$s_equal))
+    #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, dat$s_equal))
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
     obj <- c(obj, ll + dat$l$kl)
 
     obj_new <- obj[length(obj)]

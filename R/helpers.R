@@ -98,7 +98,8 @@ get_omega <- function(R, S, s_equal, any_missing){
   return(omega)
 }
 
-set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
+set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
+                     ld_scores, RE){
 
   beta_hat_X <- check_matrix(beta_hat_X)
   n <- nrow(beta_hat_X)

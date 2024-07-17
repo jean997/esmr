@@ -22,6 +22,9 @@ esmr <- function(beta_hat_X, se_X,
                  R = NULL,
                  pval_thresh = NULL,
                  variant_ix = NULL,
+                 ld_scores = NULL,
+                 RE = NULL,
+                 ###
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
                  g_init = NULL,
                  fix_g = FALSE,
@@ -47,8 +50,14 @@ esmr <- function(beta_hat_X, se_X,
   }
 
   is_nesmr <- !is.null(direct_effect_template)
+  if(!is.null(ld_scores) | !is.null(RE)){
+    if(is.null(ld_scores) | is.null(RE)){
+      stop("Please specify both ld_scores and RE to include correction for GWAS confounding.")
+    }
+  }
 
-  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
+  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE)
+
   if(is.null(G)){
     if(dat$p == 2){
       G <- diag(dat$p)
@@ -64,12 +73,13 @@ esmr <- function(beta_hat_X, se_X,
     }
   }
   dat$G <- check_matrix(G, n = dat$p)
+
   dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init)
   dat <- init_beta(dat)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
-  dat$R_is_id <- is.null(R) | all(R == diag(dat$p))
+  dat$R_is_id <- (is.null(R) || all(R == diag(dat$p))) & is.null(RE)
 
   dat$k <- ncol(dat$G)
 

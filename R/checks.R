@@ -49,32 +49,35 @@ check_R <- function(R, tol = 1e-8){
 check_missing <- function(Y, S){
   missing_ix <- which(is.na(Y))
   any_missing <- length(missing_ix) > 0
-  if(length(missing_ix) == 0){
-    return(list(Y = Y, S = S, any_missing = FALSE))
+  p <- ncol(Y)
+  n <- nrow(Y)
+  if(!any_missing){
+    s_equal <- apply(S, 2, function(x){all(x == x[1])}) |> all()
+    return(list(Y = Y, S = S, n = n, p = p,
+                s_equal = s_equal,  any_missing = FALSE))
   }
+
   if(any(is.na(S[-missing_ix]))) stop("Found missing SEs for non-missing effect estimates.\n")
 
   nmiss_r <- rowSums(is.na(Y))
   nmiss_c <- colSums(is.na(Y))
-  p <- ncol(Y)
-  n <- nrow(Y)
   if(any(nmiss_r == p)) stop("Data cannot have variants missing for all traits.\n")
   if(any(nmiss_c == n)) stop("At least one trait is missing for all variants.\n")
   Y[missing_ix] <- 0
   S[missing_ix] <- NA
-  return(list(Y = Y, S = S, any_missing = TRUE))
+  return(list(Y = Y, S = S, n = n, p = p,
+              s_equal = FALSE, any_missing = TRUE))
 }
 
 
 check_equal_omega <- function(omega){
   if("matrix" %in% class(omega)){
     #check_matrix(omega, "omega", p, p)
-    s_equal <- TRUE
+    return(TRUE)
   }else{
     stopifnot(class(omega) == "list")
-    s_equal <- FALSE
+    return(FALSE)
   }
-  return(s_equal)
 }
 
 check_B_template <- function(B, p){

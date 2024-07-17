@@ -38,9 +38,9 @@ grad_log_py <- function(fit, fbar){ #Y, ghat, G, fbar, omega){
     }) %>% which()
   })
 
-  equal_omega <- check_equal_omega(fit$omega)
+  #equal_omega <- check_equal_omega(fit$omega)
 
-  if(equal_omega){
+  if(fit$s_equal){
     somega <- solve(fit$omega)
     lprob <- sapply(seq(m), function(mm){
       myV <- V[[mm]] + somega
@@ -173,9 +173,9 @@ hess_log_py <- function(fit, fbar){
     })
   })
 
-  equal_omega <- check_equal_omega(fit$omega)
+  #equal_omega <- check_equal_omega(fit$omega)
 
-  if(equal_omega){
+  if(fit$s_equal){
     somega <- solve(fit$omega)
     lprob <- sapply(seq(m), function(mm){
       myV <- V[[mm]] + somega

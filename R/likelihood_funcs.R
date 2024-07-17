@@ -3,7 +3,7 @@
 # The objective function is E_q[log lik(l, f | Y, omega)] - KL(q_l || g_l)
 ## E[ sum (Y, - y_j)^T Omega (Y_j - y_j)]
 #'@export
-calc_ell2 <- function(Y, abar, a2bar, fgbar, omega){
+calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal){
   n <- nrow(Y)
   p <- ncol(Y)
   k <- ncol(fgbar)
@@ -11,7 +11,7 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega){
   check_matrix(a2bar,  n, k)
   check_matrix(fgbar, p, k)
 
-  s_equal <- check_equal_omega(omega)
+  #s_equal <- check_equal_omega(omega)
 
   ybar <- abar %*% t(fgbar)
   R <- Y - ybar
@@ -69,9 +69,9 @@ log_py <- function(fit, g_hat, beta){
 
   m <- length(V)
 
-  equal_omega <- check_equal_omega(fit$omega)
+  #equal_omega <- check_equal_omega(fit$omega)
 
-  if(equal_omega){
+  if(dat$s_equal){
     somega <- solve(fit$omega)
     lprob <- lapply(seq(m), function(mm){
       myV <- V[[mm]] + somega

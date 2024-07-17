@@ -1,7 +1,6 @@
 
 #'@export
 update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = FALSE){
-  s_equal <- check_equal_omega(dat$omega)
 
   p <- dat$p
   n <- dat$n
@@ -21,7 +20,7 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
   }
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
-  if(s_equal){
+  if(dat$s_equal){
     A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
     Astar <- dat$G %*% A %*% t(dat$G)
     # R <- dat$omega[j,j]*Astar[ix,ix] + T0
@@ -82,7 +81,6 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
 
 
 update_beta_full_joint <- function(dat, prior_cov = NULL){
-  s_equal <- check_equal_omega(dat$omega)
 
   p <- dat$p
   n <- dat$n
@@ -101,7 +99,7 @@ update_beta_full_joint <- function(dat, prior_cov = NULL){
 
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
-  if(s_equal){
+  if(dat$s_equal){
     A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
     Astar <- dat$G %*% A %*% t(dat$G)
     Rfull <- kronecker(Astar, dat$omega)

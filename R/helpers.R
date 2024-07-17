@@ -10,21 +10,36 @@ make_f <- function(dat){
   fbar <- f2bar <- diag(dat$p)
   nb <- length(dat$beta$beta_j)
   ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
-  fbar[ix] <- dat$beta$beta_m
 
+  fbar[ix] <- dat$beta$beta_m
   fgbar <- fbar %*% dat$G
+
+  VV <- matrix(0, nrow = dat$p^2, ncol = dat$p^2)
+  for(ii in 1:nb){
+    for(jj in 1:nb){
+      #cat(ii, " " , jj, " ", dat$p*(ix[ii,2]-1)+ ix[jj,2], " ", dat$p*(ix[ii, 1]-1) + ix[jj,1], " ", dat$beta$V[ii, jj], "\n")
+      VV[dat$p*(ix[ii,2]-1)+ ix[jj,2], dat$p*(ix[ii, 1]-1) + ix[jj,1]] <- dat$beta$V[ii,jj]
+      #VV[VVix] <- dat$beta$V[ii,jj]
+    }
+  }
+  if(dat$s_equal){
+    VVo <- VV %*% as.vector(dat$omega)
+  }else{
+    VVo <- lapply(dat$omega, function(o){
+      matrix(VV %*% as.vector(o), nrow = dat$p)
+    })
+  }
+
   V <- matrix(0, nrow = dat$p, ncol = dat$p)
   V[ix] <- dat$beta$beta_s^2
-
   f2bar <- (fbar^2) + V
   fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
-  return(list(fgbar = fgbar, fg2bar = fg2bar,
-              fbar = fbar, f2bar = f2bar))
+  return(list(fgbar = fgbar, fV = VV, fVo = VVo, fg2bar = fg2bar,
+              fbar = fbar,f2bar = f2bar))
 }
 
-get_omega <- function(R, S, any_missing){
+get_omega <- function(R, S, s_equal, any_missing){
 
-  s_equal <- apply(S, 2, function(x){all(x == x[1])}) %>% all()
   p <- ncol(S)
   R_is_id <- is.null(R) | all(R == diag(p))
 
@@ -99,13 +114,23 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
   R <- check_matrix(R, p, p)
   R <- check_R(R)
 
-  dat <- check_missing( beta_hat_X, se_X)
-  dat$omega <- get_omega(R, dat$S, dat$any_missing) # omega is row correlation of data, either list or single matrix
-  dat$n <- n
-  dat$p <- p
+  dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
   dat$traits <- 1:p
-  return(dat)
 
+  if(is.null(RE)){
+    dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
+    return(dat)
+  }
+
+  RE <- check_matrix(RE, p, p)
+  dat$RE <- check_R(RE)
+  dat$ld_scores <- check_numeric(ld_scores, n)
+
+  dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
+  dat$tau <- 1
+  dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
+  dat$s_equal <- FALSE
+  return(dat)
 }
 
 order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_init= NULL){
@@ -160,14 +185,11 @@ reorder_data <- function(
     dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
     dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
   }
-  if(!is.null(dat$f)){
-    dat$f <- lapply(dat$f, function(x) {
-      x[cols, cols]
-    })
-  }
+
   if(!is.null(dat$beta)){
     dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
     dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
+    dat$f <- make_f(dat)
   }
   if(!is.null(dat$omega)) {
     dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
@@ -186,7 +208,7 @@ reorder_data <- function(
 }
 
 subset_data <- function(dat, ix){
-  s_equal <- check_equal_omega(dat$omega)
+  #s_equal <- check_equal_omega(dat$omega)
   dat$Y <- dat$Y[ix,,drop=F]
   dat$S <- dat$S[ix,,drop=F]
   dat$n <- length(ix)
@@ -195,7 +217,7 @@ subset_data <- function(dat, ix){
   dat$l$abar <- dat$l$abar[ix,,drop=F]
   dat$l$a2bar <- dat$l$a2bar[ix,,drop=F]
   dat$l$lfsr <- dat$l$lfsr[ix,,drop=F]
-  if(!s_equal){
+  if(!dat$s_equal){
     dat$omega <- dat$omega[ix]
   }
   return(dat)

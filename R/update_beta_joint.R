@@ -23,12 +23,6 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
   if(dat$s_equal){
     A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
     Astar <- dat$G %*% A %*% t(dat$G)
-    # R <- dat$omega[j,j]*Astar[ix,ix] + T0
-    # a1 <- colSums(dat$l$lbar[,ix]*rowSums(t(t(dat$Y)*dat$omega[,j])))
-    # a2 <- colSums(Astar[,ix]*dat$omega[,j])
-    # a <- matrix(a1 - a2, nrow = m)
-    # S <- solve(R)
-    # mu <- S %*% a
 
     Rfull <- dat$omega[j,j]*Astar  # W in the manuscript
     a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j])))
@@ -110,12 +104,12 @@ update_beta_full_joint <- function(dat, prior_cov = NULL){
     }) %>% Reduce(`+`, .)
   }else{
     Rfull <- lapply(seq(n), function(i){
-      l <- matrix(dat$l$abar[i,], nrow = k)
-      a <- l %*% t(l) + diag(Va[i,], nrow = k)
+      l <- dat$l$abar[i,]
+      a <- outer(l, l) + diag(Va[i,], nrow = k)
       kronecker(tcrossprod(dat$G, tcrossprod(dat$G, a)), dat$omega[[i]]) ## kronecker(G %*% a %*% t(G), O)
     }) %>% Reduce(`+`, .)
     afull <- lapply(seq(n), function(i){
-      kronecker(matrix(dat$l$lbar[i,], nrow = k), dat$omega[[i]] %*% matrix(dat$Y[i,], nrow = p))
+      kronecker(dat$l$lbar[i,], dat$omega[[i]] %*% matrix(dat$Y[i,], nrow = p))
     }) %>% Reduce(`+`, .)
   }
   if(length(ix) < p*k){

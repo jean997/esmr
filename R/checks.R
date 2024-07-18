@@ -40,7 +40,8 @@ check_R <- function(R, tol = 1e-8){
   if(!all(evR > tol)){
     stop("R is not positive definite.\n")
   }
-  if(!all(diag(R) == 1)){
+  #if(!all(diag(R) == 1)){
+  if(!all.equal(diag(R), rep(1, nrow(R)) )){
     stop("R should be a correlation matrix.\n")
   }
   return(R)
@@ -84,13 +85,15 @@ check_B_template <- function(B, p){
   B <- check_matrix(B, p, p)
 
   if(!all(B %in% c(0, 1))) stop("Direct effects template should contain only 0 and 1 entries.")
-  if(!all(diag(B) ==0)){
+  #if(!all(diag(B) ==0)){
+  if(!all.equal(diag(B), rep(0, p))){
     stop("Direct effects template must have 0s on the diagonal.")
   }
   B_tot <- tryCatch(direct_to_total(B), error = function(e){
     stop("Check that supplied template corresponds to a valid DAG.\n")
   })
-  if(!all(diag(B_tot) == 0)){
+  #if(!all(diag(B_tot) == 0)){
+  if(!all.equal(diag(B_tot), rep(0, p))){
     stop("Check that supplied template corresponds to a valid DAG.\n")
   }
 

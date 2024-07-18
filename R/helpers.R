@@ -19,7 +19,6 @@ make_f <- function(dat){
     for(jj in 1:nb){
       #cat(ii, " " , jj, " ", dat$p*(ix[ii,2]-1)+ ix[jj,2], " ", dat$p*(ix[ii, 1]-1) + ix[jj,1], " ", dat$beta$V[ii, jj], "\n")
       VV[dat$p*(ix[ii,2]-1)+ ix[jj,2], dat$p*(ix[ii, 1]-1) + ix[jj,1]] <- dat$beta$V[ii,jj]
-      #VV[VVix] <- dat$beta$V[ii,jj]
     }
   }
   if(dat$s_equal){
@@ -99,7 +98,7 @@ get_omega <- function(R, S, s_equal, any_missing){
 }
 
 set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
-                     ld_scores, RE){
+                     ld_scores, RE, tau_init){
 
   beta_hat_X <- check_matrix(beta_hat_X)
   n <- nrow(beta_hat_X)
@@ -128,7 +127,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   dat$ld_scores <- check_numeric(ld_scores, n)
 
   dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
-  dat$tau <- 1
+  dat$tau <- tau_init
   dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
   dat$s_equal <- FALSE
   return(dat)

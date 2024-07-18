@@ -1,8 +1,8 @@
 esmr_solve <- function(dat, max_iter, tol){
 
   check <- 1
-  obj <- c()
-  obj_old <- -Inf
+  obj <- obj2 <- c()
+  obj_old <- beta_old <- -Inf
   i <- 1
 
   dat$obj_dec_warn <- FALSE
@@ -11,11 +11,15 @@ esmr_solve <- function(dat, max_iter, tol){
   while(i < max_iter & check > tol){
     # l update
     dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
-    dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
+    #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
-    # Y, abar, a2bar, fbar, G, omega, fVo, s_equal
+    ll <- with(dat, calc_ell3(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
     obj <- c(obj, ll + dat$l$kl)
+
+    ll2 <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, s_equal))
+    obj2 <- c(obj2, ll2 + dat$l$kl)
+
+
 
     # beta update
     if(!dat$beta_joint){
@@ -35,6 +39,7 @@ esmr_solve <- function(dat, max_iter, tol){
           dat$beta$beta_m[ii] <- beta_upd$m
           dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
           dat$beta$V[ii,ii] <- beta_upd$S
+          dat$f <- make_f(dat)
         }
       }else{
         e_ix <- which(!dat$beta$fix_beta)
@@ -42,9 +47,10 @@ esmr_solve <- function(dat, max_iter, tol){
         dat$beta$beta_m[e_ix] <- ub$m
         dat$beta$V[e_ix,e_ix] <- ub$S
         dat$beta$beta_s[e_ix] <- sqrt(diag(ub$S))
+        dat$f <- make_f(dat)
       }
-      dat$f <- make_f(dat)
     }
+
     ## new step, update total effects based on constraints
     if(any(dat$beta$fix_beta)){
       which_const <- cbind(dat$beta$beta_k, dat$beta$beta_j)[dat$beta$fix_beta,,drop = FALSE]
@@ -64,26 +70,45 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$f <- make_f(dat)
     }
 
-    ###
-    #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, dat$s_equal))
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
+    ll <- with(dat, calc_ell3(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
     obj <- c(obj, ll + dat$l$kl)
+
+    ll2 <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, s_equal))
+    obj2 <- c(obj2, ll2 + dat$l$kl)
+
+    ## tau update
+    if(!is.null(dat$tau) & !dat$fix_tau){
+      min_tau <- dat$tau/10
+      max_tau <- dat$tau*10
+      dat <- update_tau(dat,tau_min = min_tau, tau_max = max_tau)
+    }
+
+    ###
+    ll <- with(dat, calc_ell3(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
+    obj <- c(obj, ll + dat$l$kl)
+
+    ll2 <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, s_equal))
+    obj2 <- c(obj2, ll2 + dat$l$kl)
 
     obj_new <- obj[length(obj)]
     check <- obj_new - obj_old
+    #check <- max(abs(dat$beta$beta_m - beta_old))
     obj_old <- obj_new
+    #beta_old <- dat$beta$beta_m
 
     if(check < -1e-5){
       dat$obj_dec_warn <- TRUE
-      #warning("Objective decreased, something is wrong.\n")
+      warning("Objective decreased, something is wrong.\n")
     }
     check <- abs(check)
-    cat(i, ": ", obj_new, " ", dat$beta$beta_m, "\n")
+    cat(i, ": ", obj_new, " ", dat$beta$beta_m, " ", dat$tau, "\n")
+    #cat(i, ": ", check, " ", dat$beta$beta_m, "\n")
 
     i <- i + 1
   }
 
   dat$obj <- obj
+  dat$obj2 <- obj2
   dat$ixlist <- ixlist
   return(dat)
 }

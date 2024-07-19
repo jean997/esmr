@@ -4,51 +4,37 @@
 ## E[ sum (Y, - y_j)^T Omega (Y_j - y_j)]
 ## This version treats all betas as independent
 #'@export
-calc_ell2 <- function(Y, abar, a2bar, fbar, G, omega, s_equal){
+calc_ell2 <- function(Y, abar, a2bar, fgba, omega, s_equal){
   n <- nrow(Y)
   p <- ncol(Y)
   k <- ncol(G)
-  # check_matrix(abar, n, k)
-  # check_matrix(a2bar,  n, k)
-  # check_matrix(fgbar, p, k)
+
   fgbar <- fbar %*% G
 
   #s_equal <- check_equal_omega(omega)
 
   ybar <- abar %*% t(fgbar)
   R <- Y - ybar
-  AG <- abar %*% t(G)
   varabar <- a2bar - (abar^2)
 
   if(s_equal){
     part_a <- sum(tcrossprod(R, omega) * R) #quad.tdiag(omega, R) %>% sum()
-    diagA <- colSums(crossprod(omega,fgbar) * fgbar)  #+
-      #colSums(crossprod(fVo,G) * G)
-      #quad.diag(omega, fgbar) # diag( t(F) %*% omega %*% F)
+    diagA <- colSums(crossprod(omega,fgbar) * fgbar)
     part_b <- t(t(varabar)*diagA) %>% sum()
-    #part_c <- sum(tcrossprod(AG, fVo) * AG)
     log_det <- log(det(omega))*n
     ell <- -0.5*(part_a + part_b -log_det)
   }else{
     part_a <- map_dbl(seq(n), function(i){
-      #quad.tform(omega[[i]], R[i,,drop = FALSE])
       r <- R[i,,drop = FALSE]
       tcrossprod(r, tcrossprod(r, omega[[i]]))
     }) %>% sum()
 
     diagA <- map(seq(n), function(i){
-      colSums(crossprod(omega[[i]],fgbar) * fgbar) #+
-        #colSums(crossprod(fVo[[i]],G) * G)
+      colSums(crossprod(omega[[i]],fgbar) * fgbar)
     }) %>% unlist() %>% matrix(ncol = k, byrow = T)
 
     part_b <- sum(varabar*diagA)
 
-    # part_c <- map_dbl(seq(n), function(i){
-    #   #quad.tform(omega[[i]], R[i,,drop = FALSE])
-    #   r <- AG[i,,drop = FALSE]
-    #   tcrossprod(r, tcrossprod(r, fVo[[i]]))
-    # }) %>% sum()
-    #part_c <- 0
     log_det <- sapply(omega, function(o){log(det(o))}) %>% sum()
     ell <- -0.5*(part_a + part_b  - log_det)
   }
@@ -142,65 +128,6 @@ calc_kl_k <- function(x, s, w, a, mu, post_mean, post_second){
   # }) |> sum()
 
   return(part1 - part2)
-}
-
-# Calculates E_q[log lik(l, f | Y, omega)]
-# The objective function is E_q[log lik(l, f | Y, omega)] - KL(q_l || g_l)
-## E[ sum (Y, - y_j)^T Omega (Y_j - y_j)]
-## This version considers correlation between beta terms
-#'@export
-calc_ell3 <- function(Y, abar, a2bar, fbar, G, omega, fVo, s_equal){
-  n <- nrow(Y)
-  p <- ncol(Y)
-  k <- ncol(G)
-  # check_matrix(abar, n, k)
-  # check_matrix(a2bar,  n, k)
-  # check_matrix(fgbar, p, k)
-  fgbar <- fbar %*% G
-
-  #s_equal <- check_equal_omega(omega)
-
-  ybar <- abar %*% t(fgbar)
-  R <- Y - ybar
-  AG <- abar %*% t(G)
-  varabar <- a2bar - (abar^2)
-
-  if(s_equal){
-    part_a <- sum(tcrossprod(R, omega) * R) #quad.tdiag(omega, R) %>% sum()
-    diagA <- colSums(crossprod(omega,fgbar) * fgbar)  +
-      colSums(crossprod(fVo,G) * G)
-    #quad.diag(omega, fgbar) # diag( t(F) %*% omega %*% F)
-    part_b <- t(t(varabar)*diagA) %>% sum()
-    part_c <- sum(tcrossprod(AG, fVo) * AG)
-    log_det <- log(det(omega))*n
-    ell <- -0.5*(part_a + part_b + part_c-log_det)
-  }else{
-    part_a <- map_dbl(seq(n), function(i){
-      #quad.tform(omega[[i]], R[i,,drop = FALSE])
-      r <- R[i,,drop = FALSE]
-      tcrossprod(r, tcrossprod(r, omega[[i]]))
-    }) %>% sum()
-
-    diagA <- map(seq(n), function(i){
-      colSums(crossprod(omega[[i]],fgbar) * fgbar) +
-        colSums(crossprod(fVo[[i]],G) * G)
-    }) %>% unlist() %>% matrix(ncol = k, byrow = T)
-
-    part_b <- sum(varabar*diagA)
-
-    part_c <- map_dbl(seq(n), function(i){
-      #quad.tform(omega[[i]], R[i,,drop = FALSE])
-      r <- AG[i,,drop = FALSE]
-      tcrossprod(r, tcrossprod(r, fVo[[i]]))
-    }) %>% sum()
-    #part_c <- 0
-    log_det <- sapply(omega, function(o){log(det(o))}) %>% sum()
-    #log_det <- 0
-    #part_b <- t(t(varlbar)*diagA) %>% sum()
-    ell <- -0.5*(part_a + part_b + part_c - log_det)
-  }
-
-  return(ell)
 }
 
 

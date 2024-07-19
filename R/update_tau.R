@@ -13,7 +13,7 @@ ell_tau <- function(tau, scale, dat){
   dat$omega <- get_omega_tau(dat$sigma, tau, dat$ld_scores, dat$RE)
   dat$f <- make_f(dat)
   #log_det <- sapply(dat$omega, function(o){log(det(o))}) %>% sum()
-  with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal)) #+ 0.5*log_det
+  with(dat, calc_ell3(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal)) #+ 0.5*log_det
 
 }
 

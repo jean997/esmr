@@ -7,7 +7,7 @@ esmr_solve <- function(dat, max_iter, tol){
 
   dat$obj_dec_warn <- FALSE
   nb <- length(dat$beta$beta_j)
-  ixlist <- list()
+
   while(i < max_iter & check > tol){
     # l update
     dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
@@ -80,6 +80,9 @@ esmr_solve <- function(dat, max_iter, tol){
     if(!is.null(dat$tau) & !dat$fix_tau){
       min_tau <- dat$tau/10
       max_tau <- dat$tau*10
+      if(dat$tau == 0){
+        max_tau <- 10*median(dat$S^2)
+      }
       dat <- update_tau(dat,tau_min = min_tau, tau_max = max_tau)
     }
 
@@ -109,6 +112,5 @@ esmr_solve <- function(dat, max_iter, tol){
 
   dat$obj <- obj
   dat$obj2 <- obj2
-  dat$ixlist <- ixlist
   return(dat)
 }

@@ -307,3 +307,18 @@ get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_norma
 get_lower_triangular <- function(x, diag = FALSE) {
   x[lower.tri(x, diag)]
 }
+
+# Converts a matrix to an edgelist: from->to with the value as the matrix value
+matrix_to_edgelist <- function(X, lower_tri = FALSE) {
+  if (lower_tri) {
+    ltx <- lower.tri(X)
+  } else {
+    ltx <- TRUE
+  }
+
+  data.frame(
+    from = row(X)[ltx],
+    to = col(X)[ltx],
+    value = X[ltx]
+  )
+}

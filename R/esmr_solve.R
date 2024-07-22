@@ -96,48 +96,48 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$f <- make_f(dat)
     }
 
-    ## Minimize the objective function with h_det penalty
-    if (dat$logdet_penalty) {
-      # B_tot <- matrix(0, nrow = dat$p, ncol = dat$p)
-      ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
-      #e_ix <- which(!dat$beta$fix_beta)
-      # B_tot[ix] <- dat$beta$beta_m
-
-      #         make_f
-
-
-      # TODO: Write function that is - ell2 with betas used for fgbar
-      # Keep everything else the same..
-      # optim_func <- function(x) {
-      #   calc_ell2(Y, l$abar, dat$l$a2bar, f$fgbar, omega)
-      # }
-
-      ell_func <- function(fg) {
-        X <- matrix(fg, ncol = dat$p)
-        - calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, X, dat$omega)
-      }
-
-      result <- optim(
-        par = as.vector(dat$f$fgbar - diag(dat$p)),
-        fn = h_det_ell,
-        gr = h_det_ell_grad,
-        s = 1,
-        d = dat$p,
-        ell_func = ell_func,
-        method = "BFGS",
-        control = list(maxit = 100),
-        #hessian = TRUE
-      )
-
-      if (result$convergence != 0) {
-        new_f_mat <- matrix(result$par, nrow = dat$p, ncol = dat$p)
-        # Set beta to the new values
-        dat$beta$beta_m <- new_f_mat[ix]
-      } else {
-        browser()
-        warning("Optimization did not converge.")
-      }
-    }
+    # ## Minimize the objective function with h_det penalty
+    # if (dat$logdet_penalty) {
+    #   # B_tot <- matrix(0, nrow = dat$p, ncol = dat$p)
+    #   ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+    #   #e_ix <- which(!dat$beta$fix_beta)
+    #   # B_tot[ix] <- dat$beta$beta_m
+    #
+    #   #         make_f
+    #
+    #
+    #   # TODO: Write function that is - ell2 with betas used for fgbar
+    #   # Keep everything else the same..
+    #   # optim_func <- function(x) {
+    #   #   calc_ell2(Y, l$abar, dat$l$a2bar, f$fgbar, omega)
+    #   # }
+    #
+    #   ell_func <- function(fg) {
+    #     X <- matrix(fg, ncol = dat$p)
+    #     - calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, X, dat$omega)
+    #   }
+    #
+    #   result <- optim(
+    #     par = as.vector(dat$f$fgbar - diag(dat$p)),
+    #     fn = h_det_ell,
+    #     gr = h_det_ell_grad,
+    #     s = 1,
+    #     d = dat$p,
+    #     ell_func = ell_func,
+    #     method = "BFGS",
+    #     control = list(maxit = 100),
+    #     #hessian = TRUE
+    #   )
+    #
+    #   if (result$convergence != 0) {
+    #     new_f_mat <- matrix(result$par, nrow = dat$p, ncol = dat$p)
+    #     # Set beta to the new values
+    #     dat$beta$beta_m <- new_f_mat[ix]
+    #   } else {
+    #     browser()
+    #     warning("Optimization did not converge.")
+    #   }
+    # }
 
     dat$f <- make_f(dat)
 

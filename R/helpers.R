@@ -116,7 +116,8 @@ order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_in
     B[2:dat$p, 1] <- 1
   }
   # Check if we have lower triangular
-  if (any(B[upper.tri(B)] != 0)) {
+  # TODO: Remove this FALSE and replace by something like force_DAG = TRUE?
+  if (FALSE && any(B[upper.tri(B)] != 0)) {
       # Direct effect template is not an lower triangular matrix
       # Attempt to re-order with topo-sort
       topo_order <- tryCatch({

@@ -85,7 +85,8 @@ check_B_template <- function(B, p){
     stop("Direct effects template must have 0s on the diagonal.")
   }
   B_tot <- tryCatch(direct_to_total(B), error = function(e){
-    stop("Check that supplied template corresponds to a valid DAG.\n")
+    B
+    # TODO: Remove stop("Check that supplied template corresponds to a valid DAG.\n")
   })
   if(!all(diag(B_tot) == 0)){
     stop("Check that supplied template corresponds to a valid DAG.\n")

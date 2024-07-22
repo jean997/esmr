@@ -31,6 +31,7 @@ esmr <- function(beta_hat_X, se_X,
                  #####
                  direct_effect_template = NULL,
                  direct_effect_init = NULL,
+                 logdet_penalty = FALSE,
                  # add ability to fix some effects later
                  # direct_effect_fix = NULL,
                  #fix_beta = FALSE,
@@ -70,6 +71,7 @@ esmr <- function(beta_hat_X, se_X,
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
   dat$R_is_id <- is.null(R) | all(R == diag(dat$p))
+  dat$logdet_penalty <- logdet_penalty
 
   dat$k <- ncol(dat$G)
 
@@ -106,12 +108,13 @@ esmr <- function(beta_hat_X, se_X,
   o <- match(1:dat$p, dat$traits)
   dat <- reorder_data(dat, o)
 
-  if (!is.null(direct_effect_template)) {
-    dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
-    delt_pvals <- delta_method_pvals(dat)
-    dat$pvals_dm <- delt_pvals$pmat
-    dat$se_dm <- delt_pvals$semat
-  }
+  # TODO: Uncomment this when logdet works properly
+  # if (!is.null(direct_effect_template)) {
+  #   dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
+  #   delt_pvals <- delta_method_pvals(dat)
+  #   dat$pvals_dm <- delt_pvals$pmat
+  #   dat$se_dm <- delt_pvals$semat
+  # }
   return(dat)
 }
 

@@ -77,6 +77,8 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$l <- init_l(dat$n, dat$p, dat$k)
 
+
+
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$g_init <- g_init
@@ -99,6 +101,10 @@ esmr <- function(beta_hat_X, se_X,
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))
   }
   dat <- esmr_solve(dat, max_iter, tol)
+
+
+  o <- match(1:dat$p, dat$traits)
+  dat <- reorder_data(dat, o)
 
   if (!is.null(direct_effect_template)) {
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))

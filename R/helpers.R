@@ -115,8 +115,21 @@ order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_in
     B <- matrix(0, nrow = dat$p, ncol = dat$p)
     B[2:dat$p, 1] <- 1
   }
-
-  stopifnot(is_dag(B))
+  # Check if we have lower triangular
+  if (any(B[upper.tri(B)] != 0)) {
+      # Direct effect template is not an lower triangular matrix
+      # Attempt to re-order with topo-sort
+      topo_order <- tryCatch({
+        topo_sort_mat(B)
+      }, error = function(e){
+        stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
+      })
+      dat <- reorder_data(dat, topo_order)
+      # beta_hat_X <- beta_hat_X[, topo_order]
+      # se_X <- se_X[, topo_order]
+      # R <- R[topo_order, topo_order]
+      B <- B[topo_order, topo_order]
+  }
 
   dat$B_template <- B
   if(!is.null(direct_effect_init)){

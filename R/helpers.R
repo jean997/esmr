@@ -115,9 +115,11 @@ order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_in
     B <- matrix(0, nrow = dat$p, ncol = dat$p)
     B[2:dat$p, 1] <- 1
   }
+  dat$is_dag <- is_dag(B)
+
   # Check if we have lower triangular
   # TODO: Remove this FALSE and replace by something like force_DAG = TRUE?
-  if (FALSE && any(B[upper.tri(B)] != 0)) {
+  if (dat$is_dag && any(B[upper.tri(B)] != 0)) {
       # Direct effect template is not an lower triangular matrix
       # Attempt to re-order with topo-sort
       topo_order <- tryCatch({
@@ -237,7 +239,7 @@ get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
 direct_to_total <- function(B_dir){
   n <- nrow(B_dir)
   B_total <- solve(diag(n) - B_dir) - diag(n)
-  if(!all.equal(diag(B_total), rep(0, n))){
+  if(!all(diag(B_dir) == 0)){
     stop("Failed to compute total effects from direct. Check that supplied B_dir corresponds to a valid DAG.\n")
   }
   return(B_total)
@@ -246,7 +248,7 @@ direct_to_total <- function(B_dir){
 total_to_direct <- function(B_tot){
   n <- nrow(B_tot)
   B_dir <-diag(n) - solve(diag(n) + B_tot)
-  if(!all.equal(diag(B_dir), rep(0, n))){
+  if(!all(diag(B_dir) == 0)){
     stop("Failed to compute total effects from direct. Check that supplied B_tot corresponds to a valid DAG.\n")
   }
   return(B_dir)

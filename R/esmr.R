@@ -108,13 +108,12 @@ esmr <- function(beta_hat_X, se_X,
   o <- match(1:dat$p, dat$traits)
   dat <- reorder_data(dat, o)
 
-  # TODO: Uncomment this when logdet works properly
-  # if (!is.null(direct_effect_template)) {
-  #   dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
-  #   delt_pvals <- delta_method_pvals(dat)
-  #   dat$pvals_dm <- delt_pvals$pmat
-  #   dat$se_dm <- delt_pvals$semat
-  # }
+  if (dat$is_dag && !is.null(direct_effect_template)) {
+    dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
+    delt_pvals <- delta_method_pvals(dat)
+    dat$pvals_dm <- delt_pvals$pmat
+    dat$se_dm <- delt_pvals$semat
+  }
   return(dat)
 }
 

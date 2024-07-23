@@ -13,9 +13,15 @@ h_det_grad <- function(X, s = 1) {
 }
 
 # Wrapper function to convert matrix to vector and vice versa for optim
-h_det_vector <- function(x, s = 1, d) {
-  X <- matrix(x, ncol = d)
-  h_det(X, s)
+h_det_vector <- function(x, s = 1, d, ix = NULL) {
+  if (is.null(ix)) {
+    X <- matrix(x, ncol = d)
+    h_det(X, s)
+  } else {
+    X <- matrix(0, ncol = d, nrow = d)
+    X[ix] <- x
+    h_det(X, s)
+  }
 }
 
 h_det_ell <- function(x, ell_func, d, s = 1, phi = 1) {
@@ -32,10 +38,17 @@ h_det_ell_grad <- function(x, ell_func, d, s = 1, phi = 1) {
   numDeriv::grad(ell_func, x = fg) + phi * h_det_grad(X, s)
 }
 
-h_det_grad_vector <- function(x, s = 1, d) {
-  X <- matrix(x, ncol = d)
-  grad <- h_det_grad(X, s)
-  as.vector(grad)
+h_det_grad_vector <- function(x, s = 1, d, ix = NULL) {
+  if (is.null(ix)) {
+    X <- matrix(x, ncol = d)
+    grad <- h_det_grad(X, s)
+    as.vector(grad)
+  } else {
+    X <- matrix(0, ncol = d, nrow = d)
+    X[ix] <- x
+    grad <- h_det_grad(X, s)
+    as.vector(grad[ix])
+  }
 }
 
 spectral_radius <- function(A) {

@@ -4,37 +4,22 @@ default_precision <- function(dims){
 
 make_f <- function(dat){
   if(length(dat$beta$beta_j) == 0 | is.null(dat$beta$beta_j)){
-    return(list(fbar = diag(dat$p), f2bar = diag(dat$p),
-                fgbar = dat$G, fg2bar = dat$G^2))
+    return(list(fbar = diag(dat$p), #f2bar = diag(dat$p),
+                fgbar = dat$G)) #, fg2bar = dat$G^2))
   }
-  fbar <- f2bar <- diag(dat$p)
+  fbar <-  diag(dat$p)
   nb <- length(dat$beta$beta_j)
   ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
 
   fbar[ix] <- dat$beta$beta_m
   fgbar <- fbar %*% dat$G
 
-  VV <- matrix(0, nrow = dat$p^2, ncol = dat$p^2)
-  for(ii in 1:nb){
-    for(jj in 1:nb){
-      #cat(ii, " " , jj, " ", dat$p*(ix[ii,2]-1)+ ix[jj,2], " ", dat$p*(ix[ii, 1]-1) + ix[jj,1], " ", dat$beta$V[ii, jj], "\n")
-      VV[dat$p*(ix[ii,2]-1)+ ix[jj,2], dat$p*(ix[ii, 1]-1) + ix[jj,1]] <- dat$beta$V[ii,jj]
-    }
-  }
-  if(dat$s_equal){
-    VVo <- VV %*% as.vector(dat$omega)
-  }else{
-    VVo <- lapply(dat$omega, function(o){
-      matrix(VV %*% as.vector(o), nrow = dat$p)
-    })
-  }
-
-  V <- matrix(0, nrow = dat$p, ncol = dat$p)
-  V[ix] <- dat$beta$beta_s^2
-  f2bar <- (fbar^2) + V
-  fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
-  return(list(fgbar = fgbar, fV = VV, fVo = VVo, fg2bar = fg2bar,
-              fbar = fbar,f2bar = f2bar))
+  # V <- matrix(0, nrow = dat$p, ncol = dat$p)
+  # V[ix] <- dat$beta$beta_s^2
+  # f2bar <- (fbar^2) + V
+  # fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
+  return(list(fgbar = fgbar, #fg2bar = fg2bar,
+              fbar = fbar))#,f2bar = f2bar))
 }
 
 get_omega <- function(R, S, s_equal, any_missing){

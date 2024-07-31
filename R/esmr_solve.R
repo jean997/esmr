@@ -1,8 +1,8 @@
 esmr_solve <- function(dat, max_iter, tol){
 
   check <- 1
-  obj <- obj2 <- c()
-  obj_old <- beta_old <- -Inf
+  obj <-  c()
+  obj_old <- -Inf
   i <- 1
 
   dat$obj_dec_warn <- FALSE
@@ -13,13 +13,8 @@ esmr_solve <- function(dat, max_iter, tol){
     dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
-    ll <- with(dat, calc_ell3(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega,  s_equal))
     obj <- c(obj, ll + dat$l$kl)
-
-    ll2 <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, s_equal))
-    obj2 <- c(obj2, ll2 + dat$l$kl)
-
-
 
     # beta update
     if(!dat$beta_joint){
@@ -57,24 +52,22 @@ esmr_solve <- function(dat, max_iter, tol){
       colnames(which_const) <- c("row", "col")
       f <- t(complete_T(t(dat$f$fbar), which_const)$total_effects)
       ## assumes independent estimates
-      f2_1 <- t(complete_T(t(dat$f$f2bar), which_const)$total_effects)
-      f2_2 <- f^2
-      f2_3 <- t(complete_T(t(dat$f$fbar)^2, which_const)$total_effects)
-      f2 <- f2_1 + f2_2 - f2_3 ## E[f^2] = g(E[f^2*]) + g(f^2*) - g(E[f*]^2)
+      # f2_1 <- t(complete_T(t(dat$f$f2bar), which_const)$total_effects)
+      # f2_2 <- f^2
+      # f2_3 <- t(complete_T(t(dat$f$fbar)^2, which_const)$total_effects)
+      # f2 <- f2_1 + f2_2 - f2_3 ## E[f^2] = g(E[f^2*]) + g(f^2*) - g(E[f*]^2)
       ###
-      vf <- f2 - (f^2)
+      # vf <- f2 - (f^2)
       ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
       dat$beta$beta_m <- f[ix]
-      dat$beta$beta_s <- sqrt((f2[ix]) - (f[ix])^2)
-      diag(dat$beta$V) <- dat$beta$beta_s^2
+      #dat$beta$beta_s <- sqrt((f2[ix]) - (f[ix])^2)
+      # diag(dat$beta$V) <- dat$beta$beta_s^2
       dat$f <- make_f(dat)
     }
 
-    ll <- with(dat, calc_ell3(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega,  s_equal))
     obj <- c(obj, ll + dat$l$kl)
 
-    ll2 <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, s_equal))
-    obj2 <- c(obj2, ll2 + dat$l$kl)
 
     ## tau update
     if(!is.null(dat$tau) & !dat$fix_tau){
@@ -84,14 +77,11 @@ esmr_solve <- function(dat, max_iter, tol){
         max_tau <- 10*median(dat$S^2)
       }
       dat <- update_tau(dat,tau_min = min_tau, tau_max = max_tau)
+      ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega,  s_equal))
+      obj <- c(obj, ll + dat$l$kl)
     }
 
     ###
-    ll <- with(dat, calc_ell3(Y, l$abar, l$a2bar, f$fbar, G, omega, f$fVo, s_equal))
-    obj <- c(obj, ll + dat$l$kl)
-
-    ll2 <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fbar, G, omega, s_equal))
-    obj2 <- c(obj2, ll2 + dat$l$kl)
 
     obj_new <- obj[length(obj)]
     check <- obj_new - obj_old
@@ -99,9 +89,9 @@ esmr_solve <- function(dat, max_iter, tol){
     obj_old <- obj_new
     #beta_old <- dat$beta$beta_m
 
-    if(check < -1e-5){
+    if(check < -1e-12){
       dat$obj_dec_warn <- TRUE
-      warning("Objective decreased, something is wrong.\n")
+      warning("Objective decreased, something may be wrong.\n")
     }
     check <- abs(check)
     cat(i, ": ", obj_new, " ", dat$beta$beta_m, " ", dat$tau, "\n")
@@ -111,6 +101,6 @@ esmr_solve <- function(dat, max_iter, tol){
   }
 
   dat$obj <- obj
-  dat$obj2 <- obj2
+
   return(dat)
 }

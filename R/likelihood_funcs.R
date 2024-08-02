@@ -43,11 +43,11 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega){
 
 
 ## likelihood function, very slow
-log_py <- function(fit, g_hat, beta){
-  if(missing(g_hat)){
+log_py <- function(fit, g_hat = NULL, beta = NULL){
+  if(is.null(g_hat)){
     g_hat <- fit$l$g_hat
   }
-  if(missing(beta)){
+  if(is.null(beta)){
     beta <- fit$beta$beta_m
   }
 

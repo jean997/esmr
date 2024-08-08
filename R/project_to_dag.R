@@ -1,45 +1,31 @@
-#' @export
 project_to_DAG <- function(
-    X, s = 1,
-    method = c("BFGS","NR")) {
-  # TODO: Maybe something more efficient than this?
-  method <- match.arg(method)
+    X, s = 1, lambda = c(10^-seq(1,5), 0), ix = NULL,
+    penalty = c("L1", "L2")) {
+  penalty <- match.arg(penalty)
   d <- nrow(X)
   logdet_ix <- which(X != 0, arr.ind = TRUE)
-  X_dag <- matrix(0, ncol = d, nrow = d)
-  if (method == "BFGS") {
-    result <- optim(
+  results <- list()
+  for (i in seq_along(lambda)) {
+    results[[i]] <- optim(
       par = X[logdet_ix],
-      fn = h_det_vec,
-      gr = h_det_grad_vec,
+      fn = frob_logdet_vec,
+      gr = frob_logdet_grad_vec,
       s = s,
       ix = logdet_ix,
+      W = X,
       d = d,
+      penalty = penalty,
+      lambda = lambda[i],
       method = "BFGS",
-      control = list(maxit = 2000, trace = 0)
+      control = list(maxit = 2000)
     )
 
-    if (result$convergence != 0) {
-      warning("Optimization did not converge")
-      }
-
-    X_dag[logdet_ix] <- result$par
-    } else if (method == "NR") {
-      result <- lava::NR(as.numeric(X),
-               objective = h_det_vec,
-               gradient = h_det_grad_vec,
-               hessian = h_det_hessian_vec,
-               args = list(
-                 s = s,
-                 d = d
-               ),
-               control = list(
-                 backtrack = TRUE
-               )
-      )
-      X_dag <- matrix(result$par, ncol = d, nrow = d)
-    } else {
-      stop("Invalid method")
+    if (results[[i]]$convergence != 0) {
+      warning("Optimization did not converge at lambda: ", lambda[i])
     }
-  return(X_dag)
+  }
+
+  X_dag <- matrix(0, ncol = d, nrow = d)
+  X_dag[logdet_ix] <- results[[i]]$par
+  X_dag
 }

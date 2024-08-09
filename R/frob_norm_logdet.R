@@ -1,10 +1,10 @@
 frob_logdet_grad_vec <- function(
     x, W, d, s = 1, lambda = 1, ix = NULL,
-    penalty = c("L1", "L2")) {
+    penalty = c("L2", "L1")) {
   penalty <- match.arg(penalty)
-  if (penalty == "L1") {
+  if (penalty == "L2") {
     penalty_grad <- function(.X) { 2 * (.X - W) }
-  } else if (penalty == "L2") {
+  } else if (penalty == "L1") {
     penalty_grad <- function(.X) { sign(.X - W) }
   }
 

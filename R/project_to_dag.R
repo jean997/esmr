@@ -26,7 +26,6 @@ project_to_DAG <- function(
     }
 
     curr_pars <- results[[i]]$par
-    print(curr_pars)
   }
 
   X_dag <- matrix(0, ncol = d, nrow = d)

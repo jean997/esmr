@@ -49,8 +49,8 @@ nesmr_complete_mvmr <- function(
     })
   )
 
-  mvmr_beta_edgelist <- mvmr_beta_df %>%
-    select(from, to, beta_m, beta_s)
+  mvmr_beta_edgelist <- mvmr_beta_df[
+    , c("from", "to", "beta_m", "beta_s")]
 
   adj_mat_beta <- matrix(0, nrow = d, ncol = d)
   adj_mat_beta[as.matrix(mvmr_beta_edgelist[, 1:2])] <- mvmr_beta_edgelist$beta_m

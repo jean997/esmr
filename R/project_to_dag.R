@@ -1,6 +1,6 @@
 #' @export
 project_to_DAG <- function(
-    X, s = 1, lambda = c(1, 10^-seq(1,5), 0), ix = NULL,
+    X, s = max(max(X^2) + 0.1, 1), lambda = c(1, 10^-seq(1,5), 0), ix = NULL,
     penalty = c("L2", "L1"),
     zap_to_DAG = FALSE,
     min_zap = 3,

@@ -2,14 +2,14 @@
 #'
 #' @export
 nesmr_complete_mvmr <- function(
-    beta_hat_X, se_X,
+    beta_hat, se_beta_hat,
     pval_select = NULL,
     alpha = 5e-8,
     ...
   ) {
 
-  stopifnot(all(dim(beta_hat_X) == dim(se_X)))
-  d <- ncol(beta_hat_X)
+  stopifnot(all(dim(beta_hat) == dim(se_beta_hat)))
+  d <- ncol(beta_hat)
   stopifnot(d > 1)
 
   if (is.null(pval_select)) {
@@ -61,5 +61,48 @@ nesmr_complete_mvmr <- function(
   return(list(
     beta = adj_mat_beta,
     se = mvmr_se
+  ))
+}
+
+
+#' Initial NESMR graph estimate using n MVMR estimates
+#'
+#' @export
+nesmr_complete <- function(
+    beta_hat, se_beta_hat,
+    pval_select = NULL,
+    alpha = 5e-8,
+    ...
+) {
+
+  stopifnot(all(dim(beta_hat) == dim(se_beta_hat)))
+  d <- ncol(beta_hat)
+  stopifnot(d > 1)
+
+  if (is.null(pval_select)) {
+    Z_cursed <- beta_hat/se_beta_hat
+    pval_cursed <- 2 * pnorm(-abs(Z_cursed))
+    pval_select <- pval_cursed
+  }
+
+  minp <- apply(pval_select, 1, min)
+  ix <- which(minp < alpha)
+
+  B_full <- matrix(1, ncol = d, nrow = d) - diag(d)
+
+  nesmr_full <- esmr(
+    beta_hat_X = beta_hat,
+    se_X = se_beta_hat,
+    variant_ix = ix,
+    G = diag(d), # required for network problem
+    direct_effect_template = B_full,
+    ...)
+
+  nesmr_beta <- t(nesmr_full$f$fgbar) - diag(d)
+  nesmr_se <- sqrt(t(nesmr_full$f$fg2bar) - t(nesmr_full$f$fgbar^2))
+
+  return(list(
+    beta = nesmr_beta,
+    se = nesmr_se
   ))
 }

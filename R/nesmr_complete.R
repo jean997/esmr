@@ -5,15 +5,15 @@ nesmr_complete_mvmr <- function(
     beta_hat, se_beta_hat,
     pval_select = NULL,
     alpha = 5e-8,
+    G = NULL,
     ...
   ) {
-
   stopifnot(all(dim(beta_hat) == dim(se_beta_hat)))
   d <- ncol(beta_hat)
   stopifnot(d > 1)
 
   if (is.null(pval_select)) {
-    Z_cursed <- with(dat, beta_hat/s_estimate)
+    Z_cursed <- beta_hat/se_beta_hat
     pval_cursed <- 2 * pnorm(-abs(Z_cursed))
     pval_select <- pval_cursed
   }
@@ -23,16 +23,14 @@ nesmr_complete_mvmr <- function(
     mvmr_ix <- which(mvmr_minp < alpha)
 
     # Estimate G at each step for fair comparison
-    with(dat,
-         esmr(beta_hat_Y = beta_hat[,i],
-              se_Y = s_estimate[,i],
+    esmr(beta_hat_Y = beta_hat[,i],
+              se_Y = se_beta_hat[,i],
               beta_hat_X = beta_hat[,-i],
-              se_X = s_estimate[,-i],
+              se_X = se_beta_hat[,-i],
               variant_ix = mvmr_ix,
-              G = NULL,
+              G = G,
               beta_joint = TRUE,
               ...)
-    )
   })
 
   # Combine the results into a single matrix
@@ -74,7 +72,6 @@ nesmr_complete <- function(
     alpha = 5e-8,
     ...
 ) {
-
   stopifnot(all(dim(beta_hat) == dim(se_beta_hat)))
   d <- ncol(beta_hat)
   stopifnot(d > 1)

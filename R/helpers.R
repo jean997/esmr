@@ -311,9 +311,11 @@ get_lower_triangular <- function(x, diag = FALSE) {
 }
 
 # Converts a matrix to an edgelist: from->to with the value as the matrix value
-matrix_to_edgelist <- function(X, lower_tri = FALSE, value = 'value') {
+matrix_to_edgelist <- function(
+    X, lower_tri = FALSE, value = 'value',
+    remove_diag = FALSE) {
   if (lower_tri) {
-    ltx <- lower.tri(X)
+    ltx <- lower.tri(X, diag = ! remove_diag)
   } else {
     ltx <- TRUE
   }
@@ -323,5 +325,8 @@ matrix_to_edgelist <- function(X, lower_tri = FALSE, value = 'value') {
     to = col(X)[ltx]
   )
   res[[value]] <- X[ltx]
+  if (remove_diag) {
+    res <- res[res$from != res$to, ]
+  }
   res
 }

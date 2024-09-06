@@ -5,7 +5,6 @@ nesmr_complete_mvmr <- function(
     beta_hat, se_beta_hat,
     pval_select = NULL,
     alpha = 5e-8,
-    G = NULL,
     ...
   ) {
   stopifnot(all(dim(beta_hat) == dim(se_beta_hat)))
@@ -28,7 +27,6 @@ nesmr_complete_mvmr <- function(
               beta_hat_X = beta_hat[,-i],
               se_X = se_beta_hat[,-i],
               variant_ix = mvmr_ix,
-              G = G,
               beta_joint = TRUE,
               ...)
   })
@@ -57,8 +55,8 @@ nesmr_complete_mvmr <- function(
   mvmr_se[as.matrix(mvmr_beta_edgelist[, 1:2])] <- mvmr_beta_edgelist$beta_s
 
   return(list(
-    beta = adj_mat_beta,
-    se = mvmr_se
+    beta_hat = adj_mat_beta,
+    se_beta_hat = mvmr_se
   ))
 }
 
@@ -99,7 +97,7 @@ nesmr_complete <- function(
   nesmr_se <- sqrt(t(nesmr_full$f$fg2bar) - t(nesmr_full$f$fgbar^2))
 
   return(list(
-    beta = nesmr_beta,
-    se = nesmr_se
+    beta_hat = nesmr_beta,
+    se_beta_hat = nesmr_se
   ))
 }

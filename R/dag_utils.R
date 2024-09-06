@@ -1,5 +1,5 @@
 threshold_beta <- function(W, threshold = 0.01) {
-  W[abs(W) < threshold_max] <- 0
+  W[abs(W) < threshold] <- 0
   W
 }
 
@@ -18,11 +18,13 @@ threshold_DAG <- function(W, return_threshold = TRUE) {
     W <- threshold_beta(W, threshold = threshold)
     cat("start_i", start_i, "threshold", threshold, "\n")
     start_i <- start_i + 1
+    is_W_dag <- is_dag(W)
   }
   if (start_i > max_i) {
     warning("Could not find a threshold that gives a DAG")
     return(NULL)
   }
+
   if (return_threshold) {
     return(list(W = W, threshold = threshold))
   } else {

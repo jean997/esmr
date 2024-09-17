@@ -21,10 +21,10 @@ frob_logdet_grad_vec <- function(
 }
 
 frob_logdet_vec <- function(
-    x, W, d, s = 1, lambda = 1, ix = NULL, penalty = c("L1", "L2")) {
+    x, W, d, s = 1, lambda = 1, ix = NULL, penalty = c("L2", "L1")) {
   penalty <- match.arg(penalty)
   if (is.null(ix)) {
-    X <- matrix(x, ncol = d)
+    X <- matrix(x, ncol = d, nrow = d)
   } else {
     X <- matrix(0, ncol = d, nrow = d)
     X[ix] <- x
@@ -35,5 +35,6 @@ frob_logdet_vec <- function(
   } else if (penalty == "L2") {
     score <- score + sum((X - W)^2) * lambda
   }
+
   return(score)
 }

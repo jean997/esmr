@@ -55,7 +55,9 @@ nesmr_all_permn <- function(
         direct_effect_template = B,
         ...
       )
+      z$num_params <- sum(B)
       z$log_lik <- log_py(z)
+      z$aic <- -2 * z$log_lik + 2 * z$num_params
       z
     }, error = function(e) {
       warning(e)
@@ -82,9 +84,19 @@ nesmr_all_permn <- function(
 
   if (posterior_probs) {
     mod_log_lik <- sapply(nesmr_models, function(x) x$log_lik)
+    mod_aic <- sapply(nesmr_models, function(x) x$aic)
+    mod_params <- sapply(nesmr_models, function(x) x$num_params)
     log_denom <- log_sum_exp(mod_log_lik)
     posterior_probs <- exp(mod_log_lik - log_denom)
     rtn$posterior_probs <- posterior_probs
+
+    # Posterior probs weighted by number of edges
+    log_denom_n_edge <- log_sum_exp(mod_log_lik - log(mod_params))
+    rtn$posterior_probs_n_edge <- exp((mod_log_lik - log(mod_params)) - log_denom_n_edge)
+
+    #rtn$posterior_probs_sparse <-
+    # TODO: Maybe change posterior_probs argument to different name...
+    rtn$aic <- mod_aic
   }
 
   return(rtn)

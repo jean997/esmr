@@ -40,3 +40,24 @@ project_to_DAG <- function(
   }
   X_dag
 }
+
+project_to_DAG_bootstrap <- function(
+    total_est, total_est_se, reps = 100,
+    s = 1.1,
+    ...) {
+  d <- ncol(total_est)
+  non_diag_i <- -seq(1, d^2, by = d + 1)
+  replicate(reps, {
+    bootstrap_tot_est <- matrix(0, nrow = d, ncol = d)
+    bootstrap_tot_est[non_diag_i] <- total_est[non_diag_i] + rnorm(d * (d - 1), mean = 0, sd = total_est_se[non_diag_i])
+    project_to_DAG(
+      bootstrap_tot_est,
+      threshold_to_DAG = TRUE,
+      maxit = 2000,
+      trace = 5,
+      s = s, # TODO: Why do we need s > 1? Always fails when s = 1
+      ...
+    )
+  }, simplify = FALSE)
+  # TODO: Standard error for each configuration ?
+}

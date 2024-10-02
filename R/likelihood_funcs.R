@@ -42,6 +42,8 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal){
   return(ell)
 }
 
+
+#'@export
 logLik.esmr <- function(x) {
   log_py(x)
 }

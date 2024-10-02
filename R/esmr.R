@@ -92,17 +92,10 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$l <- init_l(dat$n, dat$p, dat$k)
 
-
-
-  dat$beta_joint <- beta_joint
-  dat$ebnm_fn <- ebnm_fn
   dat$g_init <- g_init
   dat$fix_g <- fix_g
 
   dat$fix_tau <- fix_tau
-
-  dat$sigma_beta <- sigma_beta
-  #dat$lfsr_thresh <- lfsr_thresh
 
   # subset variants
   if(!is.null(variant_ix)){

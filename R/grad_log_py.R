@@ -12,10 +12,16 @@ log_py <- function(fit, g_hat, fbar, max_prob = 1, nmax = Inf){
   s <- lapply(g_hat, function(x){x$sd})
 
   if(max_prob < 1 | nmax < Inf){
+    message("Identifying likelihood components.\n")
     lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$p, byrow = T)
     top_combs <- get_top_combinations(x = lpi_mat, max_logsumexp = log(max_prob), nmax = nmax)
     m <- nrow(top_combs$combs)
+
+    mmax <- sapply(lpi, length) %>% Reduce(`*`, .)
+
     lpi <- top_combs$values
+    total_prob <- sum(exp(lpi))
+
     s_mat <- unlist(s) %>% matrix(nrow = fit$p, byrow = T)
     V <- apply(top_combs$combs, 1, function(c){
       ss <- s_mat[cbind(1:fit$p, c)]
@@ -30,9 +36,10 @@ log_py <- function(fit, g_hat, fbar, max_prob = 1, nmax = Inf){
       crossprod(t(fgbar)*s, t(fgbar)*s)
       #fgbar %*% diag(s^2) %*% t(fgbar)
     }, simplify = F)
-    m <- length(V)
+    m <- mmax <- length(V)
+    total_prob <- 1
   }
-
+  message(paste0("I will calculate ", m, " out of ", mmax, " total components of the likelihood, total integral ", total_prob, ".\n"))
 
 
   #equal_omega <- check_equal_omega(fit$omega)
@@ -49,8 +56,8 @@ log_py <- function(fit, g_hat, fbar, max_prob = 1, nmax = Inf){
       })
 
       lpi[mm] + c -0.5*d
-    }) + a
-    A <- matrix(unlist(lprob), nrow = fit$n, byrow = F)
+    })
+    A <- matrix(unlist(lprob) + a, nrow = fit$n, byrow = F)
     lp <- apply(A, 1, matrixStats::logSumExp)
     return(sum(lp))
   }else{
@@ -93,10 +100,15 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
 
 
   if(max_prob < 1 | nmax < Inf){
+    message("Identifying likelihood components.\n")
     lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$p, byrow = T)
     top_combs <- get_top_combinations(x = lpi_mat, max_logsumexp = log(max_prob), nmax = nmax)
     m <- nrow(top_combs$combs)
+    mmax <- sapply(lpi, length) %>% Reduce(`*`, .)
+
     lpi <- top_combs$values
+    total_prob <- sum(exp(lpi))
+
     s_mat <- unlist(s) %>% matrix(nrow = fit$p, byrow = T)
     V <- apply(top_combs$combs, 1, function(c){
       s <- s_mat[cbind(1:fit$p, c)]
@@ -118,8 +130,10 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
     B <- apply(S, 1, function(s){
       crossprod(t(fit$G)*s, t(fit$G)*s)
     }, simplify = F)
-    m <- length(V)
+    m <- mmax <- length(V)
+    total_prob <- 1
   }
+  message(paste0("I will calculate ", m, " out of ", mmax, " total components of the likelihood, total integral ", total_prob, ".\n"))
 
 
   ## caclulate d/df_ij V(F) for each variance matrix
@@ -158,13 +172,13 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
 
       ## calculate new weights for numerator of derivative
       for(nv in seq(nvars)){
-        if(!mm %in% dV_is_nonzero[[nv]]){
-          wmod1[,nv] <- 0
-        }else{
-          x1 <- smV %*% dV[[nv]][[mm]]
-          x2 <- x1 %*% smV
-          wmod1[,nv] <- -0.5*sum(diag(x1)) + 0.5*colSums(crossprod(x2, t(fit$Y)) *t(fit$Y))
-        }
+        # if(!mm %in% dV_is_nonzero[[nv]]){
+        #   wmod1[,nv] <- 0
+        # }else{
+        x1 <- smV %*% dV[[nv]][[mm]]
+        x2 <- x1 %*% smV
+        wmod1[,nv] <- -0.5*sum(diag(x1)) + 0.5*colSums(crossprod(x2, t(fit$Y)) *t(fit$Y))
+        #}
       }
       # wmod1 <- sapply(seq(nvars), function(nv){
       #   if(!mm %in% dV_is_nonzero[[nv]]) return(rep(0, fit$n))
@@ -268,6 +282,12 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
 
 
 hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
+
+  if(missing(fbar)){
+    fbar <- fit$f$fbar
+  }
+
+
   fgbar <- fbar %*% fit$G
 
   if(!is.null(ix)) fit <- subset_data(fit, ix)
@@ -276,10 +296,15 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
   s <- lapply(fit$l$g_hat, function(x){x$sd})
 
   if(max_prob < 1 | nmax < Inf){
+    message("Identifying likelihood components.\n")
     lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$p, byrow = T)
     top_combs <- get_top_combinations(x = lpi_mat, max_logsumexp = log(max_prob), nmax = nmax)
     m <- nrow(top_combs$combs)
+    mmax <- sapply(lpi, length) %>% Reduce(`*`, .)
+
     lpi <- top_combs$values
+    total_prob <- sum(exp(lpi))
+
     s_mat <- unlist(s) %>% matrix(nrow = fit$p, byrow = T)
     V <- apply(top_combs$combs, 1, function(c){
       s <- s_mat[cbind(1:fit$p, c)]
@@ -301,7 +326,8 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
     B <- apply(S, 1, function(s){
       crossprod(t(fit$G)*s, t(fit$G)*s)
     }, simplify = F)
-    m <- length(V)
+    m <- mmax <- length(V)
+    total_prob <- 1
   }
 
   ## caclulate d/df_ij V(F) for each variance matrix
@@ -482,50 +508,20 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
   }
 }
 
-optimize_lpy <- function(fit,
-                         max_steps = 10,
-                         tol = 1e-5,
-                         calc_hess = FALSE){
-  V <- fit$beta$V
-  i <- 1
-  bj <- fit$beta$beta_j
-  bk <- fit$beta$beta_k
-  update_fbar <- function(fbar, new_beta){
-    for(ii in seq(bj)){
-      fbar[bj[ii], bk[ii]] <- new_beta[ii]
-    }
-    return(fbar)
-  }
-  fbar <- fit$f$fbar
-  beta <- fit$beta$beta_m
-  done <- FALSE
-  while(i <= max_steps & !done){
-    cat(i, " ")
-    g <- grad_log_py(fit, fbar)
-    step <- V %*% g$grad
-    cat(step, "\n")
-    beta <- beta + step
-    fbar <- update_fbar(fbar, beta)
-    if(all(abs(step) < tol)) done <- TRUE
-    i <- i + 1
-  }
-  fit$beta$beta_m <- beta
-  fit$f$fbar <- fbar
-  fit$f$fgbar <- fit$G %*% fbar
-  if(calc_hess){
-    h <- hess_log_py(fit, fbar)
-    fit$beta$V <- solve(h$hess)
-    fit$beta$beta_s <- sqrt(diag(fit$beta$V))
-    fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
-    delt_pvals <- delta_method_pvals(fit)
-    fit$pvals_dm <- delt_pvals$pmat
-    fit$se_dm <- delt_pvals$semat
-    fit$likelihood <- h$log_py
-  }
-  return(fit)
-}
 
-
+#'@title One step update
+#'@param fit ESMR fit object
+#'@param max_steps Number of steps to take (default is 1)
+#'@param tol Tolerance for convergence if max_steps is > 1
+#'@param calc_hess Calculate the hesssian? (this can be slow)
+#'@param max_components Maximum number of likelihood components to use in approximation
+#'@param max_prob Maximum integral of approximate likelihood
+#'@param sub_size Size of subset to use to calculate the gradient of the likelihood.
+#'@details This function computes a one step update from the variational solution provided by ESMR. By default
+#'the gradient of the likelihood is computed exactly. This should work well if the number of traits is < 15.
+#'For larger numbers of traits, you may want to use an approximation to the likelihood controlled by parameters max_components,
+#'max_prob and sub_size.
+#'@export
 optimize_lpy2 <- function(fit,
                          max_steps = 1,
                          tol = 1e-5,
@@ -546,7 +542,7 @@ optimize_lpy2 <- function(fit,
   fbar <- fit$f$fbar
   beta <- fit$beta$beta_m
   done <- FALSE
-  if(sub_size >- fit$n){
+  if(sub_size >= fit$n){
     ix <- NULL
   }
   while(i <= max_steps & !done){

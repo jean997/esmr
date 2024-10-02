@@ -64,7 +64,7 @@ update_lj <- function(dat, j,
 
   if(dat$s_equal){
     A <- (HxH * dat$omega) %>% sum()
-    A <- rep(A, n)
+    A <- rep(A, dat$n)
     B <- R_j %*% dat$omega %*% fgbar_j
   }else{
     A <- map(dat$omega, function(o){

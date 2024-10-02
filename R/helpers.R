@@ -177,7 +177,11 @@ reorder_data <- function(
     dat$f <- make_f(dat)
   }
   if(!is.null(dat$omega)) {
-    dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
+    if(dat$s_equal){
+      dat$omega <- dat$omega[cols, cols]
+    }else{
+      dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
+    }
   }
   if(!is.null(dat$G)){
     dat$G <- dat$G[cols,cols]

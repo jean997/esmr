@@ -247,7 +247,7 @@ get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
 direct_to_total <- function(B_dir){
   n <- nrow(B_dir)
   B_total <- solve(diag(n) - B_dir) - diag(n)
-  if(!all.equal(diag(B_total), rep(0, n))){
+  if(!isTRUE(all.equal(diag(B_total), rep(0, n)))){
     stop("Failed to compute total effects from direct. Check that supplied B_dir corresponds to a valid DAG.\n")
   }
   return(B_total)
@@ -256,7 +256,7 @@ direct_to_total <- function(B_dir){
 total_to_direct <- function(B_tot){
   n <- nrow(B_tot)
   B_dir <-diag(n) - solve(diag(n) + B_tot)
-  if(!all.equal(diag(B_dir), rep(0, n))){
+  if(!isTRUE(all.equal(diag(B_dir), rep(0, n)))){
     stop("Failed to compute total effects from direct. Check that supplied B_tot corresponds to a valid DAG.\n")
   }
   return(B_dir)

@@ -1,6 +1,6 @@
 #' Coverts a matrix into a string with newlines at the rows
-#' @B A matrix
-#' @collapse A string to collapse the columns
+#' @param B A matrix
+#' @param collapse A string to collapse the columns
 #' @examples
 #' B <- matrix(0, nrow = 4, ncol = 4)
 #' B[lower.tri(B)] <- 1

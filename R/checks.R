@@ -41,8 +41,8 @@ check_R <- function(R, tol = 1e-8){
     stop("R is not positive definite.\n")
   }
   #if(!all(diag(R) == 1)){
-  if(!all.equal(diag(R), rep(1, nrow(R)) )){
-    stop("R should be a correlation matrix.\n")
+  if(!all.equal(diag(R), rep(1, nrow(R), use.names = F) )){
+    warning("R is not a correlation matrix.\n")
   }
   return(R)
 }

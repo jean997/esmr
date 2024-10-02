@@ -22,6 +22,7 @@ Imports:
     purrr,
     GFA,
     igraph,
-    numDeriv
+    numDeriv,
+    rstackdeque
 Remotes:
     jean997/GFA

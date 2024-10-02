@@ -1,7 +1,9 @@
 nesmr_backselect <- function(
     mod, beta_hat, se_beta_hat, Z_true = NULL,
     aic_cutoff = 2, pvalue_cutoff = 0.05,
-    alpha = 5e-8) {
+    alpha = 5e-8, visited = list()) {
+  print(match.call())
+  print(mod$B_template)
   # While there is still a significant edge
   # Take the lowest edge out of the model
   # Refit the model, keep model if stop rule is not hit
@@ -19,21 +21,27 @@ nesmr_backselect <- function(
   } else {
     Z <- Z_true
   }
+
   select_pval <- 2*pnorm(-abs(Z))
   minp <- apply(select_pval, 1, min)
   variant_ix <- which(minp < alpha)
 
   # Extract current p-values
   B_template <- mod$B_template
-  # TODO: Keep track of the paths we've visited to prevent duplicate configurations
-  #B_template_chr <- paste0(as.character(B_lower), collapse = "")
-  #visited <- append(visited, B_template_chr)
+
+  B_template_chr <- paste0(as.character(B_template), collapse = "")
+  if (B_template_chr %in% visited) {
+    return(list())
+  }
+
+  visited <- append(visited, B_template_chr)
   d <- nrow(B_template)
   # Do this to get only the maximum non-zero p-value
   edge_ix <- which(mod$B_template != 0, arr.ind = TRUE)
   if (nrow(edge_ix) <= 1) {
     return(list(mod))
   }
+
   log_pvalues <- mod$pvals_dm[edge_ix]
   # Filter out the ones < log(pvalue_cutoff)
   pvalue_order <- order(log_pvalues, decreasing = TRUE)
@@ -43,25 +51,27 @@ nesmr_backselect <- function(
   n_non_sig <- sum(non_sig)
   return_mods <- list()
 
-  if (n_non_sig <= 0) {
+  if (n_non_sig <= 1 || all(! non_sig)) {
     return(list(mod))
   }
-# browser()
 
   # TODO: Do we want to put the edge back on when we're done?
   for (i in seq_len(n_non_sig)) {
 #   while(log_pvalues[curr_pvalue_ix] > log(pvalue_cutoff)) {
-    print(B_template)
     curr_edge <- edge_ix[i,, drop = FALSE]
     # Remove the edge with the highest p-value
     B_template[curr_edge] <- 0
+    if (sum(B_template) <= 1) {
+      next
+    }
+    # print(B_template)
 
-    # Something like this to prevent visiting so many paths?
-    # B_template_chr <- paste0(as.character(B_lower), collapse = "")
-    # if (B_template_chr %in% visited) {
-    #   next
-    # }
-    # visited <- append(visited, B_template_chr)
+    # Skip if we have visited node
+    B_template_chr <- paste0(as.character(B_template), collapse = "")
+    if (B_template_chr %in% visited) {
+      next
+    }
+#    visited <- append(visited, B_template_chr)
 
     new_mod <- esmr(
       beta_hat_X = beta_hat,
@@ -79,13 +89,43 @@ nesmr_backselect <- function(
       return_mods <- append(
         return_mods,
         # Recursively call... should turn this into non-recursive algo at some point
-        nesmr_backselect(new_mod, beta_hat, se_beta_hat, Z_true)
+        nesmr_backselect(
+          new_mod,
+          beta_hat = beta_hat,
+          se_beta_hat = se_beta_hat,
+          Z_true = Z_true,
+          aic_cutoff = aic_cutoff, pvalue_cutoff = pvalue_cutoff,
+          alpha = alpha,
+          visited = visited)
         )
-    }
+    } else {
+      # TODO: Do we put the edge back into the model?
+      # Put the edge back into the model
+      # B_template[curr_edge] <- 1
+      # The way to explore everything would be to return the models with the edge,
+      # and the models without the edge.
+      # If we don't put the edge back then we are only exploring the greedy path
+      # I think we instead want to break this branch entirely
+      return_mods <- append(
+        return_mods,
+        # Recursively call... should turn this into non-recursive algo at some point
+        nesmr_backselect(
+          mod,
+          beta_hat = beta_hat,
+          se_beta_hat = se_beta_hat,
+          Z_true = Z_true,
+          aic_cutoff = aic_cutoff, pvalue_cutoff = pvalue_cutoff,
+          alpha = alpha,
+          visited = visited))
 
-    # TODO: Do we put the edge back into the model?
-    # Put the edge back into the model
-    # B_template[curr_edge] <- 1
+      B_template[curr_edge] <- 1
+#      break
+    }
+    B_template_chr <- paste0(as.character(B_template), collapse = "")
+    # if (B_template_chr %in% visited) {
+    #   next
+    # }
+    visited <- append(visited, B_template_chr)
   }
 
   return(return_mods)

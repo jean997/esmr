@@ -1,3 +1,51 @@
+library(gtools)  # For generating permutations
+
+# From chatGPT: https://chatgpt.com/c/35ed431d-dea5-4dcb-bdb3-7425395d83cf
+# Function to generate all possible DAGs for a given matrix size n
+generate_dags_with_permutations <- function(n, remove_empty = TRUE) {
+  # Generate all permutations of node indices (i.e., topological sorts)
+  node_permutations <- permutations(n, n)  # All permutations of length n
+
+  # Get the number of possible edges in the upper triangular part (excluding diagonal)
+  num_edges <- choose(n, 2)
+
+  # Generate all possible combinations of edges (0 or 1) for the upper triangular part
+  all_combinations <- expand.grid(replicate(num_edges, c(0, 1), simplify = FALSE))
+
+  # List to store all generated DAGs
+  dag_list <- list()
+
+  # Loop over each permutation of nodes
+  for (perm in 1:nrow(node_permutations)) {
+    node_perm <- node_permutations[perm, ]
+
+    # Loop over each combination of edges in the upper triangular matrix
+    for (i in 1:nrow(all_combinations)) {
+      # Create an empty adjacency matrix
+      adj_matrix <- matrix(0, n, n)
+
+      # Fill the upper triangular part with the current combination of edges
+      upper_tri_indices <- which(upper.tri(adj_matrix))
+      adj_matrix[upper_tri_indices] <- as.numeric(all_combinations[i, ])
+
+      # Apply the permutation of nodes
+      permuted_matrix <- adj_matrix[node_perm, node_perm]
+
+      # Add the generated DAG (permuted adjacency matrix) to the list
+      dag_list[[length(dag_list) + 1]] <- permuted_matrix
+    }
+  }
+
+  dag_list <- unique(dag_list)
+
+  if (remove_empty) {
+    dag_list <- dag_list[sapply(dag_list, function(x) sum(x) > 0)]
+  }
+
+  # TODO: Optimize this since we generate duplicates
+  return(dag_list)
+}
+
 #' @export
 nesmr_all_permn <- function(
     beta_hat,
@@ -7,10 +55,17 @@ nesmr_all_permn <- function(
     posterior_probs = TRUE,
     return_model = FALSE,
     catch_errors = TRUE,
+    direct_effect_init = NULL,
     ...
 ) {
+  d <- ncol(beta_hat)
+  if (!is.null(direct_effect_init)) {
+    stopifnot(all(dim(direct_effect_init) == c(d, d)))
+  } else {
+    direct_effect_init <- matrix(0, nrow = d, ncol = d)
+  }
+
   if (is.null(B_templates)) {
-    d <- ncol(beta_hat)
     B_lower <- matrix(0, nrow = d, ncol = d)
     B_lower[lower.tri(B_lower)] <- 1
     if (d >= 9) {
@@ -27,32 +82,25 @@ nesmr_all_permn <- function(
         B_lower[perm, perm]
       })
     } else {
-
-      B_templates <- unique(unlist(lapply(seq_len(d), function(i) {
-        keep_indices <- combinat::combn(seq_len(d), i, simplify = F)
-        curr_dags <- unlist(lapply(keep_indices, function(one_index) {
-          B_lower_combn <- B_lower
-          B_lower_combn[lower.tri(B_lower_combn)][-one_index] <- 0
-          unique(lapply(all_perms, function(perm) {
-            B_lower_combn[perm, perm]
-          }))
-        }), recursive = FALSE)
-      }), recursive = FALSE))
-
-      # Add the null templates
-      # B_templates <- c(B_templates, list(matrix(0, nrow = d, ncol = d)))
+      B_templates <- generate_dags_with_permutations(d)
     }
 
     B_templates
   }
 
   nesmr_models <- lapply(B_templates, function(B) {
+    if (sum(B) == 0) {
+      return(NULL)
+    }
     res <- tryCatch({
+      B_direct_effect_init <- direct_effect_init * B
+
       z <- esmr(
         beta_hat_X = beta_hat,
         se_X = se_beta_hat,
         G = diag(d),
         direct_effect_template = B,
+        direct_effect_init = B_direct_effect_init,
         ...
       )
       z$num_params <- sum(B)
@@ -69,18 +117,19 @@ nesmr_all_permn <- function(
     res
   })
 
+  nesmr_models <- nesmr_models[sapply(nesmr_models, Negate(is.null))]
+
   rtn <- list()
 
   if (return_model) {
     rtn$nesmr_models <- nesmr_models
-  } else {
-    rtn$direct_effects <- lapply(nesmr_models, function(x) x$direct_effects)
-    rtn$se_beta_hat <- lapply(nesmr_models, function(x) x$se_dm)
-    rtn$B_template <- B_templates
-    rtn$beta_hat <- lapply(nesmr_models, function(x) x$direct_effects)
-    rtn$pvals_dm <- lapply(nesmr_models, function(x) x$pvals_dm)
-    rtn$log_lik <- sapply(nesmr_models, function(x) x$log_lik)
   }
+  rtn$direct_effects <- lapply(nesmr_models, function(x) x$direct_effects)
+  rtn$se_beta_hat <- lapply(nesmr_models, function(x) x$se_dm)
+  rtn$B_template <- B_templates
+  rtn$beta_hat <- lapply(nesmr_models, function(x) x$direct_effects)
+  rtn$pvals_dm <- lapply(nesmr_models, function(x) x$pvals_dm)
+  rtn$log_lik <- sapply(nesmr_models, function(x) x$log_lik)
 
   if (posterior_probs) {
     mod_log_lik <- sapply(nesmr_models, function(x) x$log_lik)

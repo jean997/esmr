@@ -205,7 +205,7 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
     fdot <- exp(lfdotpos) - exp(lfdotneg)
     #c(lf, fdot/exp(lf))
 
-    gr <- fdot/exp(lf)
+    gr <- sign(fdot)*exp(log(abs(fdot)) - lf) # fdot/exp(lf)
     In <- lapply(seq(fit$n), function(i){
       outer(gr[i,], gr[i,])
     }) %>% Reduce(`+`, .)
@@ -263,7 +263,7 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
         matrixStats::logSumExp(log(-1*xx) + x)
       })
       fdot <- exp(lfdotpos) - exp(lfdotneg) ## grad f(beta; x_i) and also second derivatives
-      grad <- fdot/exp(lf)
+      grad <- sign(fdot)*exp(log(abs(fdot)) - lf)#fdot/exp(lf)
       #lp[, mm] <-
       c(lf, grad)
     }, simplify = "array")

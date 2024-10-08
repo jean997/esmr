@@ -9,7 +9,8 @@ project_to_DAG <- function(
   d <- nrow(X)
   logdet_ix <- which(X != 0, arr.ind = TRUE)
   results <- list()
-  curr_pars <- X[logdet_ix]
+  # Initialize to 0 matrix rather than non-DAG starting matrix
+  curr_pars <- rep(0, nrow(logdet_ix))
   for (i in seq_along(lambda)) {
     results[[i]] <- optim(
       par = curr_pars,

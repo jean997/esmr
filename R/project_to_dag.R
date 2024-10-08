@@ -56,6 +56,7 @@ project_to_DAG_bootstrap <- function(
       threshold_to_DAG = TRUE,
       maxit = 2000,
       trace = 5,
+      lambda = c(1, 10^-seq(1,5), 0),
       s = s, # TODO: Why do we need s > 1? Always fails when s = 1
       ...
     )

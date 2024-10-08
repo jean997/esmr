@@ -71,7 +71,8 @@ nesmr_backselect <- function(
     alpha = 5e-8) {
   method <- match.arg(method)
   n_params <- sapply(mod_list, function(x) { sum(x$B_template) })
-
+  d <- ncol(beta_hat)
+  stopifnot(ncol(se_beta_hat) == d)
   if (is.null(mod_log_liks)) {
     mod_list <- lapply(mod_list, function(x) {
       if (!"log_lik" %in% names(x)) x$log_lik <- log_py(x)
@@ -100,17 +101,17 @@ nesmr_backselect <- function(
   # Use a queue to simulate breadth first search
   # First we remove all possible edges from the starting model and check stopping criterion
   # Then, we look at all possible edges from each of these subsets
-  queue <- rpqueue()
+  queue <- rstackdeque::rpqueue()
   for (mod in mod_list) {
-    queue <- queue %>% insert_back(mod)
+    queue <- queue %>% rstackdeque::insert_back(mod)
   }
 
   visited <- list()
   return_mods <- mod_list
 
   while(! rstackdeque::empty(queue)) {
-    curr_mod <- peek_front(queue)
-    queue <- without_front(queue)
+    curr_mod <- rstackdeque::peek_front(queue)
+    queue <- rstackdeque::without_front(queue)
 
     B_template <- curr_mod$B_template
 
@@ -166,7 +167,7 @@ nesmr_backselect <- function(
       if (abs(best_mod_aic - new_mod$aic) <= aic_cutoff) {
         best_mod_aic <- min(best_mod_aic, new_mod$aic)
         return_mods <- append(return_mods, list(new_mod))
-        queue <- queue %>% insert_back(new_mod)
+        queue <- queue %>% rstackdeque::insert_back(new_mod)
       } else {
         # TODO: Can we stop looking at edges with lower likelihood?
         # I think we can make the claim that if p-value for an edge is higher then

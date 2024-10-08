@@ -554,6 +554,11 @@ optimize_lpy2 <- function(fit,
     g <- grad_log_py(fit, fbar, ix = ix,
                      max_prob = max_prob,
                      nmax = max_components)
+
+    eIn <- eigen(g$In, only.value = TRUE)$values
+    if(max(eIn)/min(eIn) > 1e8 | min(eIn) < 0){
+      g$In <- Matrix::nearPD(g$In)$mat
+    }
     step <- solve(g$In) %*% g$Sn
     cat(step, " ")
     beta <- beta + step

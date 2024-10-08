@@ -64,7 +64,7 @@ nesmr_backselect <- function(
     mod_list,
     beta_hat, se_beta_hat,
     mod_log_liks = NULL,
-    Z_true = NULL,
+    variant_ix = NULL,
     method = c("aic", "posterior_prob"),
     aic_cutoff = 2,
     pvalue_cutoff = 0.05,
@@ -88,15 +88,12 @@ nesmr_backselect <- function(
 
   best_mod_aic <- min(mod_aic)
 
-  if (is.null(Z_true)) {
+  if (is.null(variant_ix)) {
     Z <- beta_hat/se_beta_hat
-  } else {
-    Z <- Z_true
+    select_pval <- 2*pnorm(-abs(Z))
+    minp <- apply(select_pval, 1, min)
+    variant_ix <- which(minp < alpha)
   }
-
-  select_pval <- 2*pnorm(-abs(Z))
-  minp <- apply(select_pval, 1, min)
-  variant_ix <- which(minp < alpha)
 
   # Use a queue to simulate breadth first search
   # First we remove all possible edges from the starting model and check stopping criterion
@@ -136,6 +133,9 @@ nesmr_backselect <- function(
       curr_edge <- edge_ix[i,, drop = FALSE]
       # Remove the edge with the highest p-value
       B_template[curr_edge] <- 0
+      if (sum(B_template) == 0) {
+        next
+      }
 
       # Check if we have already visited this configuration
       # If so, skip all checks as it is either in the model list or the queue
@@ -166,7 +166,13 @@ nesmr_backselect <- function(
       # Either aic difference, or posterior probability with different priors
       if (abs(best_mod_aic - new_mod$aic) <= aic_cutoff) {
         best_mod_aic <- min(best_mod_aic, new_mod$aic)
-        return_mods <- append(return_mods, list(new_mod))
+        all_B_strings <- sapply(return_mods, function(x) paste(x$B_template, collapse = ""))
+        if (B_template_chr %in% all_B_strings) {
+          warning("Duplicate element...")
+          next
+        } else {
+          return_mods <- append(return_mods, list(new_mod))
+        }
         queue <- queue %>% rstackdeque::insert_back(new_mod)
       } else {
         # TODO: Can we stop looking at edges with lower likelihood?
@@ -181,5 +187,7 @@ nesmr_backselect <- function(
     }
   }
 
+  # TODO: Figure out which condition causes the duplicate
+#  remove_dups <- !duplicated(sapply(return_mods, function(x) x$B_template))
   return(return_mods)
 }

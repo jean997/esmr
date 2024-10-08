@@ -56,7 +56,8 @@ nesmr_all_permn <- function(
     return_model = FALSE,
     catch_errors = TRUE,
     direct_effect_init = NULL,
-    Z_true = NULL,
+    variant_ix = NULL,
+    alpha = 5e-8,
     ...
 ) {
   d <- ncol(beta_hat)
@@ -65,16 +66,6 @@ nesmr_all_permn <- function(
   } else {
     direct_effect_init <- matrix(0, nrow = d, ncol = d)
   }
-
-  if (is.null(Z_true)) {
-    Z <- beta_hat/se_beta_hat
-  } else {
-    Z <- Z_true
-  }
-
-  select_pval <- 2*pnorm(-abs(Z))
-  minp <- apply(select_pval, 1, min)
-  variant_ix <- which(minp < alpha)
 
   if (is.null(B_templates)) {
     B_lower <- matrix(0, nrow = d, ncol = d)

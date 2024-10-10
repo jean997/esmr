@@ -1,6 +1,20 @@
+#' Project a matrix to a DAG using the Frobenius norm and logdet penalty (DAGMA - Bello 2022)
+#'
+#' @param X a square matrix, not necessarily a DAG
+#' @param s log-det penalty parameter
+#' @param lambda vector for path finding parameter
+#' @param penalty L2 or L1 penalty (default and more stable: L2)
+#' @param threshold_to_DAG should the matrix be thresholded to a true DAG?
+#' Otherwise, the matrix will have near zeros but not exact zeros.
+#' Thresholding is done via \code{\link{threshold_DAG}} which iterativly finds the minimal threshold that ensures acyclicity.
+#' @param ... additional arguments to the `control` argument of \code{\link{optim}}
+#'
+#' @return
 #' @export
+#'
+#' @examples
 project_to_DAG <- function(
-    X, s = max(max(X^2) + 0.1, 1), lambda = c(1, 10^-seq(1,5), 0), ix = NULL,
+    X, s = max(max(X^2) + 0.1, 1), lambda = c(1, 10^-seq(1,5), 0),
     penalty = c("L2", "L1"),
     threshold_to_DAG = FALSE,
     ...

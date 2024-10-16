@@ -40,8 +40,9 @@ check_R <- function(R, tol = 1e-8){
   if(!all(evR > tol)){
     stop("R is not positive definite.\n")
   }
-  if(!all(diag(R) == 1)){
-    stop("R should be a correlation matrix.\n")
+  #if(!all(diag(R) == 1)){
+  if(!isTRUE(all.equal(diag(R), rep(1, nrow(R)), use.names = F) )){
+    warning("R is not a correlation matrix.\n")
   }
   return(R)
 }
@@ -49,50 +50,50 @@ check_R <- function(R, tol = 1e-8){
 check_missing <- function(Y, S){
   missing_ix <- which(is.na(Y))
   any_missing <- length(missing_ix) > 0
-  if(length(missing_ix) == 0){
-    return(list(Y = Y, S = S, any_missing = FALSE))
+  p <- ncol(Y)
+  n <- nrow(Y)
+  if(!any_missing){
+    s_equal <- apply(S, 2, function(x){all(x == x[1])}) |> all()
+    return(list(Y = Y, S = S, n = n, p = p,
+                s_equal = s_equal,  any_missing = FALSE))
   }
+
   if(any(is.na(S[-missing_ix]))) stop("Found missing SEs for non-missing effect estimates.\n")
 
   nmiss_r <- rowSums(is.na(Y))
   nmiss_c <- colSums(is.na(Y))
-  p <- ncol(Y)
-  n <- nrow(Y)
   if(any(nmiss_r == p)) stop("Data cannot have variants missing for all traits.\n")
   if(any(nmiss_c == n)) stop("At least one trait is missing for all variants.\n")
   Y[missing_ix] <- 0
   S[missing_ix] <- NA
-  return(list(Y = Y, S = S, any_missing = TRUE))
+  return(list(Y = Y, S = S, n = n, p = p,
+              s_equal = FALSE, any_missing = TRUE))
 }
 
 
 check_equal_omega <- function(omega){
   if("matrix" %in% class(omega)){
     #check_matrix(omega, "omega", p, p)
-    s_equal <- TRUE
+    return(TRUE)
   }else{
     stopifnot(class(omega) == "list")
-    s_equal <- FALSE
+    return(FALSE)
   }
-  return(s_equal)
 }
 
 check_B_template <- function(B, p){
   B <- check_matrix(B, p, p)
 
   if(!all(B %in% c(0, 1))) stop("Direct effects template should contain only 0 and 1 entries.")
-  if(!all(diag(B) ==0)){
+  #if(!all(diag(B) ==0)){
+  if(!isTRUE(all.equal(diag(B), rep(0, p)))){
     stop("Direct effects template must have 0s on the diagonal.")
   }
-  if (is_dag(B)) {
-    B_tot <- tryCatch(direct_to_total(B), error = function(e){
-      stop("Check that supplied template corresponds to a valid DAG.\n")
-    })
-  } else {
-    B_tot <- B
-  }
-
-  if(!all(diag(B_tot) == 0)){
+  B_tot <- tryCatch(direct_to_total(B), error = function(e){
+    stop("Check that supplied template corresponds to a valid DAG.\n")
+  })
+  #if(!all(diag(B_tot) == 0)){
+  if(!isTRUE(all.equal(diag(B_tot), rep(0, p)))){
     stop("Check that supplied template corresponds to a valid DAG.\n")
   }
 

@@ -30,3 +30,15 @@ solve_diag_psd_diag <- function(X, s, check_psd = FALSE) {
     chol2inv(chol(res))
   }
 }
+
+# solve_diag_psd_diag2 <- function(X, s) {
+#   Xs <- solve(X)
+#   t(t(1/s * Xs) * 1/s)
+# }
+#
+# solve_diag_psd_diag3 <- function(cholX, s) {
+#   Xs <- chol2inv(cholX)
+#   t(t(1/s * Xs) * 1/s)
+# }
+
+

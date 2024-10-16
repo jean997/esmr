@@ -22,6 +22,11 @@ esmr <- function(beta_hat_X, se_X,
                  R = NULL,
                  pval_thresh = NULL,
                  variant_ix = NULL,
+                 ld_scores = NULL,
+                 RE = NULL,
+                 tau_init = NULL,
+                 fix_tau = FALSE,
+                 ###
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
                  g_init = NULL,
                  fix_g = FALSE,
@@ -31,7 +36,6 @@ esmr <- function(beta_hat_X, se_X,
                  #####
                  direct_effect_template = NULL,
                  direct_effect_init = NULL,
-                 logdet_penalty = FALSE,
                  # add ability to fix some effects later
                  # direct_effect_fix = NULL,
                  #fix_beta = FALSE,
@@ -48,8 +52,17 @@ esmr <- function(beta_hat_X, se_X,
   }
 
   is_nesmr <- !is.null(direct_effect_template)
+  if(!is.null(ld_scores) | !is.null(RE)){
+    if(is.null(ld_scores) | is.null(RE)){
+      stop("Please specify both ld_scores and RE to include correction for GWAS confounding.")
+    }
+    if(is.null(tau_init)){
+      tau_init <- 1e-4
+    }
+  }
 
-  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R)
+  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
+
   if(is.null(G)){
     if(dat$p == 2){
       G <- diag(dat$p)
@@ -65,13 +78,13 @@ esmr <- function(beta_hat_X, se_X,
     }
   }
   dat$G <- check_matrix(G, n = dat$p)
+
   dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init)
   dat <- init_beta(dat)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
-  dat$R_is_id <- is.null(R) | all(R == diag(dat$p))
-  dat$logdet_penalty <- logdet_penalty
+  dat$R_is_id <- (is.null(R) || all(R == diag(dat$p))) & is.null(RE)
 
   dat$k <- ncol(dat$G)
 
@@ -79,16 +92,12 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$l <- init_l(dat$n, dat$p, dat$k)
 
-
-
-  dat$beta_joint <- beta_joint
-  dat$ebnm_fn <- ebnm_fn
   dat$g_init <- g_init
   dat$fix_g <- fix_g
 
-  dat$sigma_beta <- sigma_beta
-  #dat$lfsr_thresh <- lfsr_thresh
+  dat$fix_tau <- fix_tau
 
+  # subset variants
   if(!is.null(variant_ix)){
     dat <- subset_data(dat, variant_ix)
   }else if(!is.null(pval_thresh)){
@@ -102,13 +111,15 @@ esmr <- function(beta_hat_X, se_X,
   if(tol == "default"){
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))
   }
+
+  ## solve esmr problem
   dat <- esmr_solve(dat, max_iter, tol)
 
-
+  ## post-processing
   o <- match(1:dat$p, dat$traits)
   dat <- reorder_data(dat, o)
 
-  if (dat$is_dag && !is.null(direct_effect_template)) {
+  if (!is.null(direct_effect_template)) {
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
     delt_pvals <- delta_method_pvals(dat)
     dat$pvals_dm <- delt_pvals$pmat

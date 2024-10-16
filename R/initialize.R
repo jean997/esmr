@@ -17,7 +17,7 @@ init_beta <- function(dat){
 
   dat$beta <- list()
 
-  B <- check_B_template(dat$B_template)
+  B <- check_B_template(dat$B_template, dat$p)
 
   which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1), drop=FALSE] ## transpose
   colnames(which_beta) <- c("row", "col")
@@ -28,7 +28,7 @@ init_beta <- function(dat){
   nb <- length(dat$beta$beta_j)
   dat$beta$beta_m <- dat$B_init[which_beta]
   dat$beta$beta_s <- rep(0, nb)
-
+  dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
   return(dat)
 }
 

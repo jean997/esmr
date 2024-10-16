@@ -2,6 +2,7 @@
 % Please edit documentation in R/esmr.R, R/package.R
 \docType{package}
 \name{esmr}
+\alias{esmr-package}
 \alias{esmr}
 \title{Empirical Shrinkage Multivariable MR}
 \usage{
@@ -14,7 +15,13 @@ esmr(
   R = NULL,
   pval_thresh = NULL,
   variant_ix = NULL,
+  ld_scores = NULL,
+  RE = NULL,
+  tau_init = NULL,
+  fix_tau = FALSE,
   ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
+  g_init = NULL,
+  fix_g = FALSE,
   max_iter = 100,
   sigma_beta = Inf,
   tol = "default",
@@ -54,6 +61,9 @@ esmr(
 \item{augment_G}{Augment estimated G}
 
 \item{g_type}{Method to estimate G. Suggest "gfa"}
+}
+\description{
+Perform univariable or multivariable MR with empirical shrinkage priors.
 }
 \author{
 Jean Morrison <jvmorr@umich.edu>

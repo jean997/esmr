@@ -4,27 +4,26 @@ default_precision <- function(dims){
 
 make_f <- function(dat){
   if(length(dat$beta$beta_j) == 0 | is.null(dat$beta$beta_j)){
-    return(list(fbar = diag(dat$p), f2bar = diag(dat$p),
-                fgbar = dat$G, fg2bar = dat$G^2))
+    return(list(fbar = diag(dat$p), #f2bar = diag(dat$p),
+                fgbar = dat$G)) #, fg2bar = dat$G^2))
   }
-  fbar <- f2bar <- diag(dat$p)
+  fbar <-  diag(dat$p)
   nb <- length(dat$beta$beta_j)
   ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+
   fbar[ix] <- dat$beta$beta_m
-
   fgbar <- fbar %*% dat$G
-  V <- matrix(0, nrow = dat$p, ncol = dat$p)
-  V[ix] <- dat$beta$beta_s^2
 
-  f2bar <- (fbar^2) + V
-  fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
-  return(list(fgbar = fgbar, fg2bar = fg2bar,
-              fbar = fbar, f2bar = f2bar))
+  # V <- matrix(0, nrow = dat$p, ncol = dat$p)
+  # V[ix] <- dat$beta$beta_s^2
+  # f2bar <- (fbar^2) + V
+  # fg2bar <- (fgbar^2) + (V %*% (dat$G^2))
+  return(list(fgbar = fgbar, #fg2bar = fg2bar,
+              fbar = fbar))#,f2bar = f2bar))
 }
 
-get_omega <- function(R, S, any_missing){
+get_omega <- function(R, S, s_equal, any_missing){
 
-  s_equal <- apply(S, 2, function(x){all(x == x[1])}) %>% all()
   p <- ncol(S)
   R_is_id <- is.null(R) | all(R == diag(p))
 
@@ -83,7 +82,8 @@ get_omega <- function(R, S, any_missing){
   return(omega)
 }
 
-set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
+set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
+                     ld_scores, RE, tau_init){
 
   beta_hat_X <- check_matrix(beta_hat_X)
   n <- nrow(beta_hat_X)
@@ -99,13 +99,23 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R){
   R <- check_matrix(R, p, p)
   R <- check_R(R)
 
-  dat <- check_missing( beta_hat_X, se_X)
-  dat$omega <- get_omega(R, dat$S, dat$any_missing) # omega is row correlation of data, either list or single matrix
-  dat$n <- n
-  dat$p <- p
+  dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
   dat$traits <- 1:p
-  return(dat)
 
+  if(is.null(RE)){
+    dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
+    return(dat)
+  }
+
+  RE <- check_matrix(RE, p, p)
+  dat$RE <- check_R(RE)
+  dat$ld_scores <- check_numeric(ld_scores, n)
+
+  dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
+  dat$tau <- tau_init
+  dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
+  dat$s_equal <- FALSE
+  return(dat)
 }
 
 order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_init= NULL){
@@ -115,11 +125,8 @@ order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_in
     B <- matrix(0, nrow = dat$p, ncol = dat$p)
     B[2:dat$p, 1] <- 1
   }
-  dat$is_dag <- is_dag(B)
-
   # Check if we have lower triangular
-  # TODO: Remove this FALSE and replace by something like force_DAG = TRUE?
-  if (dat$is_dag && any(B[upper.tri(B)] != 0)) {
+  if (any(B[upper.tri(B)] != 0)) {
       # Direct effect template is not an lower triangular matrix
       # Attempt to re-order with topo-sort
       topo_order <- tryCatch({
@@ -138,7 +145,7 @@ order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_in
   if(!is.null(direct_effect_init)){
     o <- match(dat$traits, 1:dat$p)
     dat$B_init <- check_matrix(direct_effect_init, dat$p, dat$p)[o, o]
-    if(any(dat$B_init[dat$B_template == 0] != 0)){
+    if(any(dat$B_init[!dat$B_template == 0] != 0)){
       stop("Initialization pattern does not match template.\n")
     }
   }else{
@@ -163,17 +170,18 @@ reorder_data <- function(
     dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
     dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
   }
-  if(!is.null(dat$f)){
-    dat$f <- lapply(dat$f, function(x) {
-      x[cols, cols]
-    })
-  }
+
   if(!is.null(dat$beta)){
     dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
     dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
+    dat$f <- make_f(dat)
   }
   if(!is.null(dat$omega)) {
-    dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
+    if(dat$s_equal){
+      dat$omega <- dat$omega[cols, cols]
+    }else{
+      dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
+    }
   }
   if(!is.null(dat$G)){
     dat$G <- dat$G[cols,cols]
@@ -189,7 +197,7 @@ reorder_data <- function(
 }
 
 subset_data <- function(dat, ix){
-  s_equal <- check_equal_omega(dat$omega)
+  #s_equal <- check_equal_omega(dat$omega)
   dat$Y <- dat$Y[ix,,drop=F]
   dat$S <- dat$S[ix,,drop=F]
   dat$n <- length(ix)
@@ -198,7 +206,7 @@ subset_data <- function(dat, ix){
   dat$l$abar <- dat$l$abar[ix,,drop=F]
   dat$l$a2bar <- dat$l$a2bar[ix,,drop=F]
   dat$l$lfsr <- dat$l$lfsr[ix,,drop=F]
-  if(!s_equal){
+  if(!dat$s_equal){
     dat$omega <- dat$omega[ix]
   }
   return(dat)
@@ -239,7 +247,7 @@ get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
 direct_to_total <- function(B_dir){
   n <- nrow(B_dir)
   B_total <- solve(diag(n) - B_dir) - diag(n)
-  if(!all(diag(B_dir) == 0)){
+  if(!isTRUE(all.equal(diag(B_total), rep(0, n)))){
     stop("Failed to compute total effects from direct. Check that supplied B_dir corresponds to a valid DAG.\n")
   }
   return(B_total)
@@ -248,7 +256,7 @@ direct_to_total <- function(B_dir){
 total_to_direct <- function(B_tot){
   n <- nrow(B_tot)
   B_dir <-diag(n) - solve(diag(n) + B_tot)
-  if(!all(diag(B_dir) == 0)){
+  if(!isTRUE(all.equal(diag(B_dir), rep(0, n)))){
     stop("Failed to compute total effects from direct. Check that supplied B_tot corresponds to a valid DAG.\n")
   }
   return(B_dir)
@@ -308,25 +316,4 @@ get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_norma
 
 get_lower_triangular <- function(x, diag = FALSE) {
   x[lower.tri(x, diag)]
-}
-
-# Converts a matrix to an edgelist: from->to with the value as the matrix value
-matrix_to_edgelist <- function(
-    X, lower_tri = FALSE, value = 'value',
-    remove_diag = FALSE) {
-  if (lower_tri) {
-    ltx <- lower.tri(X, diag = ! remove_diag)
-  } else {
-    ltx <- TRUE
-  }
-
-  res <- data.frame(
-    from = row(X)[ltx],
-    to = col(X)[ltx]
-  )
-  res[[value]] <- X[ltx]
-  if (remove_diag) {
-    res <- res[res$from != res$to, ]
-  }
-  res
 }

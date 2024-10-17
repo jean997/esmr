@@ -118,7 +118,9 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   return(dat)
 }
 
-order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_init= NULL){
+order_upper_tri <- function(
+    dat, direct_effect_template = NULL, direct_effect_init= NULL,
+    restrict_DAG = TRUE){
   if(!is.null(direct_effect_template)){
     B <- direct_effect_template
   }else{
@@ -126,7 +128,7 @@ order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_in
     B[2:dat$p, 1] <- 1
   }
   # Check if we have lower triangular
-  if (any(B[upper.tri(B)] != 0)) {
+  if (any(B[upper.tri(B)] != 0) && restrict_DAG) {
       # Direct effect template is not an lower triangular matrix
       # Attempt to re-order with topo-sort
       topo_order <- tryCatch({
@@ -145,7 +147,7 @@ order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_in
   if(!is.null(direct_effect_init)){
     o <- match(dat$traits, 1:dat$p)
     dat$B_init <- check_matrix(direct_effect_init, dat$p, dat$p)[o, o]
-    if(any(dat$B_init[!dat$B_template == 0] != 0)){
+    if(any((dat$B_init != 0) & (dat$B_template == 0))) {
       stop("Initialization pattern does not match template.\n")
     }
   }else{
@@ -296,4 +298,24 @@ get_wpost <- function(beta_hat, se_beta_hat, col_ix, prior_family = "point_norma
 
 get_lower_triangular <- function(x, diag = FALSE) {
   x[lower.tri(x, diag)]
+}
+
+# Converts a matrix to an edgelist: from->to with the value as the matrix value
+matrix_to_edgelist <- function(
+    X, lower_tri = FALSE, value = 'value',
+    remove_diag = FALSE) {
+  if (lower_tri) {
+    ltx <- lower.tri(X, diag = ! remove_diag)
+  } else {
+    ltx <- TRUE
+  }
+  res <- data.frame(
+    from = row(X)[ltx],
+    to = col(X)[ltx]
+  )
+  res[[value]] <- X[ltx]
+  if (remove_diag) {
+    res <- res[res$from != res$to, ]
+  }
+  res
 }

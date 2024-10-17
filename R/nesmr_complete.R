@@ -91,13 +91,11 @@ nesmr_complete <- function(
     variant_ix = ix,
     G = diag(d), # required for network problem
     direct_effect_template = B_full,
+    restrict_DAG = FALSE,
     ...)
 
-  nesmr_beta <- t(nesmr_full$f$fgbar) - diag(d)
-  nesmr_se <- sqrt(t(nesmr_full$f$fg2bar) - t(nesmr_full$f$fgbar^2))
-
   return(list(
-    beta_hat = nesmr_beta,
-    se_beta_hat = nesmr_se
+    beta_hat = nesmr_full$beta_mat$beta_hat,
+    se_beta_hat = nesmr_full$beta_mat$beta_se
   ))
 }

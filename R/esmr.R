@@ -33,6 +33,7 @@ esmr <- function(beta_hat_X, se_X,
                  max_iter = 100,
                  sigma_beta = Inf,
                  tol = "default",
+                 restrict_DAG = TRUE,
                  #####
                  direct_effect_template = NULL,
                  direct_effect_init = NULL,
@@ -79,8 +80,10 @@ esmr <- function(beta_hat_X, se_X,
   }
   dat$G <- check_matrix(G, n = dat$p)
 
-  dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init)
-  dat <- init_beta(dat)
+  dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
+                         restrict_DAG = restrict_DAG)
+
+  dat <- init_beta(dat, restrict_DAG = restrict_DAG)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
@@ -119,12 +122,25 @@ esmr <- function(beta_hat_X, se_X,
   o <- match(1:dat$p, dat$traits)
   dat <- reorder_data(dat, o)
 
-  if (!is.null(direct_effect_template)) {
+  if (!is.null(direct_effect_template) && restrict_DAG) {
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
     delt_pvals <- delta_method_pvals(dat)
     dat$pvals_dm <- delt_pvals$pmat
     dat$se_dm <- delt_pvals$semat
   }
+
+  # Reformat beta_hat and beta_se to matrix format
+  beta_hat <- beta_se <- matrix(0, nrow = dat$p, ncol = dat$p)
+  fix_beta <- matrix(FALSE, nrow = dat$p, ncol = dat$p)
+  beta_ind <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+  beta_hat[beta_ind] <- dat$beta$beta_m
+  beta_se[beta_ind] <- dat$beta$beta_s
+  fix_beta[beta_ind] <- dat$beta$fix_beta
+
+  dat$beta_mat <- list(
+    beta_hat = beta_hat,
+    beta_se = beta_se
+  )
   return(dat)
 }
 

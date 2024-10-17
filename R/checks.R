@@ -81,7 +81,7 @@ check_equal_omega <- function(omega){
   }
 }
 
-check_B_template <- function(B, p){
+check_B_template <- function(B, p, restrict_DAG = TRUE) {
   B <- check_matrix(B, p, p)
 
   if(!all(B %in% c(0, 1))) stop("Direct effects template should contain only 0 and 1 entries.")
@@ -89,9 +89,13 @@ check_B_template <- function(B, p){
   if(!isTRUE(all.equal(diag(B), rep(0, p)))){
     stop("Direct effects template must have 0s on the diagonal.")
   }
-  B_tot <- tryCatch(direct_to_total(B), error = function(e){
-    stop("Check that supplied template corresponds to a valid DAG.\n")
-  })
+  if (restrict_DAG) {
+    B_tot <- tryCatch(direct_to_total(B), error = function(e){
+      stop("Check that supplied template corresponds to a valid DAG.\n")
+    })
+  } else {
+    B_tot <- direct_to_total_adj(B)
+  }
   #if(!all(diag(B_tot) == 0)){
   if(!isTRUE(all.equal(diag(B_tot), rep(0, p)))){
     stop("Check that supplied template corresponds to a valid DAG.\n")

@@ -13,11 +13,11 @@ init_l <- function(n, p, m){
 
 
 
-init_beta <- function(dat){
+init_beta <- function(dat, restrict_DAG = TRUE){
 
   dat$beta <- list()
 
-  B <- check_B_template(dat$B_template, dat$p)
+  B <- check_B_template(dat$B_template, dat$p, restrict_DAG = restrict_DAG)
 
   which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1), drop=FALSE] ## transpose
   colnames(which_beta) <- c("row", "col")

@@ -66,13 +66,12 @@ project_to_DAG_bootstrap <- function(
     bootstrap_tot_est <- matrix(0, nrow = d, ncol = d)
     bootstrap_tot_est[non_diag_i] <- total_est[non_diag_i] + rnorm(d * (d - 1), mean = 0, sd = total_est_se[non_diag_i])
     project_to_DAG(
-      bootstrap_tot_est,
+      X = bootstrap_tot_est,
       threshold_to_DAG = TRUE,
-      maxit = 2000,
-      trace = 5,
       lambda = c(1, 10^-seq(1,5), 0),
       s = s, # TODO: Why do we need s > 1? Always fails when s = 1
-      ...
+      maxit = 2000,
+      trace = 5,
     )
   }, simplify = FALSE)
   # TODO: Standard error for each configuration ?

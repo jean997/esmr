@@ -56,9 +56,25 @@ project_to_DAG <- function(
   X_dag
 }
 
+#' Bootstrap LogDet
+#'
+#' Start with an effect matrix and standard errors and sample from an (independent) MV normal distribution
+#' and project to DAG using LogDet characterization
+#'
+#' @param total_est total or direct effects matrix
+#' @param total_est_se standard errors of total or direct effects matrix
+#' @param reps total bootstrap samples
+#' @param s logdet parameter
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
 project_to_DAG_bootstrap <- function(
     total_est, total_est_se, reps = 100,
     s = 1.1,
+    maxit = 500,
     ...) {
   d <- ncol(total_est)
   non_diag_i <- -seq(1, d^2, by = d + 1)
@@ -70,8 +86,8 @@ project_to_DAG_bootstrap <- function(
       threshold_to_DAG = TRUE,
       lambda = c(1, 10^-seq(1,5), 0),
       s = s, # TODO: Why do we need s > 1? Always fails when s = 1
-      maxit = 2000,
-      trace = 5,
+      maxit = maxit,
+      ...
     )
   }, simplify = FALSE)
   # TODO: Standard error for each configuration ?

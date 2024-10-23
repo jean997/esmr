@@ -2,9 +2,10 @@ library(gtools)  # For generating permutations
 
 # From chatGPT: https://chatgpt.com/c/35ed431d-dea5-4dcb-bdb3-7425395d83cf
 # Function to generate all possible DAGs for a given matrix size n
+#'@export
 generate_dags_with_permutations <- function(n, remove_empty = TRUE) {
   # Generate all permutations of node indices (i.e., topological sorts)
-  node_permutations <- permutations(n, n)  # All permutations of length n
+  node_permutations <- gtools::permutations(n, n)  # All permutations of length n
 
   # Get the number of possible edges in the upper triangular part (excluding diagonal)
   num_edges <- choose(n, 2)

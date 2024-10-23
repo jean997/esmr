@@ -83,6 +83,7 @@ project_to_DAG_bootstrap <- function(
     bootstrap_tot_est[non_diag_i] <- total_est[non_diag_i] + rnorm(d * (d - 1), mean = 0, sd = total_est_se[non_diag_i])
     project_to_DAG(
       X = bootstrap_tot_est,
+      penalty = "L2",
       threshold_to_DAG = TRUE,
       lambda = c(1, 10^-seq(1,5), 0),
       s = s, # TODO: Why do we need s > 1? Always fails when s = 1

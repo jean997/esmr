@@ -12,6 +12,7 @@
 #' # Posterior probability with uniform prior on the three discrete states
 #' exp(log_liks - log_denom)
 #'
+#' @export
 log_sum_exp <- function(x, ...) {
   x <- unlist(c(x, list(...)))
   x_max <- max(x)

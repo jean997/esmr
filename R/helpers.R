@@ -145,7 +145,7 @@ order_upper_tri <- function(dat, direct_effect_template = NULL, direct_effect_in
   if(!is.null(direct_effect_init)){
     o <- match(dat$traits, 1:dat$p)
     dat$B_init <- check_matrix(direct_effect_init, dat$p, dat$p)[o, o]
-    if(any(dat$B_init[!dat$B_template == 0] != 0)){
+    if(any(dat$B_init[dat$B_template == 0] != 0)){
       stop("Initialization pattern does not match template.\n")
     }
   }else{

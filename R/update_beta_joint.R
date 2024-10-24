@@ -53,18 +53,21 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     a <- afull
   }
 
-  tryCatch({
-    S <- solve(R)
-  }, error = function(e){
+  evR <- eigen(R, only.values = TRUE)$values
+  condR <- abs(max(evR)/min(evR))
+  if(any(evR < 0) | condR > 1e15){
     all_zero_cols_lbar <- apply(zapsmall(dat$l$lbar, digits = 10), 2, function(x){
       all(x == 0)
     })
     if (any(all_zero_cols_lbar)) {
       stop('lbar has a column of all zeros for column(s): ', which(all_zero_cols_lbar))
-    } else {
-      stop('Cannot invert R matrix: ', R)
     }
-  })
+    warning("Projecting internal R to nearest PD matrix in beta update.\n")
+    R <- Matrix::nearPD(R)$mat
+  }
+
+  S <- solve(R)
+
   mu <- S %*% a
 
   if(return_W){

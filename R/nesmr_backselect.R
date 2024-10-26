@@ -9,6 +9,7 @@
 #' @param aic_cutoff AIC difference cutoff for selecting models
 #' @param pvalue_cutoff P-value cutoff for selecting edges
 #' @param alpha Significance level for selecting variants
+#' @param ... Additional parameters to pass into esmr
 #'
 #' @return List of models selected by NESMR backselect
 #' @export
@@ -68,7 +69,8 @@ nesmr_backselect <- function(
     method = c("aic", "posterior_prob"),
     aic_cutoff = 2,
     pvalue_cutoff = 0.05,
-    alpha = 5e-8) {
+    alpha = 5e-8,
+    ...) {
   method <- match.arg(method)
   n_params <- sapply(mod_list, function(x) { sum(x$B_template) })
   d <- ncol(beta_hat)
@@ -154,7 +156,8 @@ nesmr_backselect <- function(
         variant_ix = variant_ix,
         G = diag(d),
         direct_effect_template = B_template,
-        direct_effect_init = B_template * mod$direct_effects
+        direct_effect_init = B_template * mod$direct_effects,
+        ...
       )
 
       # TODO: Eventually want to do something faster than computing likelihood each time

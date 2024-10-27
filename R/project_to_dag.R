@@ -17,7 +17,7 @@ project_to_DAG <- function(
     X, s = max(max(X^2) + 0.1, 1), lambda = c(1, 10^-seq(1,5), 0),
     penalty = c("L2", "L1"),
     threshold_to_DAG = FALSE,
-    ...
+    maxit = 100
     ) {
   penalty <- match.arg(penalty)
   d <- nrow(X)
@@ -37,7 +37,7 @@ project_to_DAG <- function(
       penalty = penalty,
       lambda = lambda[i],
       method = "BFGS",
-      control = list(...)
+      control = list(maxit = maxit)
     )
 
     if (results[[i]]$convergence != 0) {
@@ -74,8 +74,7 @@ project_to_DAG <- function(
 project_to_DAG_bootstrap <- function(
     total_est, total_est_se, reps = 100,
     s = 1.1,
-    maxit = 500,
-    ...) {
+    maxit = 500) {
   d <- ncol(total_est)
   non_diag_i <- -seq(1, d^2, by = d + 1)
   replicate(reps, {
@@ -87,8 +86,7 @@ project_to_DAG_bootstrap <- function(
       threshold_to_DAG = TRUE,
       lambda = c(1, 10^-seq(1,5), 0),
       s = s, # TODO: Why do we need s > 1? Always fails when s = 1
-      maxit = maxit,
-      ...
+      maxit = maxit
     )
   }, simplify = FALSE)
   # TODO: Standard error for each configuration ?

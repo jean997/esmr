@@ -17,7 +17,7 @@ threshold_DAG <- function(W, return_threshold = TRUE) {
   while (! is_dag(W) && start_i <= max_i) {
     threshold <- non_zero_vals[start_i]
     W <- threshold_beta(W, threshold = threshold)
-    cat("start_i", start_i, "threshold", threshold, "\n")
+    # cat("start_i", start_i, "threshold", threshold, "\n")
     start_i <- start_i + 1
     is_W_dag <- is_dag(W)
   }

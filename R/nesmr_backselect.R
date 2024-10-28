@@ -64,9 +64,8 @@
 nesmr_backselect <- function(
     mod_list,
     beta_hat, se_beta_hat,
-    mod_log_liks = NULL,
     variant_ix = NULL,
-    method = c("aic", "posterior_prob"),
+    method = c("aic", "elbo"),
     aic_cutoff = 2,
     pvalue_cutoff = 0.05,
     alpha = 5e-8,
@@ -75,18 +74,24 @@ nesmr_backselect <- function(
   n_params <- sapply(mod_list, function(x) { sum(x$B_template) })
   d <- ncol(beta_hat)
   stopifnot(ncol(se_beta_hat) == d)
-  if (is.null(mod_log_liks)) {
+
+  if (method == "aic") {
     mod_list <- lapply(mod_list, function(x) {
       if (!"log_lik" %in% names(x)) x$log_lik <- log_py(x)
       if (! "aic" %in% names(x)) x$aic <- -2 * x$log_lik + 2 * sum(x$B_template)
 
       return(x)
     })
-
-    mod_log_liks <- sapply(mod_list, function(x) x$log_lik)
   }
 
-  mod_aic <- -2 * mod_log_liks + 2 * n_params
+  # This is called log_liks but can be either log_lik or elbo
+  mod_obj <- sapply(mod_list, function(x) {
+    if (method == "aic") x$log_lik
+    else if (method == "elbo") x$elbo
+    })
+
+  # Psuedo AIC if we are using ELBO
+  mod_aic <- -2 * mod_obj + 2 * n_params
 
   best_mod_aic <- min(mod_aic)
 
@@ -160,15 +165,21 @@ nesmr_backselect <- function(
         ...
       )
 
-      # TODO: Eventually want to do something faster than computing likelihood each time
-      new_mod$log_lik <- log_py(new_mod)
       new_mod$num_params <- sum(B_template)
-      new_mod$aic <- -2 * new_mod$log_lik + 2 * new_mod$num_params
+      # TODO: Eventually want to do something faster than computing likelihood each time
+      if (method == "aic") {
+        new_mod$log_lik <- log_py(new_mod)
+        new_mod$aic <- -2 * new_mod$log_lik + 2 * new_mod$num_params
+        obj_value <- new_mod$aic
+      } else {
+        obj_value <- -2 * new_mod$elbo + 2 * new_mod$num_params
+      }
+
 
       # TODO: Generalize this to "stopping criterion" function
       # Either aic difference, or posterior probability with different priors
-      if (abs(best_mod_aic - new_mod$aic) <= aic_cutoff) {
-        best_mod_aic <- min(best_mod_aic, new_mod$aic)
+      if (abs(best_mod_aic - obj_value) <= aic_cutoff) {
+        best_mod_aic <- min(best_mod_aic, obj_value)
         all_B_strings <- sapply(return_mods, function(x) paste(x$B_template, collapse = ""))
         if (B_template_chr %in% all_B_strings) {
           warning("Duplicate element...")

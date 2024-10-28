@@ -142,6 +142,9 @@ esmr <- function(beta_hat_X, se_X,
     beta_hat = beta_hat,
     beta_se = beta_se
   )
+
+  dat$elbo <- tail(dat$obj, n = 1)
+
   return(dat)
 }
 

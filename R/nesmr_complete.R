@@ -22,13 +22,21 @@ nesmr_complete_mvmr <- function(
     mvmr_ix <- which(mvmr_minp < alpha)
 
     # Estimate G at each step for fair comparison
-    esmr(beta_hat_Y = beta_hat[,i],
-              se_Y = se_beta_hat[,i],
-              beta_hat_X = beta_hat[,-i],
-              se_X = se_beta_hat[,-i],
-              variant_ix = mvmr_ix,
-              beta_joint = TRUE,
-              ...)
+    tryCatch({
+      esmr(beta_hat_Y = beta_hat[,i],
+                    se_Y = se_beta_hat[,i],
+                    beta_hat_X = beta_hat[,-i],
+                    se_X = se_beta_hat[,-i],
+                    variant_ix = mvmr_ix,
+                    beta_joint = TRUE,
+                    ...)
+      }, error = function(e) {
+        warning(e)
+        list(beta = data.frame(
+          beta_m = rep(0, d - 1),
+          beta_s = rep(0, d - 1)
+        ))
+      })
   })
 
   # Combine the results into a single matrix

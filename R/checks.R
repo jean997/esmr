@@ -91,7 +91,10 @@ check_B_template <- function(B, p, restrict_DAG = TRUE) {
   }
   if (restrict_DAG) {
     B_tot <- tryCatch(direct_to_total(B), error = function(e){
-      stop("Check that supplied template corresponds to a valid DAG.\n")
+      # Try alternative method
+      tryCatch(direct_to_total_adj(B), error = function(e){
+        stop("Check that supplied template corresponds to a valid DAG.\n")
+      })
     })
   } else {
     B_tot <- direct_to_total_adj(B)

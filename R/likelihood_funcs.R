@@ -21,7 +21,6 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, omega_logdet, s_equal){
     part_a <- sum(tcrossprod(R, omega) * R) #quad.tdiag(omega, R) %>% sum()
     diagA <- colSums(crossprod(omega,fgbar) * fgbar)
     part_b <- t(t(varabar)*diagA) %>% sum()
-    print(omega_logdet)
     ell <- -0.5*(part_a + part_b - omega_logdet)
   }else{
     part_a <- map_dbl(seq(n), function(i){

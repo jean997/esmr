@@ -27,13 +27,13 @@ get_omega <- function(R, S, s_equal, any_missing){
   p <- ncol(S)
   R_is_id <- is.null(R) | all(R == diag(p))
 
-  if(s_equal & R_is_id){
+  if(s_equal && R_is_id){
     s <- S[1,]
     omega <- diag(1/s^2)
   }else if(s_equal){
     s <- S[1,]
     omega <- solve_diag_psd_diag(R, s)
-  }else if(R_is_id & !any_missing){
+  }else if(R_is_id && !any_missing){
     omega <- apply(S, 1, function(s){
       diag(1/s^2, nrow = p)
     }, simplify = FALSE)

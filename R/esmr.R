@@ -115,6 +115,9 @@ esmr <- function(beta_hat_X, se_X,
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))
   }
 
+  # Pre-compute log(det(omega))
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+
   ## solve esmr problem
   dat <- esmr_solve(dat, max_iter, tol)
 

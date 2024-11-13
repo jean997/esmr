@@ -85,9 +85,7 @@ log_py <- function(fit, g_hat, fbar, max_prob = 1, nmax = Inf){
 
 ## gradient of log p(y | params)
 grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, ghat, G, fbar, omega){
-  #n <- nrow(fit$Y)
-  #k <- ncol(fit$G)
-  #p <- ncol(fit$Y)
+
   if(missing(fbar)){
     fbar <- fit$f$fbar
   }
@@ -331,11 +329,14 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
   }
 
   ## caclulate d/df_ij V(F) for each variance matrix
-  nvars <- length(fit$beta$beta_j)
+  b_j <- fit$beta$beta_j[!fit$beta$fix_beta]
+  b_k <- fit$beta$beta_k[!fit$beta$fix_beta]
+  nvars <- length(b_j)
+
   E <- matrix(0, nrow = fit$p, ncol = fit$k)
   dV <- lapply(seq(nvars), function(i){
     myE <- E
-    myE[fit$beta$beta_j[i], fit$beta$beta_k[i]] <- 1
+    myE[b_j[i], b_k[i]] <- 1
     lapply(seq(m), function(mm){
       myE %*% B[[mm]] %*% t(fbar) + fbar %*% B[[mm]] %*% t(myE)
     })
@@ -348,10 +349,10 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
 
   d2V <- lapply(seq(nvars), function(i){
     myEi <- E
-    myEi[fit$beta$beta_j[i], fit$beta$beta_k[i]] <- 1
+    myEi[b_j[i], b_k[i]] <- 1
     lapply(seq(nvars), function(j){
       myEj <- E
-      myEj[fit$beta$beta_j[j], fit$beta$beta_k[j]] <- 1
+      myEj[b_j[j], b_k[j]] <- 1
       lapply(seq(m), function(mm){
         myEi %*% B[[mm]] %*% t(myEj) + myEj %*% B[[mm]] %*% t(myEi)
       })
@@ -530,17 +531,30 @@ optimize_lpy2 <- function(fit,
                          max_prob = 1,
                          sub_size = fit$n){
 
+
+  fit <- order_upper_tri(fit, fit$B_template)
+
+
   i <- 1
-  bj <- fit$beta$beta_j
-  bk <- fit$beta$beta_k
+  bj <- fit$beta$beta_j[fit$beta$fix_beta == FALSE]
+  bk <- fit$beta$beta_k[fit$beta$fix_beta == FALSE]
+
+
+  if(any(fit$beta$fix_beta)){
+    which_const <- cbind(fit$beta$beta_k, fit$beta$beta_j)[fit$beta$fix_beta,,drop = FALSE]
+    colnames(which_const) <- c("row", "col")
+  }
+
   update_fbar <- function(fbar, new_beta){
     for(ii in seq(bj)){
       fbar[bj[ii], bk[ii]] <- new_beta[ii]
     }
     return(fbar)
   }
+
+
   fbar <- fit$f$fbar
-  beta <- fit$beta$beta_m
+  beta <- fit$beta$beta_m[fit$beta$fix_beta == FALSE]
   done <- FALSE
   if(sub_size >= fit$n){
     ix <- NULL
@@ -561,13 +575,22 @@ optimize_lpy2 <- function(fit,
     }
     step <- solve(g$In) %*% g$Sn
     cat(step, " ")
+
     beta <- beta + step
     fbar <- update_fbar(fbar, beta)
+
+    if(any(fit$beta$fix_beta)){
+      fbar <- t(complete_T(t(fbar), which_const)$total_effects)
+    }
+
     if(all(abs(step) < tol)) done <- TRUE
     i <- i + 1
     cat(g$log_py, "\n")
   }
-  fit$beta$beta_m <- beta
+
+  myix <- cbind(fit$beta$beta_j, fit$beta$beta_k)
+  fit$beta$beta_m <- fbar[myix]
+
   fit$f$fbar <- fbar
   fit$f$fgbar <- fit$G %*% fbar
   if(calc_hess){
@@ -584,12 +607,19 @@ optimize_lpy2 <- function(fit,
   }else{
     fit$beta$V <- solve(g$In)/fit$n
     fit$beta$beta_s <- sqrt(diag(fit$beta$V))
-    fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
-    delt_pvals <- delta_method_pvals(fit)
-    fit$pvals_dm <- delt_pvals$pmat
-    fit$se_dm <- delt_pvals$semat
     #fit$likelihood <- log_py(fit)
   }
+
+
+  o <- match(1:fit$p, fit$traits)
+  fit <- reorder_data(fit, o)
+
+  fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
+  delt_pvals <- delta_method_pvals(fit)
+  fit$pvals_dm <- delt_pvals$pmat
+  fit$se_dm <- delt_pvals$semat
+
+
   return(fit)
 }
 

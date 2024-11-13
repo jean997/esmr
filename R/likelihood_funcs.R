@@ -4,7 +4,7 @@
 ## E[ sum (Y, - y_j)^T Omega (Y_j - y_j)]
 ## This version treats all betas as independent
 #'@export
-calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal, R_is_id = FALSE){
+calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, omega_logdet, s_equal){
   n <- nrow(Y)
   p <- ncol(Y)
   k <- ncol(fgbar)
@@ -21,14 +21,8 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal, R_is_id = FALSE){
     part_a <- sum(tcrossprod(R, omega) * R) #quad.tdiag(omega, R) %>% sum()
     diagA <- colSums(crossprod(omega,fgbar) * fgbar)
     part_b <- t(t(varabar)*diagA) %>% sum()
-    # TODO: For now if omega is diagonal then we can just sum the log diagonal
-    # Might need change the determinant part for larger graphs too
-    if (R_is_id) {
-      log_det <- n * sum(log(diag(omega)))
-    } else {
-      log_det <- log(det(omega))*n
-    }
-    ell <- -0.5*(part_a + part_b -log_det)
+    print(omega_logdet)
+    ell <- -0.5*(part_a + part_b - omega_logdet)
   }else{
     part_a <- map_dbl(seq(n), function(i){
       r <- R[i,,drop = FALSE]
@@ -41,12 +35,7 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal, R_is_id = FALSE){
 
     part_b <- sum(varabar*diagA)
 
-    if (R_is_id) {
-      log_det <- sapply(omega, function(o){sum(log(diag(o)))*n}) %>% sum()
-    } else {
-      log_det <- sapply(omega, function(o){log(det(o))}) %>% sum()
-    }
-    ell <- -0.5*(part_a + part_b  - log_det)
+    ell <- -0.5*(part_a + part_b  - omega_logdet)
   }
 
   return(ell)

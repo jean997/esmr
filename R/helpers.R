@@ -82,6 +82,19 @@ get_omega <- function(R, S, s_equal, any_missing){
   return(omega)
 }
 
+get_omega_logdet <- function(omega, s_equal, n) {
+  if(s_equal){
+    # Log(det(omega))
+    as.numeric(determinant(omega, logarithm = T)$modulus) * n
+  }else{
+    sum(
+      sapply(omega, function(o) {
+        as.numeric(determinant(o, logarithm = T)$modulus)
+      })
+    )
+  }
+}
+
 set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
                      ld_scores, RE, tau_init){
 

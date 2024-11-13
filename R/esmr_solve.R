@@ -13,7 +13,7 @@ esmr_solve <- function(dat, max_iter, tol){
     dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega,  s_equal))
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
     obj <- c(obj, ll + dat$l$kl)
 
     # beta update
@@ -65,7 +65,7 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$f <- make_f(dat)
     }
 
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega,  s_equal))
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
     obj <- c(obj, ll + dat$l$kl)
 
 
@@ -77,7 +77,7 @@ esmr_solve <- function(dat, max_iter, tol){
         max_tau <- 10*median(dat$S^2)
       }
       dat <- update_tau(dat,tau_min = min_tau, tau_max = max_tau)
-      ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega,  s_equal))
+      ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
       obj <- c(obj, ll + dat$l$kl)
     }
 

@@ -4,7 +4,7 @@
 ## E[ sum (Y, - y_j)^T Omega (Y_j - y_j)]
 ## This version treats all betas as independent
 #'@export
-calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal){
+calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, omega_logdet, s_equal){
   n <- nrow(Y)
   p <- ncol(Y)
   k <- ncol(fgbar)
@@ -21,8 +21,9 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal){
     part_a <- sum(tcrossprod(R, omega) * R) #quad.tdiag(omega, R) %>% sum()
     diagA <- colSums(crossprod(omega,fgbar) * fgbar)
     part_b <- t(t(varabar)*diagA) %>% sum()
-    log_det <- log(det(omega))*n
-    ell <- -0.5*(part_a + part_b -log_det)
+    cat("log(det(omega))*n =", log(det(omega)) * n, "n = ", n, "\n")
+    print(omega_logdet)
+    ell <- -0.5*(part_a + part_b - omega_logdet)
   }else{
     part_a <- map_dbl(seq(n), function(i){
       r <- R[i,,drop = FALSE]
@@ -35,8 +36,7 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, s_equal){
 
     part_b <- sum(varabar*diagA)
 
-    log_det <- sapply(omega, function(o){log(det(o))}) %>% sum()
-    ell <- -0.5*(part_a + part_b  - log_det)
+    ell <- -0.5*(part_a + part_b  - omega_logdet)
   }
 
   return(ell)

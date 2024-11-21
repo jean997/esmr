@@ -133,7 +133,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
 
 order_upper_tri <- function(
     dat, direct_effect_template = NULL, direct_effect_init= NULL,
-    restrict_DAG = TRUE){
+    restrict_dag = TRUE){
   if(!is.null(direct_effect_template)){
     B <- direct_effect_template
   }else{
@@ -141,7 +141,7 @@ order_upper_tri <- function(
     B[2:dat$p, 1] <- 1
   }
   # Check if we have lower triangular
-  if (any(B[upper.tri(B)] != 0) && restrict_DAG) {
+  if (any(B[upper.tri(B)] != 0) && restrict_dag) {
       # Direct effect template is not an lower triangular matrix
       # Attempt to re-order with topo-sort
       topo_order <- tryCatch({

@@ -1,16 +1,16 @@
 #' Solves for total effects from direct effects using (I - B_dir)^{-1} - I
 #'
 #' @param B_dir
-#' @param restrict_DAG
+#' @param restrict_dag
 #'
 #' @return
 #' @export
 #'
 #' @examples
-direct_to_total <- function(B_dir, restrict_DAG = TRUE) {
+direct_to_total <- function(B_dir, restrict_dag = TRUE) {
   n <- nrow(B_dir)
   B_total <- solve(diag(n) - B_dir) - diag(n)
-  if(!all(diag(B_total) == 0)){
+  if(!all(diag(B_total) == 0) && restrict_dag){
     stop("Failed to compute total effects from direct. Check that supplied B_dir corresponds to a valid DAG.\n")
   }
   return(B_total)
@@ -20,10 +20,11 @@ direct_to_total <- function(B_dir, restrict_DAG = TRUE) {
 #' Assumes that B_tot is a valid adjacency matrix for a DAG and that spectral radius is less than one
 #'
 #' @param B_tot
+#' @param restrict_dag Should the function fail if B_tot is not a DAG? Otherwise, will check that spectral radius max(abs(eigenvalues)) < 1
 #'
 #' @return
 #' @export
-total_to_direct <- function(B_tot){
+total_to_direct <- function(B_tot, restrict_dag = TRUE){
   n <- nrow(B_tot)
   B_dir <- diag(n) - solve(diag(n) + B_tot)
   if(!all(diag(B_tot) == 0)){

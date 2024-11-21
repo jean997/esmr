@@ -33,7 +33,7 @@ esmr <- function(beta_hat_X, se_X,
                  max_iter = 100,
                  sigma_beta = Inf,
                  tol = "default",
-                 restrict_DAG = TRUE,
+                 restrict_dag = TRUE,
                  #####
                  direct_effect_template = NULL,
                  direct_effect_init = NULL,
@@ -81,9 +81,9 @@ esmr <- function(beta_hat_X, se_X,
   dat$G <- check_matrix(G, n = dat$p)
 
   dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
-                         restrict_DAG = restrict_DAG)
+                         restrict_dag = restrict_dag)
 
-  dat <- init_beta(dat, restrict_DAG = restrict_DAG)
+  dat <- init_beta(dat, restrict_dag = restrict_dag)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
@@ -99,6 +99,7 @@ esmr <- function(beta_hat_X, se_X,
   dat$fix_g <- fix_g
 
   dat$fix_tau <- fix_tau
+  dat$restrict_dag <- restrict_dag
 
   # subset variants
   if(!is.null(variant_ix)){
@@ -125,7 +126,7 @@ esmr <- function(beta_hat_X, se_X,
   o <- match(1:dat$p, dat$traits)
   dat <- reorder_data(dat, o)
 
-  if (!is.null(direct_effect_template) && restrict_DAG) {
+  if (!is.null(direct_effect_template) && restrict_dag) {
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
     delt_pvals <- delta_method_pvals(dat)
     dat$pvals_dm <- delt_pvals$pmat

@@ -99,7 +99,7 @@ nesmr_complete <- function(
     variant_ix = ix,
     G = diag(d), # required for network problem
     direct_effect_template = B_full,
-    restrict_DAG = FALSE,
+    restrict_dag = FALSE,
     ...)
 
   return(list(

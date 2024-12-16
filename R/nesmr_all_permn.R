@@ -1,5 +1,3 @@
-library(gtools)  # For generating permutations
-
 # From chatGPT: https://chatgpt.com/c/35ed431d-dea5-4dcb-bdb3-7425395d83cf
 # Function to generate all possible DAGs for a given matrix size n
 #'@export
@@ -47,6 +45,21 @@ generate_dags_with_permutations <- function(n, remove_empty = TRUE) {
   return(dag_list)
 }
 
+#' Run NESMR on all permutation of the traits or all DAGs
+#'
+#'
+#' @param beta_hat Matrix of effect estimates
+#' @param se_beta_hat
+#' @param B_templates
+#' @param all_DAGs Should all DAGs be generated? FALSE means all permutations of the traits
+#' @param posterior_probs Should posterior probabilities be computed?
+#' @param return_model Should the full model object be returned?
+#' @param direct_effect_init Initial direct effect matrix for the current order of the traits
+#' @param variant_ix Index of variants to subset
+#' @param alpha Significance level for p-value cutoff
+#' @param ... Additional arguments to pass to `esmr`
+#'
+#' @return List of results
 #' @export
 nesmr_all_permn <- function(
     beta_hat,
@@ -55,7 +68,6 @@ nesmr_all_permn <- function(
     all_DAGs = FALSE,
     posterior_probs = TRUE,
     return_model = FALSE,
-    catch_errors = TRUE,
     direct_effect_init = NULL,
     variant_ix = NULL,
     alpha = 5e-8,

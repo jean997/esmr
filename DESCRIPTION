@@ -21,6 +21,7 @@ Imports:
     matrixStats,
     purrr,
     GFA,
-    igraph
+    igraph,
+    gtools
 Remotes:
     jean997/GFA

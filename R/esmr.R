@@ -64,13 +64,19 @@ esmr <- function(beta_hat_X, se_X,
 
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
 
+  class(dat) <- c(c("esmr"), class(dat))
+  dat$is_nesmr <- ! is.null(direct_effect_template)
+  if (dat$is_nesmr) {
+    class(dat) <- c(c("nesmr"), class(dat))
+  }
+
   if(is.null(G)){
     if(dat$p == 2){
       G <- diag(dat$p)
-    }else if(!missing(direct_effect_template) & !is.null(direct_effect_template)){
+    } else if (dat$is_nesmr) {
       warning("Cannot estimate G for network problem yet.\n")
       G <- diag(dat$p)
-    }else{
+    } else{
       G <- estimate_G(beta_hat_X = dat$Y[,-1,drop =F],
                       se_X = dat$S[,-1, drop = F],
                       R = R[-1, -1, drop = FALSE],

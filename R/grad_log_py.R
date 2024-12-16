@@ -1,9 +1,9 @@
 ## likelihood function, very slow
-log_py <- function(fit, g_hat, fbar, max_prob = 1, nmax = Inf){
-  if(missing(g_hat)){
+log_py <- function(fit, g_hat = NULL, fbar = NULL, max_prob = 1, nmax = Inf){
+  if(is.null(g_hat)){
     g_hat <- fit$l$g_hat
   }
-  if(missing(fbar)){
+  if(is.null(fbar)){
     fbar <- fit$f$fbar
   }
   fgbar <-  fbar %*% fit$G

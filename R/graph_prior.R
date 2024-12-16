@@ -1,7 +1,7 @@
 #' Graph prior
-#' @k Number of edges
-#' @n Total number of traits
-#' @pi_0 Parameter to penalize the number of edges. Uniform prior is 0.5, AIC is ~0.73.
+#' @param k Number of edges
+#' @param n Total number of traits
+#' @param pi_0 Parameter to penalize the number of edges. Uniform prior is 0.5, AIC is ~0.73.
 #' @return prior distribution on the number of edges
 #' @examples
 #' # Prior weights for all edges on 5 traits

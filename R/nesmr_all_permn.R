@@ -49,8 +49,8 @@ generate_dags_with_permutations <- function(n, remove_empty = TRUE) {
 #'
 #'
 #' @param beta_hat Matrix of effect estimates
-#' @param se_beta_hat
-#' @param B_templates
+#' @param se_beta_hat Matrix of standard errors
+#' @param B_templates List of direct effect templates. If this is specified then only compute for these templates rather than all permutations or all DAGs.
 #' @param all_DAGs Should all DAGs be generated? FALSE means all permutations of the traits
 #' @param posterior_probs Should posterior probabilities be computed?
 #' @param return_model Should the full model object be returned?

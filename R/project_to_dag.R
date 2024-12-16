@@ -9,10 +9,8 @@
 #' Thresholding is done via \code{\link{threshold_DAG}} which iterativly finds the minimal threshold that ensures acyclicity.
 #' @param ... additional arguments to the `control` argument of \code{\link{optim}}
 #'
-#' @return
+#' @return a matrix that is a DAG that is closest to X by L2 norm
 #' @export
-#'
-#' @examples
 project_to_DAG <- function(
     X, s = max(max(X^2) + 0.1, 1), lambda = c(1, 10^-seq(1,5), 0),
     penalty = c("L2", "L1"),
@@ -67,10 +65,8 @@ project_to_DAG <- function(
 #' @param s logdet parameter
 #' @param ...
 #'
-#' @return
+#' @return a list of DAGs
 #' @export
-#'
-#' @examples
 project_to_DAG_bootstrap <- function(
     total_est, total_est_se, reps = 100,
     s = 1.1,

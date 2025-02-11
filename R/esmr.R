@@ -40,6 +40,7 @@ esmr <- function(beta_hat_X, se_X,
                  # add ability to fix some effects later
                  # direct_effect_fix = NULL,
                  #fix_beta = FALSE,
+                 beta_prior_cov = NULL,
                  beta_joint = TRUE,
                  augment_G = TRUE){
 
@@ -106,6 +107,12 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$fix_tau <- fix_tau
   dat$restrict_dag <- restrict_dag
+  dat$beta_prior_cov <- beta_prior_cov
+  if (!is.null(beta_prior_cov)) {
+    stopifnot(is_psd(beta_prior_cov))
+    dat$beta_prior_precision <- solve(dat$beta_prior_cov)
+  }
+
 
   # subset variants
   if(!is.null(variant_ix)){

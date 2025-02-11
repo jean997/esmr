@@ -1,9 +1,9 @@
 
 #'@export
-update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = FALSE){
-
+update_beta_joint <- function(dat, j=1, ix = NULL, return_W = FALSE){
   p <- dat$p
   n <- dat$n
+  prior_precision <- dat$beta_prior_precision[ix,ix]
   if(is.null(ix)){
     ix <- seq(p)[-j]
   }else{
@@ -12,11 +12,10 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     #ix <- sort(ix)
   }
   m <- length(ix)
-  if(is.null(prior_cov)){
+  if(is.null(prior_precision)){
     T0 <- matrix(0, nrow = m, ncol = m)
   }else{
-    T0 <- check_matrix(prior_cov, m, m)
-    T0 <- solve(prior_cov)
+    T0 <- check_matrix(prior_precision, m, m)
   }
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
@@ -66,7 +65,7 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     R <- Matrix::nearPD(R)$mat
   }
 
-  S <- solve(R)
+  S <- solve(R + T0)
 
   mu <- S %*% a
 

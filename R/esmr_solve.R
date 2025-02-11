@@ -38,7 +38,7 @@ esmr_solve <- function(dat, max_iter, tol){
         }
       }else{
         e_ix <- which(!dat$beta$fix_beta)
-        ub <- update_beta_full_joint(dat, prior_cov = NULL)
+        ub <- update_beta_full_joint(dat)
         dat$beta$beta_m[e_ix] <- ub$m
         dat$beta$V[e_ix,e_ix] <- ub$S
         dat$beta$beta_s[e_ix] <- sqrt(diag(ub$S))

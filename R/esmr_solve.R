@@ -13,8 +13,8 @@ esmr_solve <- function(dat, max_iter, tol){
     dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-    obj <- c(obj, ll + dat$l$kl)
+    #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+    #obj <- c(obj, ll + dat$l$kl)
 
     # beta update
     if(!dat$beta_joint){
@@ -22,6 +22,7 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$beta$V <- diag(dat$beta$beta_s^2)
     }else{
       dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
+      dat$beta$kl <- 0
       if(dat$R_is_id | length(unique(dat$beta$beta_j)) == 1){
         # if all omega are diagonal or only estimating one row, update F by rows
         jj <- unique(dat$beta$beta_j)
@@ -34,6 +35,7 @@ esmr_solve <- function(dat, max_iter, tol){
           dat$beta$beta_m[ii] <- beta_upd$m
           dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
           dat$beta$V[ii,ii] <- beta_upd$S
+          dat$beta$kl <- dat$beta$kl + beta_upd$kl
           dat$f <- make_f(dat)
         }
       }else{
@@ -42,6 +44,7 @@ esmr_solve <- function(dat, max_iter, tol){
         dat$beta$beta_m[e_ix] <- ub$m
         dat$beta$V[e_ix,e_ix] <- ub$S
         dat$beta$beta_s[e_ix] <- sqrt(diag(ub$S))
+        dat$beta$kl <- dat$beta$kl + beta_upd$kl
         dat$f <- make_f(dat)
       }
     }
@@ -65,10 +68,6 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$f <- make_f(dat)
     }
 
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-    obj <- c(obj, ll + dat$l$kl)
-
-
     ## tau update
     if(!is.null(dat$tau) & !dat$fix_tau){
       min_tau <- dat$tau/10
@@ -77,11 +76,14 @@ esmr_solve <- function(dat, max_iter, tol){
         max_tau <- 10*median(dat$S^2)
       }
       dat <- update_tau(dat,tau_min = min_tau, tau_max = max_tau)
-      ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-      obj <- c(obj, ll + dat$l$kl)
+      #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+      #obj <- c(obj, ll + dat$l$kl)
     }
 
     ###
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+    # cat("ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
+    obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     obj_new <- obj[length(obj)]
     check <- obj_new - obj_old

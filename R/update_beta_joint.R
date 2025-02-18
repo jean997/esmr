@@ -66,13 +66,17 @@ update_beta_joint <- function(dat, j=1, ix = NULL, return_W = FALSE){
   }
 
   S <- solve(R + T0)
-
   mu <- S %*% a
 
-  if(return_W){
-    return(list(m = mu, S = S, W = R, b = a))
+  kl <- 0
+  if (!is.null(dat$beta_prior_cov)) {
+    kl <- kl_mvn(mu, S, 0, dat$beta_prior_cov[ix,ix, drop = FALSE])
   }
-  return(list(m = mu, S = S))
+
+  if(return_W){
+    return(list(m = mu, S = S, W = R, b = a, kl = - kl))
+  }
+  return(list(m = mu, S = S, kl = - kl))
 }
 
 

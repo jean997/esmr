@@ -20,7 +20,7 @@ log_graph_prior <- function(k, n, pi_0 = 0.5, normalize = TRUE) {
     # norm_term <- log(pi_0^(M + 1) - (1 - pi_0)^(M + 1)) - log(2*pi - 1)
     # Slower version sums all other values
     all_k <- seq(0, M)
-    res <- res - log_sum_exp(.f(all_k))
+    res <- res - matrixStats::logSumExp(.f(all_k))
   }
   return(res)
 }

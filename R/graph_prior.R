@@ -9,16 +9,23 @@
 #' total_edges <- n*(n-1)/2
 #' k <- seq(0, total_edges)
 #' prior <- log_graph_prior(k, n, pi = 0.6)
-log_graph_prior <- function(k, n, pi_0 = 0.5, normalize = TRUE) {
+log_graph_prior <- function(k, n, pi_0 = 0.5, normalize = FALSE) {
   M <- n * (n - 1) / 2
+  stopifnot(all(k <= M))
   .f <- function(.k) {
     .k * (log(1 - pi_0) - log(pi_0)) + M * log(pi_0)
   }
   res <- .f(k)
   if (normalize) {
+    # NOTE: Will need to use bnlearn::count.graphs to get the number of graphs
     # TODO: Norm term is not correct but something like this
     # norm_term <- log(pi_0^(M + 1) - (1 - pi_0)^(M + 1)) - log(2*pi - 1)
     # Slower version sums all other values
+    # sum(sapply(1:3, function(k) as.numeric(bnlearn::count.graphs(nodes = 3, r = k, type = "dags-with-r-arcs"))))
+    #graph_count <- sapply(1:k, function(r) {
+    #  as.numeric(bnlearn::count.graphs(nodes = n, r = r, type = "dags-with-r-arcs"))
+    #})
+
     all_k <- seq(0, M)
     res <- res - matrixStats::logSumExp(.f(all_k))
   }

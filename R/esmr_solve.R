@@ -7,14 +7,13 @@ esmr_solve <- function(dat, max_iter, tol){
 
   dat$obj_dec_warn <- FALSE
   nb <- length(dat$beta$beta_j)
-
-  while(i < max_iter & check > tol){
+  while(i < max_iter && check > tol){
     # l update
     dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
-    #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-    #obj <- c(obj, ll + dat$l$kl)
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+    obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     # beta update
     if(!dat$beta_joint){
@@ -77,7 +76,7 @@ esmr_solve <- function(dat, max_iter, tol){
       }
       dat <- update_tau(dat,tau_min = min_tau, tau_max = max_tau)
       #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-      #obj <- c(obj, ll + dat$l$kl)
+      obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
     }
 
     ###
@@ -95,7 +94,6 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$obj_dec_warn <- TRUE
       warning("Objective decreased, something may be wrong.\n")
     }
-    check <- abs(check)
     cat(i, ": ", obj_new, " ", dat$beta$beta_m, " ", dat$tau, "\n")
     #cat(i, ": ", check, " ", dat$beta$beta_m, "\n")
 

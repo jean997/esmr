@@ -90,7 +90,7 @@ esmr <- function(beta_hat_X, se_X,
   dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
                          restrict_dag = restrict_dag)
 
-  dat <- init_beta(dat, restrict_dag = restrict_dag)
+  dat <- init_beta(dat, restrict_dag = restrict_dag, beta_prior_cov = beta_prior_cov)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
   dat$sigma_beta <- sigma_beta
@@ -107,12 +107,6 @@ esmr <- function(beta_hat_X, se_X,
 
   dat$fix_tau <- fix_tau
   dat$restrict_dag <- restrict_dag
-  dat$beta_prior_cov <- beta_prior_cov
-  if (!is.null(beta_prior_cov)) {
-    stopifnot(is_psd(beta_prior_cov))
-    dat$beta_prior_precision <- solve(dat$beta_prior_cov)
-  }
-
 
   # subset variants
   if(!is.null(variant_ix)){

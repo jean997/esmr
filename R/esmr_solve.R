@@ -34,7 +34,7 @@ esmr_solve <- function(dat, max_iter, tol){
           dat$beta$beta_m[ii] <- beta_upd$m
           dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
           dat$beta$V[ii,ii] <- beta_upd$S
-          dat$beta$kl <- dat$beta$kl + beta_upd$kl
+          #dat$beta$kl <- dat$beta$kl + beta_upd$kl
           dat$f <- make_f(dat)
         }
       }else{
@@ -43,9 +43,17 @@ esmr_solve <- function(dat, max_iter, tol){
         dat$beta$beta_m[e_ix] <- ub$m
         dat$beta$V[e_ix,e_ix] <- ub$S
         dat$beta$beta_s[e_ix] <- sqrt(diag(ub$S))
-        dat$beta$kl <- dat$beta$kl + beta_upd$kl
+        #at$beta$kl <- dat$beta$kl + beta_upd$kl
         dat$f <- make_f(dat)
       }
+    }
+
+    # Update KL divergence for beta if we have a prior
+    if(!is.null(dat$beta$prior_cov)){
+      kl_ix <- !dat$beta$fix_beta
+      prior_cov_mat <- dat$beta$prior_cov * diag(sum(kl_ix))
+      dat$beta$kl <- - kl_mvn(
+        dat$beta$beta_m[kl_ix], dat$beta$V[kl_ix, kl_ix,drop=F], 0, prior_cov_mat)
     }
 
     ## new step, update total effects based on constraints

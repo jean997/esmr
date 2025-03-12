@@ -3,7 +3,9 @@
 update_beta_joint <- function(dat, j=1, ix = NULL, return_W = FALSE){
   p <- dat$p
   n <- dat$n
-  prior_precision <- dat$beta_prior_precision[ix,ix]
+
+  # TODO: Need to convert this to a list of from, to
+  prior_precision <- dat$beta$prior_precision
   if(is.null(ix)){
     ix <- seq(p)[-j]
   }else{
@@ -15,7 +17,8 @@ update_beta_joint <- function(dat, j=1, ix = NULL, return_W = FALSE){
   if(is.null(prior_precision)){
     T0 <- matrix(0, nrow = m, ncol = m)
   }else{
-    T0 <- check_matrix(prior_precision, m, m)
+    # T0 <- check_matrix(prior_precision, m, m)
+    T0 <- prior_precision * diag(m)
   }
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
@@ -68,15 +71,10 @@ update_beta_joint <- function(dat, j=1, ix = NULL, return_W = FALSE){
   S <- solve(R + T0)
   mu <- S %*% a
 
-  kl <- 0
-  if (!is.null(dat$beta_prior_cov)) {
-    kl <- kl_mvn(mu, S, 0, dat$beta_prior_cov[ix,ix, drop = FALSE])
-  }
-
   if(return_W){
-    return(list(m = mu, S = S, W = R, b = a, kl = - kl))
+    return(list(m = mu, S = S, W = R, b = a))
   }
-  return(list(m = mu, S = S, kl = - kl))
+  return(list(m = mu, S = S))
 }
 
 

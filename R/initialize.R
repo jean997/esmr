@@ -13,7 +13,7 @@ init_l <- function(n, p, m){
 
 
 
-init_beta <- function(dat, restrict_dag = TRUE){
+init_beta <- function(dat, restrict_dag = TRUE, beta_prior_cov = NULL){
 
   dat$beta <- list()
 
@@ -29,6 +29,18 @@ init_beta <- function(dat, restrict_dag = TRUE){
   dat$beta$beta_m <- dat$B_init[which_beta]
   dat$beta$beta_s <- rep(0, nb)
   dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
+
+  if (!is.null(beta_prior_cov)) {
+    if (length(beta_prior_cov) != 1) {
+      stop("beta_prior_cov currently only implements same variance for all betas.")
+    }
+  #    stopifnot(ncol(beta_prior_cov) == nb)
+  #   stopifnot(is_psd(beta_prior_cov))
+
+    dat$beta$prior_cov <- beta_prior_cov
+    dat$beta$prior_precision <- 1/beta_prior_cov
+  }
+
   return(dat)
 }
 

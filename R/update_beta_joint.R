@@ -87,11 +87,11 @@ update_beta_full_joint <- function(dat, prior_cov = NULL){
   ix <- ix[!dat$beta$fix_beta]
   m <- length(ix)
 
-  if(is.null(prior_cov)){
+  prior_precision <- dat$beta$prior_precision
+  if(is.null(prior_precision)){
     T0 <- matrix(0, nrow = m, ncol = m)
   }else{
-    T0 <- check_matrix(prior_cov, m, m)
-    T0 <- solve(prior_cov)
+    T0 <- prior_precision
   }
 
   Va <- dat$l$a2bar - (dat$l$abar^2)

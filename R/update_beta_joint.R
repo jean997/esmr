@@ -1,10 +1,9 @@
 
 #'@export
-update_beta_joint <- function(dat, j=1, ix = NULL, return_W = FALSE){
+update_beta_joint <- function(dat, j=1, ix = NULL, ii = NULL, return_W = FALSE){
   p <- dat$p
   n <- dat$n
 
-  # TODO: Need to convert this to a list of from, to
   prior_precision <- dat$beta$prior_precision
   if(is.null(ix)){
     ix <- seq(p)[-j]
@@ -18,7 +17,7 @@ update_beta_joint <- function(dat, j=1, ix = NULL, return_W = FALSE){
     T0 <- matrix(0, nrow = m, ncol = m)
   }else{
     # T0 <- check_matrix(prior_precision, m, m)
-    T0 <- prior_precision * diag(m)
+    T0 <- prior_precision[ii,ii]
   }
   Va <- dat$l$a2bar - (dat$l$abar^2)
 

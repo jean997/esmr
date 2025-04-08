@@ -29,7 +29,7 @@ esmr_solve <- function(dat, max_iter, tol){
           ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)
           if(length(ii) == 0) next
           ix <- dat$beta$beta_k[ii]
-          beta_upd <- update_beta_joint(dat, j = j, ix = ix)
+          beta_upd <- update_beta_joint(dat, j = j, ix = ix, ii = ii)
 
           dat$beta$beta_m[ii] <- beta_upd$m
           dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))

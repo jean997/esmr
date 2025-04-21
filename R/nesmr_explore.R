@@ -1,6 +1,9 @@
 nesmr_explore <- function(
   beta_hat, se_beta_hat, pval_select = NULL,
-  zscore_filter = qnorm(0.975), chains = 5, elbo_threshold = 0.05) {
+  zscore_filter = qnorm(0.975), chains = 5, elbo_threshold = 0.05,
+  graph_prior_pi = 0.5) {
+    d <- ncol(beta_hat)
+    max_edges <- d * (d - 1) / 2
     if (is.null(pval_select)) {
       Z_cursed <- beta_hat/se_beta_hat
       pval_cursed <- 2 * pnorm(-abs(Z_cursed))
@@ -70,12 +73,12 @@ nesmr_explore <- function(
       mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
       # If we have more than one chain, then we add noise to each chain
       if (chain_i > 1) {
-        mat_init[non_diag_i] <- mat_init[non_diag_i] + rnorm(d * (d - 1) / 2)
+        mat_init[non_diag_i] <- mat_init[non_diag_i] + rnorm(max_edges)
       }
 
       init_filter_zscore <- mat_init * (abs(mat_init) > zscore_filter)
       # Note: Better to do L2 or L1 norm?
-      curr_adj_mat <- maximal_acyclic_subgraph((init_filter_zscore)^2) * sign(init_filter_zscore)
+      curr_adj_mat <- sqrt(maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
       # TODO: Should we fit this initial model ? Probably...
       curr_B <- (curr_adj_mat != 0) + 0
 
@@ -105,9 +108,10 @@ nesmr_explore <- function(
                 beta_prior_cov = 1 # TODO: Make these parameters?
                 )
           }, file = nullfile())
-
+            k <- sum(curr_B != 0)
+            new_elbo <- new_mod$elbo + log_graph_prior(k, d, pi_0 = graph_prior_pi)
             visited_graphs[[curr_B_str]] <- list(
-                elbo = new_mod$elbo,
+                elbo = new_elbo,
                 beta_hat = new_mod$beta_mat$beta_hat,
                 se_beta_hat = new_mod$beta_mat$beta_se,
                 visited_count = 1,
@@ -115,10 +119,10 @@ nesmr_explore <- function(
                 )
 
             old_elbo_denom <- elbo_denom
-            elbo_denom <- matrixStats::logSumExp(c(elbo_denom, new_mod$elbo), na.rm = TRUE)
+            elbo_denom <- matrixStats::logSumExp(c(elbo_denom, new_elbo), na.rm = TRUE)
 
-            new_elbo_prop <- exp(new_mod$elbo - elbo_denom)
-            print(sprintf("New graph elbo: %s old elbo denom: %s", round(new_mod$elbo, 4), round(old_elbo_denom, 4)))
+            new_elbo_prop <- exp(new_elbo - elbo_denom)
+            print(sprintf("New graph elbo: %s old elbo denom: %s", round(new_elbo, 4), round(old_elbo_denom, 4)))
             print(sprintf("New graph elbo is %s proportion of total", round(new_elbo_prop, 4)))
 
             if (new_elbo_prop > elbo_threshold) {

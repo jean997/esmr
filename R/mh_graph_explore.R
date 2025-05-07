@@ -1,3 +1,238 @@
+mh_graph_explore <- function(
+  dat, pval_select = NULL,
+  alpha = 5e-8,
+  max_Z = 5,
+  max_prob = 0.7,
+  init_prob_threshold = 0.1,
+  chains = 1,
+  max_iter = 1000
+  ) {
+
+  if (!is.null(pval_select)) {
+      dat_Z <- dat$beta_hat / dat$se_beta_hat
+      pval_select <- 2 * pnorm(-abs(Ztrue))
+  }
+
+  minp <- apply(pval_select, 1, min)
+  ix <- which(minp < alpha)
+
+    ## Start function here
+  res_nesmr_full <- esmr::nesmr_complete_mvmr(
+      beta_hat = dat$beta_hat,
+      se_beta_hat = dat$se_beta_hat,
+      pval_select = pval_true
+  )
+
+  # TODO: Replace this with a true hash
+  visited_graphs <- list()
+
+  ## For MH algorithm we need to compute g(M|M') and g(M'|M)
+
+  full_graph_zscores <- res_nesmr_full$beta_hat / res_nesmr_full$se_beta_hat
+  non_diag_i <- -seq(1, d^2, by = d + 1)
+  diag(full_graph_zscores) <- 0
+
+  # TODO: Move this into own function
+  # Compute the Z -> probability based on the MVMR full graph
+  z_max <- max(abs(full_graph_zscores[non_diag_i]), na.rm = TRUE)
+  #    q_min <- qlogis(min_prob)
+  #    q_max <- qlogis(max_prob)
+  #    beta_z <- (q_min - q_max) / (z_min - z_max)
+  #    beta_0 <- q_max - beta_z * z_max
+  z <- c(0, min(z_max, max_Z))
+  .y <- c(min_prob, max_prob)
+  # Note: this closure keeps mod_coefs in scope but does not same GLM object itself
+  Z_to_prob <- esmr:::get_Z_to_prob(z, .y)
+
+  # z_range <- seq(z_min, z_max, length.out = 1000)
+  # plot(z_range, Z_to_prob(z_range), type = "l")
+  # Z-score filter:
+
+  mh_chain <- list()
+  mh_accept <- list()
+  mh_elbo_chain <- list()
+  for (i in seq_len(chains)) {
+      # Note: This could be outside of the while or inside..
+      mat_init <- matrix(0, nrow = d, ncol = d)
+
+      mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
+      # If we have more than one chain, then we add noise to each chain
+      if (i > 1) {
+          mat_init[non_diag_i] <- mat_init[non_diag_i] + rnorm(max_edges)
+      }
+      # Instead: Use the Z_to_prob > 0.5 ??
+      # init_filter_zscore <- mat_init * (abs(mat_init) > zscore_filter)
+      edge_prob_matrix <- Z_to_prob(abs(mat_init))
+      init_filter_zscore <- mat_init * (edge_prob_matrix > init_prob_threshold)
+      curr_adj_mat <- sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
+      print(sprintf("Initial graph: correct = %s", B_correct_str == paste0((curr_adj_mat != 0) + 0, collapse = "")))
+      print(curr_adj_mat)
+      # Collect the graphs as flattened strings as we go
+      # TODO: Should we fit this initial model ? Probably...
+      curr_B <- (curr_adj_mat != 0) + 0
+      curr_B_str <- paste0(curr_B, collapse = "")
+
+      # Initial NESMR fit
+      capture.output({
+          init_mod <- esmr::esmr(
+              beta_hat_X = dat$beta_hat,
+              se_X = dat$s_estimate,
+              variant_ix = ix,
+              G = diag(d),
+              direct_effect_template = curr_B,
+              max_iter = 300,
+              restrict_dag = T,
+              beta_prior_cov = 1
+          )
+      }, file = nullfile())
+
+      visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo
+      visited_graphs[[curr_B_str]]$beta_hat <- init_mod$beta_mat$beta_hat
+      visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$beta_mat$beta_se
+
+      mh_chain[[i]] <- list(curr_B_str)
+      mh_accept[[i]] <- 1
+      mh_elbo_chain[[i]] <- init_mod$elbo
+      # Now we expore the graph starting from curr_adj_mat
+      # Note: Not sure if it really matter if we have weighted or not...
+      ig <- igraph::graph_from_adjacency_matrix(
+          curr_adj_mat != 0,
+          mode = "directed"
+      )
+      while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
+          print(curr_B)
+          if (curr_B_str %in% names(visited_graphs) && !is.null(visited_graphs[[curr_B_str]]$adj_graph_info)) {
+              adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
+          } else {
+              visited_graphs[[curr_B_str]]$adj_graph_info <- esmr:::get_adjacent_graphs(ig, edge_prob_matrix)
+              adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
+          }
+
+          print(adj_graph_info)
+          candidate_draw <- esmr:::draw_graph(ig, adj_graph_info)
+          tmp_ig <- candidate_draw$g
+          # Denominator: h(G'|G)
+          prop_denom <- candidate_draw$prob
+
+          # Same procedure for if we are removing or taking away:
+          prop_B <- as_adjacency_matrix(tmp_ig, sparse = FALSE)
+          prop_B_str <- paste0(prop_B, collapse = "")
+
+          proposal_graph_info <- visited_graphs[[prop_B_str]]
+          if (is.null(proposal_graph_info)) {
+              proposal_graph_info <- list()
+          }
+
+          # Check if we have neighboring graph information
+          if (is.null(proposal_graph_info$adj_graph_info)) {
+              proposal_graph_info$adj_graph_info <- esmr:::get_adjacent_graphs(tmp_ig, edge_prob_matrix)
+              # Get the remove_candidate probability that we are removing
+          }
+
+          # Get h(G|G') - Reverse direction
+          # If we added the edge: Check the prob for removing the edge
+          # If we removed the edge: Check the prob for adding the edge
+          if (candidate_draw$insert_edge) {
+              # We added the edge
+              remove_candidates <- proposal_graph_info$adj_graph_info$remove_candidates
+              remove_edge_prob <- proposal_graph_info$adj_graph_info$remove_edge_prob
+              remove_edge_ix <- which(apply(remove_candidates, 1, function(x) {
+                  paste0(x, collapse = "|")
+              }) == candidate_draw$mod_edge)
+              # Numerator: h(G|G')
+              prop_num <- remove_edge_prob[remove_edge_ix]
+          } else {
+              # We removed the edge
+              add_candidates <- proposal_graph_info$adj_graph_info$add_candidates
+              add_candidate_prob <- proposal_graph_info$adj_graph_info$add_candidate_prob
+              add_candidate_ix <- which(apply(add_candidates, 1, function(x) {
+                  paste0(x, collapse = "|")
+              }) == candidate_draw$mod_edge)
+              # Numerator: h(G|G')
+              prop_num <- add_candidate_prob[add_candidate_ix]
+          }
+
+          if (is.null(proposal_graph_info$elbo)) {
+              # If we have zero edges; continue
+              # Eventually esmr should support having zero edges
+              if (sum(prop_B) == 0) {
+                  print("Zero edges; continue")
+                  mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
+                  mh_accept[[i]] <- append(mh_accept[[i]], 0)
+                  mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
+                  iter <- iter + 1
+                  next
+              }
+
+              # TODO: Probably want to just re-fit from initial/previous chain
+              capture.output(
+                  {
+                      new_mod <- esmr::esmr(
+                          beta_hat_X = dat$beta_hat,
+                          se_X = dat$s_estimate,
+                          variant_ix = ix,
+                          G = diag(d),
+                          direct_effect_template = prop_B,
+                          max_iter = 300,
+                          restrict_dag = T,
+                          beta_prior_cov = 1
+                      )
+                  },
+                  file = nullfile()
+              )
+
+              visited_graphs[[prop_B_str]]$elbo <- new_mod$elbo
+              visited_graphs[[prop_B_str]]$beta_hat <- new_mod$beta_mat$beta_hat
+              visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$beta_mat$beta_se
+              proposal_graph_info <- visited_graphs[[prop_B_str]]
+          }
+
+          elbo_diff <- proposal_graph_info$elbo - visited_graphs[[curr_B_str]]$elbo
+          print(sprintf("ELBO diff: %s", round(elbo_diff, 4)))
+
+          # TODO: Switch to log scale for everything
+          prop_ratio <- prop_num / prop_denom
+          print(sprintf("Proposal ratio: %s", round(prop_ratio, 4)))
+
+          # Check accept/reject
+          # max(1, exp(elbo(tmp_ig) - elbo(ig)))
+          accept_prob <- min(
+              1, exp(elbo_diff) * prop_ratio
+          )
+          print(sprintf("Total proposal ratio: %s", round(exp(elbo_diff) * prop_ratio, 4)))
+
+          if (accept_prob == 1 || runif(1) < accept_prob) {
+              curr_B <- prop_B
+              curr_B_str <- prop_B_str
+              ig <- tmp_ig
+              visited_graphs[[prop_B_str]]$visited_count <- (visited_graphs[[prop_B_str]]$visited_count %||% 0) + 1
+
+              mh_accept[[i]] <- append(mh_accept[[i]], 1)
+              mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], proposal_graph_info$elbo)
+          } else {
+              mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
+              mh_accept[[i]] <- append(mh_accept[[i]], 0)
+              mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
+              visited_graphs[[curr_B_str]]$visited_count <- (visited_graphs[[curr_B_str]]$visited_count %||% 0 ) + 1
+          }
+          print(sprintf("Accept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
+          mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
+
+          print(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
+
+          iter <- iter + 1
+      }
+  }
+
+  return(list(
+      visited_graphs = visited_graphs,
+      mh_chain = mh_chain,
+      mh_accept = mh_accept,
+      mh_accept_ratio = mean(unlist(mh_accept[[i]])),
+      mh_elbo_chain = mh_elbo_chain
+  ))
+}
+
 draw_graph <- function(g, x) {
   add_candidates <- x$add_candidates
   add_candidate_prob <- x$add_candidate_prob

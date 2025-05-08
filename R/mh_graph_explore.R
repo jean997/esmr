@@ -3,14 +3,15 @@ mh_graph_explore <- function(
   alpha = 5e-8,
   max_Z = 5,
   max_prob = 0.7,
+  min_prob = 0.01,
   init_prob_threshold = 0.1,
   chains = 1,
   max_iter = 1000
   ) {
-
-  if (!is.null(pval_select)) {
+  d <- ncol(dat$beta_hat)
+  if (is.null(pval_select)) {
       dat_Z <- dat$beta_hat / dat$se_beta_hat
-      pval_select <- 2 * pnorm(-abs(Ztrue))
+      pval_select <- 2 * pnorm(-abs(dat_Z))
   }
 
   minp <- apply(pval_select, 1, min)
@@ -20,7 +21,7 @@ mh_graph_explore <- function(
   res_nesmr_full <- esmr::nesmr_complete_mvmr(
       beta_hat = dat$beta_hat,
       se_beta_hat = dat$se_beta_hat,
-      pval_select = pval_true
+      pval_select = pval_select
   )
 
   # TODO: Replace this with a true hash
@@ -65,7 +66,7 @@ mh_graph_explore <- function(
       edge_prob_matrix <- Z_to_prob(abs(mat_init))
       init_filter_zscore <- mat_init * (edge_prob_matrix > init_prob_threshold)
       curr_adj_mat <- sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
-      print(sprintf("Initial graph: correct = %s", B_correct_str == paste0((curr_adj_mat != 0) + 0, collapse = "")))
+#       print(sprintf("Initial graph: correct = %s", B_correct_str == paste0((curr_adj_mat != 0) + 0, collapse = "")))
       print(curr_adj_mat)
       # Collect the graphs as flattened strings as we go
       # TODO: Should we fit this initial model ? Probably...
@@ -99,7 +100,9 @@ mh_graph_explore <- function(
           curr_adj_mat != 0,
           mode = "directed"
       )
-      while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
+      iter <- 1
+      #while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
+      while(iter < max_iter) {
           print(curr_B)
           if (curr_B_str %in% names(visited_graphs) && !is.null(visited_graphs[[curr_B_str]]$adj_graph_info)) {
               adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
@@ -218,7 +221,7 @@ mh_graph_explore <- function(
           print(sprintf("Accept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
           mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
 
-          print(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
+          # print(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
 
           iter <- iter + 1
       }
@@ -264,15 +267,16 @@ draw_graph <- function(g, x) {
           g = new_graph, prob = prob, mod_edge = mod_edge, insert_edge = insert_edge))
 }
 
+# TODO: Import igraph
 get_adjacent_graphs <- function(g, weight_mat) {
-    g_comp <- complementer(g, loops = FALSE)
+    g_comp <- igraph::complementer(g, loops = FALSE)
 
-    add_candidates <- as_edgelist(g_comp, names = FALSE)
+    add_candidates <- igraph::as_edgelist(g_comp, names = FALSE)
     add_candidate_g <- apply(add_candidates, 1, function(x) {
         from <- x[1]
         to <- x[2]
         # Try adding the edge
-        g_test <- add_edges(g, c(from, to))
+        g_test <- igraph::add_edges(g, c(from, to))
         is_dag_test <- igraph::is_dag(g_test)
         if (is_dag_test) {
             return(g_test)

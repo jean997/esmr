@@ -1,7 +1,8 @@
 nesmr_explore <- function(
   beta_hat, se_beta_hat, pval_select = NULL,
   zscore_filter = qnorm(0.975), chains = 5, elbo_threshold = 0.05,
-  graph_prior_pi = 0.5) {
+  graph_prior_pi = 0.5,
+  alpha = 5e-8) {
     d <- ncol(beta_hat)
     max_edges <- d * (d - 1) / 2
     if (is.null(pval_select)) {
@@ -23,10 +24,10 @@ nesmr_explore <- function(
     elbo_denom <- NA
 
     .draw_new_edges <- function(g, weight_mat = NULL) {
-        g_comp <- complementer(g, loops = FALSE)
+        g_comp <- igraph::complementer(g, loops = FALSE)
 
         # Get all candidate edges as pairs (as a vector: from, to)
-        candidates <- as_edgelist(g_comp, names = FALSE)
+        candidates <- igraph::as_edgelist(g_comp, names = FALSE)
         if (!is.null(weight_mat)) {
             # Get the weights of the candidates
             candidate_weights <- weight_mat[candidates]
@@ -41,9 +42,9 @@ nesmr_explore <- function(
             to <- candidates[i, 2]
 
             # Try adding the edge
-            g_test <- add_edges(ig, c(from, to))
+            g_test <- igraph::add_edges(ig, c(from, to))
 
-            g_B <- as_adjacency_matrix(g_test, sparse = FALSE)
+            g_B <- igraph::as_adjacency_matrix(g_test, sparse = FALSE)
             g_B_str <- paste0(g_B, collapse = "")
             if (g_B_str %in% names(visited_graphs)) {
                 return(NULL)
@@ -77,6 +78,10 @@ nesmr_explore <- function(
       }
 
       init_filter_zscore <- mat_init * (abs(mat_init) > zscore_filter)
+      if (sum(init_filter_zscore != 0) == 0) {
+        warning("No edges found in initial graph. Skipping this chain.")
+        next
+      }
       # Note: Better to do L2 or L1 norm?
       curr_adj_mat <- sqrt(maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
       # TODO: Should we fit this initial model ? Probably...
@@ -91,7 +96,7 @@ nesmr_explore <- function(
 
       queue <- queue %>% rstackdeque::insert_back(ig)
       while(! is.null(ig)) {
-        curr_B <- as_adjacency_matrix(ig, sparse = FALSE)
+        curr_B <- igraph::as_adjacency_matrix(ig, sparse = FALSE)
         curr_B_str <- paste0(curr_B, collapse = "")
         if (curr_B_str %in% names(visited_graphs)) {
             visited_graphs[[curr_B_str]]$visited_count <- visited_graphs[[curr_B_str]]$visited_count + 1
@@ -126,9 +131,9 @@ nesmr_explore <- function(
             print(sprintf("New graph elbo is %s proportion of total", round(new_elbo_prop, 4)))
 
             if (new_elbo_prop > elbo_threshold) {
-              for (e in E(ig)) {
-                new_dg <- delete_edges(ig, e)
-                new_B <- as_adjacency_matrix(new_dg, sparse = FALSE)
+              for (e in igraph::E(ig)) {
+                new_dg <- igraph::delete_edges(ig, e)
+                new_B <- igraph::as_adjacency_matrix(new_dg, sparse = FALSE)
                 new_B_str <- paste0(new_B, collapse = "")
                 if (! new_B_str %in% names(visited_graphs) && sum(new_B) > 0) {
                     queue <- queue %>% rstackdeque::insert_back(new_dg)

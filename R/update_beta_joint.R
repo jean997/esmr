@@ -2,7 +2,7 @@
 #'@export
 update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = FALSE){
 
-  p <- dat$p
+  p <- dat$k
   n <- dat$n
   if(is.null(ix)){
     ix <- seq(p)[-j]

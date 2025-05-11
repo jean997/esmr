@@ -22,6 +22,23 @@ make_f <- function(dat){
               fbar = fbar))#,f2bar = f2bar))
 }
 
+make_f_factors <- function(dat){
+
+  fbar <- matrix(0, nrow = dat$p, ncol = dat$k )
+  fbar[1,1] <- fbar[2,2] <- 1
+  fbar[3:dat$p, 3:(dat$k )] <- dat$factors_matrix
+
+  nb <- length(dat$beta$beta_j)
+  ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+
+  fbar[ix] <- dat$beta$beta_m
+  fgbar <- fbar
+
+  return(list(fgbar = fgbar, #fg2bar = fg2bar,
+              fbar = fbar))#,f2bar = f2bar))
+}
+
+
 get_omega <- function(R, S, s_equal, any_missing){
 
   p <- ncol(S)
@@ -130,6 +147,67 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   dat$s_equal <- FALSE
   return(dat)
 }
+
+
+set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
+                             beta_hat_Z, se_Z, factors_matrix,
+                             R, ld_scores, RE, tau_init){
+
+  beta_hat_Z <- check_matrix(beta_hat_Z)
+  n <- nrow(beta_hat_Z)
+  beta_hat_X <- check_numeric(beta_hat_X, n)
+  p <- ncol(beta_hat_Z) + 1
+
+  se_Z <- check_matrix(se_Z, n, p-1)
+  se_X <- check_numeric(se_X, n)
+
+  beta_hat_X <- cbind(beta_hat_X, beta_hat_Z)
+  se_X <- cbind(se_X, se_Z)
+
+  if(!is.null(beta_hat_Y)){
+    beta_hat_Y <- check_numeric(beta_hat_Y, n)
+    se_Y <- check_numeric(se_Y, n)
+    p <- p + 1
+    beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)
+    se_X <- cbind(se_Y, se_X)
+  }else{
+    stop("Can't omit Y for esmr_factors\n")
+  }
+
+  R <- check_matrix(R, p, p)
+  R <- check_R(R)
+
+  dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
+  dat$traits <- 1:p
+
+  ## check factors
+  factors_matrix <- check_matrix(factors_matrix, p-2 ) # F should be
+  k <- ncol(factors_matrix)
+  dat$factors_matrix <- factors_matrix
+  dat$nfactors <- k
+  dat$k <- k + 2
+
+
+  if(is.null(RE)){
+    dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
+    return(dat)
+  }
+
+  RE <- check_matrix(RE, p, p)
+  dat$RE <- check_R(RE)
+  dat$ld_scores <- check_numeric(ld_scores, n)
+
+  dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
+  dat$tau <- tau_init
+  dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
+  dat$s_equal <- FALSE
+
+
+  return(dat)
+}
+
+
+
 
 order_upper_tri <- function(
     dat, direct_effect_template = NULL, direct_effect_init= NULL,

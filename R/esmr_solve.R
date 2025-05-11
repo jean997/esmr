@@ -10,7 +10,7 @@ esmr_solve <- function(dat, max_iter, tol){
 
   while(i < max_iter & check > tol){
     # l update
-    dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
+    dat <- update_l_sequential(dat, seq(dat$k), dat$g_init, dat$fix_g)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
     ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
@@ -34,7 +34,11 @@ esmr_solve <- function(dat, max_iter, tol){
           dat$beta$beta_m[ii] <- beta_upd$m
           dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
           dat$beta$V[ii,ii] <- beta_upd$S
-          dat$f <- make_f(dat)
+          if(dat$is_factors){
+            dat$f <- make_f_factors(dat)
+          }else{
+            dat$f <- make_f(dat)
+          }
         }
       }else{
         e_ix <- which(!dat$beta$fix_beta)
@@ -42,7 +46,11 @@ esmr_solve <- function(dat, max_iter, tol){
         dat$beta$beta_m[e_ix] <- ub$m
         dat$beta$V[e_ix,e_ix] <- ub$S
         dat$beta$beta_s[e_ix] <- sqrt(diag(ub$S))
-        dat$f <- make_f(dat)
+        if(dat$is_factors){
+          dat$f <- make_f_factors(dat)
+        }else{
+          dat$f <- make_f(dat)
+        }
       }
     }
 
@@ -62,7 +70,11 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$beta$beta_m <- f[ix]
       #dat$beta$beta_s <- sqrt((f2[ix]) - (f[ix])^2)
       # diag(dat$beta$V) <- dat$beta$beta_s^2
-      dat$f <- make_f(dat)
+      if(dat$is_factors){
+        dat$f <- make_f_factors(dat)
+      }else{
+        dat$f <- make_f(dat)
+      }
     }
 
     ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))

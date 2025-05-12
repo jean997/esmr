@@ -66,6 +66,7 @@ esmr <- function(beta_hat_X, se_X,
 
   class(dat) <- c(c("esmr"), class(dat))
   dat$is_nesmr <- ! is.null(direct_effect_template)
+  dat$is_factors <- FALSE
   if (dat$is_nesmr) {
     class(dat) <- c(c("nesmr"), class(dat))
   }

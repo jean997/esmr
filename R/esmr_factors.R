@@ -103,7 +103,7 @@ esmr_factors <- function(beta_hat_X, se_X,
   beta_hat <- beta_se <- matrix(0, nrow = dat$p, ncol = dat$k)
   fix_beta <- matrix(FALSE, nrow = dat$p, ncol = dat$k)
   # Lower triangular format
-  beta_ind <- cbind(dat$beta$beta_k, dat$beta$beta_j)
+  beta_ind <- cbind(dat$beta$beta_j, dat$beta$beta_k)
   beta_hat[beta_ind] <- dat$beta$beta_m
   beta_se[beta_ind] <- dat$beta$beta_s
   fix_beta[beta_ind] <- dat$beta$fix_beta

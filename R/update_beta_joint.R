@@ -2,12 +2,18 @@
 #'@export
 update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = FALSE){
 
-  p <- dat$k
+  # j is the row of F that we will update. F is p rows by k columns
+  # for factors version, abar and lbar are both n by k, lbar and abar are the same
+  
+  p <- dat$p
+  k <- dat$k
   n <- dat$n
+ 
+  
   if(is.null(ix)){
-    ix <- seq(p)[-j]
+    ix <- seq(k)[-j]
   }else{
-    stopifnot(all(ix %in% seq(p)))
+    stopifnot(all(ix %in% seq(k)))
     stopifnot(!any(duplicated(ix)))
     #ix <- sort(ix)
   }
@@ -24,9 +30,10 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
     Astar <- dat$G %*% A %*% t(dat$G)
 
-    Rfull <- dat$omega[j,j]*Astar  # W in the manuscript
-    a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j])))
+    Rfull <- dat$omega[j,j]*Astar  # W in the manuscript k by k
+    a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j]))) # length k
     a20 <- lapply(seq(p)[-j], function(jj){
+      # (k by k ) %*% (k by 1)*(p by 1)
       Astar%*% t(dat$f$fbar[jj,,drop = FALSE])*dat$omega[j,jj]
     }) %>% Reduce(`+`, .)
     afull <- matrix(a10 - a20, nrow = p)

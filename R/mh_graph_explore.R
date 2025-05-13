@@ -5,10 +5,12 @@ mh_graph_explore <- function(
   max_prob = 0.7,
   min_prob = 0.01,
   init_prob_threshold = 0.1,
-  chains = 1,
-  max_iter = 1000
+  #chains = 1,
+  max_iter = 1000,
+  visited_graphs = list()
   ) {
   d <- ncol(dat$beta_hat)
+  max_edges <- d * (d - 1)
   if (is.null(pval_select)) {
       dat_Z <- dat$beta_hat / dat$se_beta_hat
       pval_select <- 2 * pnorm(-abs(dat_Z))
@@ -25,7 +27,7 @@ mh_graph_explore <- function(
   )
 
   # TODO: Replace this with a true hash
-  visited_graphs <- list()
+  #visited_graphs <- list()
 
   ## For MH algorithm we need to compute g(M|M') and g(M'|M)
 
@@ -49,23 +51,40 @@ mh_graph_explore <- function(
   # plot(z_range, Z_to_prob(z_range), type = "l")
   # Z-score filter:
 
-  mh_chain <- list()
-  mh_accept <- list()
-  mh_elbo_chain <- list()
-  for (i in seq_len(chains)) {
-      # Note: This could be outside of the while or inside..
+  ## Rather than randomly sampling from Z-scores, instead start from:
+  # Maximal acyclic subgraph (without filtering); Should have as many edges as possible
+  # Maximal acyclic subgraph (with filtering); Should be close to the true graph
+  # A graph with single best Z-score
+
+  mh_chain_init <- list(
+    best_approx = {
       mat_init <- matrix(0, nrow = d, ncol = d)
 
       mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
-      # If we have more than one chain, then we add noise to each chain
-      if (i > 1) {
-          mat_init[non_diag_i] <- mat_init[non_diag_i] + rnorm(max_edges)
-      }
-      # Instead: Use the Z_to_prob > 0.5 ??
-      # init_filter_zscore <- mat_init * (abs(mat_init) > zscore_filter)
       edge_prob_matrix <- Z_to_prob(abs(mat_init))
       init_filter_zscore <- mat_init * (edge_prob_matrix > init_prob_threshold)
-      curr_adj_mat <- sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
+      sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
+    },
+    max_graph = {
+        mat_init <- matrix(0, nrow = d, ncol = d)
+        mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
+        sqrt(esmr:::maximal_acyclic_subgraph((mat_init)^2)) * sign(mat_init)
+    },
+    min_graph = {
+        mat_init <- matrix(0, nrow = d, ncol = d)
+        mat_init[non_diag_i] <- 0
+        max_index <- which(abs(full_graph_zscores[non_diag_i]) == max(abs(full_graph_zscores[non_diag_i]), na.rm = TRUE))
+        mat_init[non_diag_i][max_index] <- full_graph_zscores[non_diag_i][max_index]
+        mat_init
+    }
+  )
+
+  mh_chain <- list()
+  mh_accept <- list()
+  mh_elbo_chain <- list()
+  for (i in seq_along(mh_chain_init)) {
+      # Note: This could be outside of the while or inside..
+    curr_adj_mat <- mh_chain_init[[i]]
 #       print(sprintf("Initial graph: correct = %s", B_correct_str == paste0((curr_adj_mat != 0) + 0, collapse = "")))
       print(curr_adj_mat)
       # Collect the graphs as flattened strings as we go
@@ -73,27 +92,30 @@ mh_graph_explore <- function(
       curr_B <- (curr_adj_mat != 0) + 0
       curr_B_str <- paste0(curr_B, collapse = "")
 
-      # Initial NESMR fit
-      capture.output({
-          init_mod <- esmr::esmr(
-              beta_hat_X = dat$beta_hat,
-              se_X = dat$s_estimate,
-              variant_ix = ix,
-              G = diag(d),
-              direct_effect_template = curr_B,
-              max_iter = 300,
-              restrict_dag = T,
-              beta_prior_cov = 1
-          )
-      }, file = nullfile())
+      if (is.null(visited_graphs[[curr_B_str]])) {
 
-      visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo
-      visited_graphs[[curr_B_str]]$beta_hat <- init_mod$beta_mat$beta_hat
-      visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$beta_mat$beta_se
+        # Initial NESMR fit
+#        capture.output({
+            init_mod <- esmr::esmr(
+                beta_hat_X = dat$beta_hat,
+                se_X = dat$s_estimate,
+                variant_ix = ix,
+                G = diag(d),
+                direct_effect_template = curr_B,
+                max_iter = 300,
+                restrict_dag = T,
+                beta_prior_cov = 1
+            )
+#        }, file = nullfile())
+
+        visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo
+        visited_graphs[[curr_B_str]]$beta_hat <- init_mod$beta_mat$beta_hat
+        visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$beta_mat$beta_se
+      }
 
       mh_chain[[i]] <- list(curr_B_str)
       mh_accept[[i]] <- 1
-      mh_elbo_chain[[i]] <- init_mod$elbo
+      mh_elbo_chain[[i]] <- visited_graphs[[curr_B_str]]$elbo
       # Now we expore the graph starting from curr_adj_mat
       # Note: Not sure if it really matter if we have weighted or not...
       ig <- igraph::graph_from_adjacency_matrix(
@@ -168,8 +190,8 @@ mh_graph_explore <- function(
               }
 
               # TODO: Probably want to just re-fit from initial/previous chain
-              capture.output(
-                  {
+#              capture.output(
+#                  {
                       new_mod <- esmr::esmr(
                           beta_hat_X = dat$beta_hat,
                           se_X = dat$s_estimate,
@@ -180,9 +202,9 @@ mh_graph_explore <- function(
                           restrict_dag = T,
                           beta_prior_cov = 1
                       )
-                  },
-                  file = nullfile()
-              )
+#                  },
+#                  file = nullfile()
+#              )
 
               visited_graphs[[prop_B_str]]$elbo <- new_mod$elbo
               visited_graphs[[prop_B_str]]$beta_hat <- new_mod$beta_mat$beta_hat
@@ -271,6 +293,7 @@ draw_graph <- function(g, x) {
 get_adjacent_graphs <- function(g, weight_mat) {
     g_comp <- igraph::complementer(g, loops = FALSE)
 
+#    # TODO: Is it from here that we ned
     add_candidates <- igraph::as_edgelist(g_comp, names = FALSE)
     add_candidate_g <- apply(add_candidates, 1, function(x) {
         from <- x[1]
@@ -285,10 +308,15 @@ get_adjacent_graphs <- function(g, weight_mat) {
         }
     })
     keep_graphs <- sapply(add_candidate_g, Negate(is.null))
-    add_candidate_g <- add_candidate_g[keep_graphs]
-    add_candidates <- add_candidates[keep_graphs, ]
 
-    add_candidate_prob <- weight_mat[add_candidates]
+    if (length(keep_graphs) == 0) {
+        add_candidate_prob <- 0
+        add_candidates <- 0
+    } else {
+        add_candidate_g <- add_candidate_g[keep_graphs]
+        add_candidates <- add_candidates[keep_graphs,, drop = FALSE]
+        add_candidate_prob <- weight_mat[add_candidates]
+    }
 
     total_add_prob <- sum(add_candidate_prob)
 

@@ -23,6 +23,7 @@ Imports:
     GFA,
     igraph,
     gtools,
-    rstackdeque
+    rstackdeque,
+    combinat
 Remotes:
     jean997/GFA

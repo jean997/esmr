@@ -187,8 +187,11 @@ nesmr_all_permn <- function(
   rtn$pvals_dm <- lapply(nesmr_models, function(x) x$pvals_dm)
   rtn$log_lik <- sapply(nesmr_models, function(x) x$log_lik)
   rtn$elbo <- sapply(nesmr_models, function(x) x$elbo)
-  rtn$log_lik_one_step <- sapply(one_step_models, function(x) x$log_lik)
-  rtn$elbo_one_step <- sapply(one_step_models, function(x) x$elbo)
+  if (one_step_correction) {
+    rtn$log_lik_one_step <- sapply(one_step_models, function(x) x$log_lik)
+    rtn$elbo_one_step <- sapply(one_step_models, function(x) x$elbo)
+  }
+
 
   if (posterior_probs) {
     ll_post_probs <- sapply(nesmr_models, function(x) x$ll_post_prob_raw)

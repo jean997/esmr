@@ -592,7 +592,8 @@ optimize_lpy2 <- function(fit,
   fit$beta$beta_m <- fbar[myix]
 
   fit$f$fbar <- fbar
-  fit$f$fgbar <- fit$G %*% fbar
+  #fit$f$fgbar <- fit$G %*% fbar
+  fit$f$fgbar <-  fbar %*% fit$G
   if(calc_hess){
     h <- hess_log_py(fit, fbar, ix = ix,
                      max_prob = max_prob,

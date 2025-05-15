@@ -99,19 +99,8 @@ esmr_factors <- function(beta_hat_X, se_X,
   ## solve esmr problem
   dat <- esmr_solve(dat, max_iter, tol)
 
-  # Reformat beta_hat and beta_se to matrix format
-  beta_hat <- beta_se <- matrix(0, nrow = dat$p, ncol = dat$k)
-  fix_beta <- matrix(FALSE, nrow = dat$p, ncol = dat$k)
-  # Lower triangular format
-  beta_ind <- cbind(dat$beta$beta_j, dat$beta$beta_k)
-  beta_hat[beta_ind] <- dat$beta$beta_m
-  beta_se[beta_ind] <- dat$beta$beta_s
-  fix_beta[beta_ind] <- dat$beta$fix_beta
+  dat <- format_betas(dat)
 
-  dat$beta_mat <- list(
-    beta_hat = beta_hat,
-    beta_se = beta_se
-  )
 
   dat$elbo <- tail(dat$obj, n = 1)
 

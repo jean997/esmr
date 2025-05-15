@@ -74,6 +74,8 @@ nesmr_all_permn <- function(
     log_graph_prior_pi = 0.5,
     beta_prior_cov = NULL,
     one_step_correction = FALSE,
+    log_lik = FALSE,
+    mc_cores = 1,
     ...
   ) {
   d <- ncol(beta_hat)
@@ -108,7 +110,7 @@ nesmr_all_permn <- function(
     B_templates
   }
 
-  nesmr_models <- lapply(B_templates, function(B) {
+  nesmr_models <- parallel::mclapply(B_templates, function(B) {
     if (sum(B) == 0) {
       return(NULL)
     }
@@ -126,10 +128,13 @@ nesmr_all_permn <- function(
         ...
       )
       z$num_params <- sum(B)
-      z$log_lik <- log_py(z)
-      z$aic <- -2 * z$log_lik + 2 * z$num_params
+      if (log_lik) {
+        z$log_lik <- log_py(z)
+        z$aic <- -2 * z$log_lik + 2 * z$num_params
+        z$ll_post_prob_raw <- z$log_lik + log_graph_prior(k = z$num_params, n = d, pi = log_graph_prior_pi)
+      }
       z$elbo_post_prob_raw <- z$elbo + log_graph_prior(k = z$num_params, n = d, pi = log_graph_prior_pi)
-      z$ll_post_prob_raw <- z$log_lik + log_graph_prior(k = z$num_params, n = d, pi = log_graph_prior_pi)
+
       z
     }, error = function(e) {
       warning(e)
@@ -139,7 +144,7 @@ nesmr_all_permn <- function(
       )
     })
     res
-  })
+  }, mc.cores = mc_cores)
 
   nesmr_models <- nesmr_models[sapply(nesmr_models, Negate(is.null))]
 
@@ -151,8 +156,11 @@ nesmr_all_permn <- function(
 
       z <- optimize_lpy2(x, max_steps = 1)
       z$num_params <- sum(z$B_template)
-      z$log_lik <- log_py(z)
-      z$aic <- -2 * z$log_lik + 2 * z$num_params
+      if (log_lik) {
+        z$log_lik <- log_py(z)
+        z$aic <- -2 * z$log_lik + 2 * z$num_params
+        z$ll_post_prob_raw <- z$log_lik + log_graph_prior(k = z$num_params, n = d, pi = log_graph_prior_pi)
+      }
 
       ll <- with(z, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
       kl_ix <- !z$beta$fix_beta
@@ -167,7 +175,6 @@ nesmr_all_permn <- function(
       z$elbo <- ll + z$l$kl + z$beta$kl
 
       z$elbo_post_prob_raw <- z$elbo + log_graph_prior(k = z$num_params, n = d, pi = log_graph_prior_pi)
-      z$ll_post_prob_raw <- z$log_lik + log_graph_prior(k = z$num_params, n = d, pi = log_graph_prior_pi)
       z
     })
   }
@@ -185,7 +192,7 @@ nesmr_all_permn <- function(
   rtn$B_template <- B_templates
   rtn$beta_hat <- lapply(nesmr_models, function(x) x$direct_effects)
   rtn$pvals_dm <- lapply(nesmr_models, function(x) x$pvals_dm)
-  rtn$log_lik <- sapply(nesmr_models, function(x) x$log_lik)
+  if (log_lik) rtn$log_lik <- sapply(nesmr_models, function(x) x$log_lik)
   rtn$elbo <- sapply(nesmr_models, function(x) x$elbo)
   if (one_step_correction) {
     rtn$log_lik_one_step <- sapply(one_step_models, function(x) x$log_lik)
@@ -194,29 +201,29 @@ nesmr_all_permn <- function(
 
 
   if (posterior_probs) {
-    ll_post_probs <- sapply(nesmr_models, function(x) x$ll_post_prob_raw)
+    if (log_lik) ll_post_probs <- sapply(nesmr_models, function(x) x$ll_post_prob_raw)
     elbo_post_probs <- sapply(nesmr_models, function(x) x$elbo_post_prob_raw)
 
-    ll_log_denom <- matrixStats::logSumExp(ll_post_probs)
+    if (log_lik) ll_log_denom <- matrixStats::logSumExp(ll_post_probs)
     elbo_log_denom <- matrixStats::logSumExp(elbo_post_probs)
-    ll_posterior_probs <- exp(ll_post_probs - ll_log_denom)
+    if (log_lik) ll_posterior_probs <- exp(ll_post_probs - ll_log_denom)
     elbo_posterior_probs <- exp(elbo_post_probs - elbo_log_denom)
 
     # TODO: Add one step correction models here
 
-    rtn$ll_posterior_probs <- ll_posterior_probs
+    if (log_lik) rtn$ll_posterior_probs <- ll_posterior_probs
     rtn$elbo_posterior_probs <- elbo_posterior_probs
 
     if (one_step_correction) {
-      ll_post_probs <- sapply(one_step_models, function(x) x$ll_post_prob_raw)
+      if (log_lik) ll_post_probs <- sapply(one_step_models, function(x) x$ll_post_prob_raw)
       elbo_post_probs <- sapply(one_step_models, function(x) x$elbo_post_prob_raw)
 
-      ll_log_denom <- matrixStats::logSumExp(ll_post_probs)
+      if (log_lik) ll_log_denom <- matrixStats::logSumExp(ll_post_probs)
       elbo_log_denom <- matrixStats::logSumExp(elbo_post_probs)
-      ll_posterior_probs <- exp(ll_post_probs - ll_log_denom)
+      if (log_lik) ll_posterior_probs <- exp(ll_post_probs - ll_log_denom)
       elbo_posterior_probs <- exp(elbo_post_probs - elbo_log_denom)
 
-      rtn$ll_posterior_probs_one_step <- ll_posterior_probs
+      if (log_lik) rtn$ll_posterior_probs_one_step <- ll_posterior_probs
       rtn$elbo_posterior_probs_one_step <- elbo_posterior_probs
     }
   }

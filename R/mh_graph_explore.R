@@ -1,18 +1,20 @@
 mh_graph_explore <- function(
   dat, pval_select = NULL,
+  R = NULL,
   alpha = 5e-8,
   max_Z = 5,
   max_prob = 0.7,
   min_prob = 0.01,
   init_prob_threshold = 0.1,
-  #chains = 1,
+  sparse_chain = FALSE,
+  dense_chain = FALSE,
   max_iter = 1000,
   visited_graphs = list()
   ) {
   d <- ncol(dat$beta_hat)
   max_edges <- d * (d - 1)
   if (is.null(pval_select)) {
-      dat_Z <- dat$beta_hat / dat$se_beta_hat
+      dat_Z <- dat$beta_hat / dat$s_estimate
       pval_select <- 2 * pnorm(-abs(dat_Z))
   }
 
@@ -22,7 +24,7 @@ mh_graph_explore <- function(
     ## Start function here
   res_nesmr_full <- esmr::nesmr_complete_mvmr(
       beta_hat = dat$beta_hat,
-      se_beta_hat = dat$se_beta_hat,
+      se_beta_hat = dat$s_estimate,
       pval_select = pval_select
   )
 
@@ -64,20 +66,26 @@ mh_graph_explore <- function(
       edge_prob_matrix <- Z_to_prob(abs(mat_init))
       init_filter_zscore <- mat_init * (edge_prob_matrix > init_prob_threshold)
       sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
-    },
-    max_graph = {
-        mat_init <- matrix(0, nrow = d, ncol = d)
-        mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
-        sqrt(esmr:::maximal_acyclic_subgraph((mat_init)^2)) * sign(mat_init)
-    },
-    min_graph = {
+    }
+  )
+
+  if (sparse_chain) {
+    mh_chain_init$min_graph <- {
         mat_init <- matrix(0, nrow = d, ncol = d)
         mat_init[non_diag_i] <- 0
         max_index <- which(abs(full_graph_zscores[non_diag_i]) == max(abs(full_graph_zscores[non_diag_i]), na.rm = TRUE))
         mat_init[non_diag_i][max_index] <- full_graph_zscores[non_diag_i][max_index]
         mat_init
     }
-  )
+  }
+
+  if (dense_chain) {
+    mh_chain_init$max_graph <- {
+        mat_init <- matrix(0, nrow = d, ncol = d)
+        mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
+        sqrt(esmr:::maximal_acyclic_subgraph((mat_init)^2)) * sign(mat_init)
+    }
+  }
 
   mh_chain <- list()
   mh_accept <- list()
@@ -104,13 +112,15 @@ mh_graph_explore <- function(
                 direct_effect_template = curr_B,
                 max_iter = 300,
                 restrict_dag = T,
-                beta_prior_cov = 1
+                beta_prior_cov = 1,
+                R = R
             )
 #        }, file = nullfile())
 
         visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo
         visited_graphs[[curr_B_str]]$beta_hat <- init_mod$beta_mat$beta_hat
         visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$beta_mat$beta_se
+        visited_graphs[[curr_B_str]]$proposed <- (visited_graphs[[curr_B_str]]$proposed %||% 0) + 1
       }
 
       mh_chain[[i]] <- list(curr_B_str)
@@ -142,8 +152,8 @@ mh_graph_explore <- function(
           # Same procedure for if we are removing or taking away:
           prop_B <- as_adjacency_matrix(tmp_ig, sparse = FALSE)
           prop_B_str <- paste0(prop_B, collapse = "")
-
           proposal_graph_info <- visited_graphs[[prop_B_str]]
+
           if (is.null(proposal_graph_info)) {
               proposal_graph_info <- list()
           }
@@ -200,7 +210,8 @@ mh_graph_explore <- function(
                           direct_effect_template = prop_B,
                           max_iter = 300,
                           restrict_dag = T,
-                          beta_prior_cov = 1
+                          beta_prior_cov = 1,
+                          R = R
                       )
 #                  },
 #                  file = nullfile()
@@ -211,6 +222,9 @@ mh_graph_explore <- function(
               visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$beta_mat$beta_se
               proposal_graph_info <- visited_graphs[[prop_B_str]]
           }
+
+          visited_graphs[[prop_B_str]] <- proposal_graph_info
+          visited_graphs[[prop_B_str]]$proposed <- (visited_graphs[[prop_B_str]]$proposed %||% 0) + 1
 
           elbo_diff <- proposal_graph_info$elbo - visited_graphs[[curr_B_str]]$elbo
           print(sprintf("ELBO diff: %s", round(elbo_diff, 4)))

@@ -2,7 +2,8 @@ nesmr_explore <- function(
   beta_hat, se_beta_hat, pval_select = NULL,
   zscore_filter = qnorm(0.975), chains = 5, elbo_threshold = 0.05,
   graph_prior_pi = 0.5,
-  alpha = 5e-8) {
+  alpha = 5e-8,
+  R = NULL) {
     d <- ncol(beta_hat)
     max_edges <- d * (d - 1) / 2
     if (is.null(pval_select)) {
@@ -16,7 +17,8 @@ nesmr_explore <- function(
     all_mvmr_mod <- esmr::nesmr_complete_mvmr(
         beta_hat = beta_hat,
         se_beta_hat = se_beta_hat,
-        pval_select = pval_select
+        pval_select = pval_select,
+        R = R
     )
 
     # TODO: Replace this with a true hash
@@ -110,6 +112,7 @@ nesmr_explore <- function(
                 direct_effect_template = curr_B,
                 max_iter = 300,
                 restrict_dag = T,
+                R = R,
                 beta_prior_cov = 1 # TODO: Make these parameters?
                 )
           }, file = nullfile())

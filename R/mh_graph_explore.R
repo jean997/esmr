@@ -25,7 +25,8 @@ mh_graph_explore <- function(
   res_nesmr_full <- esmr::nesmr_complete_mvmr(
       beta_hat = dat$beta_hat,
       se_beta_hat = dat$s_estimate,
-      pval_select = pval_select
+      pval_select = pval_select,
+      R = R
   )
 
   # TODO: Replace this with a true hash

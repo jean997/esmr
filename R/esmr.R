@@ -145,6 +145,7 @@ esmr <- function(beta_hat_X, se_X,
   fix_beta <- matrix(FALSE, nrow = dat$p, ncol = dat$p)
   # Lower triangular format
   beta_ind <- cbind(dat$beta$beta_k, dat$beta$beta_j)
+  # TODO: Fix this!! this is getting the total effects not the direct effects
   beta_hat[beta_ind] <- dat$beta$beta_m
   beta_se[beta_ind] <- dat$beta$beta_s
   fix_beta[beta_ind] <- dat$beta$fix_beta

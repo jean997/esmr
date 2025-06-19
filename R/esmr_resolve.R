@@ -45,6 +45,7 @@ esmr_resolve <- function(
   # Lower triangular format
   beta_ind <- cbind(mod$beta$beta_k, mod$beta$beta_j)
   beta_hat[beta_ind] <- mod$beta$beta_m
+  # TODO: Need to fix this since beta_se is not the same as beta_m
   beta_se[beta_ind] <- mod$beta$beta_s
   fix_beta[beta_ind] <- mod$beta$fix_beta
 

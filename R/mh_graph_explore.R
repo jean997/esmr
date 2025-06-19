@@ -9,6 +9,7 @@ mh_graph_explore <- function(
   sparse_chain = FALSE,
   dense_chain = FALSE,
   max_iter = 1000,
+  max_nesmr_fits = 100,
   visited_graphs = list()
   ) {
   d <- ncol(dat$beta_hat)
@@ -105,24 +106,32 @@ mh_graph_explore <- function(
 
         # Initial NESMR fit
 #        capture.output({
-            init_mod <- esmr::esmr(
-                beta_hat_X = dat$beta_hat,
-                se_X = dat$s_estimate,
-                variant_ix = ix,
-                G = diag(d),
-                direct_effect_template = curr_B,
-                max_iter = 300,
-                restrict_dag = T,
-                beta_prior_cov = 1,
-                R = R
-            )
+        start_time <- Sys.time()
+        init_mod <- esmr::esmr(
+            beta_hat_X = dat$beta_hat,
+            se_X = dat$s_estimate,
+            variant_ix = ix,
+            G = diag(d),
+            direct_effect_template = curr_B,
+            max_iter = 300,
+            restrict_dag = T,
+            beta_prior_cov = 1,
+            R = R
+        )
+        end_time <- Sys.time()
+        init_fit_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
+        print(sprintf("Initial fit time: %.2f seconds", init_fit_time))
+        print(sprintf("Expect the total time to be around %.2f minutes", init_fit_time * max_nesmr_fits / 60))
+
 #        }, file = nullfile())
 
         visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo
-        visited_graphs[[curr_B_str]]$beta_hat <- init_mod$beta_mat$beta_hat
-        visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$beta_mat$beta_se
+        visited_graphs[[curr_B_str]]$beta_hat <- init_mod$direct_effects
+        visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$se_dm
         visited_graphs[[curr_B_str]]$proposed <- (visited_graphs[[curr_B_str]]$proposed %||% 0) + 1
       }
+
+      elbo_denom <- visited_graphs[[curr_B_str]]$elbo
 
       mh_chain[[i]] <- list(curr_B_str)
       mh_accept[[i]] <- 1
@@ -134,8 +143,9 @@ mh_graph_explore <- function(
           mode = "directed"
       )
       iter <- 1
+      nesmr_fits <- 1
       #while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
-      while(iter < max_iter) {
+      while(iter < max_iter && nesmr_fits < max_nesmr_fits) {
           print(curr_B)
           if (curr_B_str %in% names(visited_graphs) && !is.null(visited_graphs[[curr_B_str]]$adj_graph_info)) {
               adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
@@ -151,7 +161,7 @@ mh_graph_explore <- function(
           prop_denom <- candidate_draw$prob
 
           # Same procedure for if we are removing or taking away:
-          prop_B <- as_adjacency_matrix(tmp_ig, sparse = FALSE)
+          prop_B <- igraph::as_adjacency_matrix(tmp_ig, sparse = FALSE)
           prop_B_str <- paste0(prop_B, collapse = "")
           proposal_graph_info <- visited_graphs[[prop_B_str]]
 
@@ -214,13 +224,15 @@ mh_graph_explore <- function(
                           beta_prior_cov = 1,
                           R = R
                       )
+                      nesmr_fits <- nesmr_fits + 1
+                      elbo_denom <- matrixStats::logSumExp(c(elbo_denom, new_mod$elbo), na.rm = TRUE)
 #                  },
 #                  file = nullfile()
 #              )
 
               visited_graphs[[prop_B_str]]$elbo <- new_mod$elbo
-              visited_graphs[[prop_B_str]]$beta_hat <- new_mod$beta_mat$beta_hat
-              visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$beta_mat$beta_se
+              visited_graphs[[prop_B_str]]$beta_hat <- new_mod$direct_effects
+              visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$se_dm
               proposal_graph_info <- visited_graphs[[prop_B_str]]
           }
 
@@ -229,6 +241,10 @@ mh_graph_explore <- function(
 
           elbo_diff <- proposal_graph_info$elbo - visited_graphs[[curr_B_str]]$elbo
           print(sprintf("ELBO diff: %s", round(elbo_diff, 4)))
+          print(sprintf("ELBO curr: %s", round(visited_graphs[[curr_B_str]]$elbo, 4)))
+          print(sprintf("ELBO denom: %s", round(elbo_denom, 4)))
+          print(sprintf("exp(ELBO curr - ELBO denom): %s", round(exp(visited_graphs[[curr_B_str]]$elbo - elbo_denom), 4)))
+
 
           # TODO: Switch to log scale for everything
           prop_ratio <- prop_num / prop_denom
@@ -241,6 +257,12 @@ mh_graph_explore <- function(
           )
           print(sprintf("Total proposal ratio: %s", round(exp(elbo_diff) * prop_ratio, 4)))
 
+
+        # Note: This is not really the "chain elbo" but rather the elbo of the proposal at each step
+          mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], proposal_graph_info$elbo)
+
+          mh_chain[[i]] <- append(mh_chain[[i]], prop_B_str)
+
           if (accept_prob == 1 || runif(1) < accept_prob) {
               curr_B <- prop_B
               curr_B_str <- prop_B_str
@@ -248,15 +270,14 @@ mh_graph_explore <- function(
               visited_graphs[[prop_B_str]]$visited_count <- (visited_graphs[[prop_B_str]]$visited_count %||% 0) + 1
 
               mh_accept[[i]] <- append(mh_accept[[i]], 1)
-              mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], proposal_graph_info$elbo)
+              #mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], proposal_graph_info$elbo)
           } else {
-              mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
+              #mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
               mh_accept[[i]] <- append(mh_accept[[i]], 0)
-              mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
+              #mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
               visited_graphs[[curr_B_str]]$visited_count <- (visited_graphs[[curr_B_str]]$visited_count %||% 0 ) + 1
           }
           print(sprintf("Accept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
-          mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
 
           # print(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
 
@@ -269,7 +290,10 @@ mh_graph_explore <- function(
       mh_chain = mh_chain,
       mh_accept = mh_accept,
       mh_accept_ratio = mean(unlist(mh_accept[[i]])),
-      mh_elbo_chain = mh_elbo_chain
+      elbo_chain = mh_elbo_chain,
+      iter = iter,
+      nesmr_fits = nesmr_fits,
+      elbo_denom = elbo_denom
   ))
 }
 

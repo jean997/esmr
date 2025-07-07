@@ -145,6 +145,11 @@ nesmr_explore <- function(
             }
 
             canidate_add_edges <- .draw_new_edges(ig, weight_mat = mat_init)
+            # TODO: Does it make sense to add all these edges?
+            # I think we should change this to breadth/best first search:
+            # Here only add the best edge (highest abs Z-score)
+            # If we hit a graph that does not add lower elbo, then do not search any more of the subgraphs
+            # E.g. might need to add these to the "visited graph" and remove them from possible candidates
             for (g in canidate_add_edges) {
                 queue <- queue %>% rstackdeque::insert_back(g)
             }

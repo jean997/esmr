@@ -1,5 +1,7 @@
 mh_graph_explore <- function(
-  dat, pval_select = NULL,
+  dat,
+  n_mvmr_res = NULL,
+  pval_select = NULL,
   R = NULL,
   alpha = 5e-8,
   max_Z = 5,
@@ -10,7 +12,9 @@ mh_graph_explore <- function(
   dense_chain = FALSE,
   max_iter = 1000,
   max_nesmr_fits = 100,
-  visited_graphs = list()
+  visited_graphs = list(),
+  checkpoint_file = NULL,
+  checkpoint_every = 0
   ) {
   d <- ncol(dat$beta_hat)
   max_edges <- d * (d - 1)
@@ -22,20 +26,23 @@ mh_graph_explore <- function(
   minp <- apply(pval_select, 1, min)
   ix <- which(minp < alpha)
 
+  if (is.null(n_mvmr_res)) {
     ## Start function here
-  res_nesmr_full <- esmr::nesmr_complete_mvmr(
-      beta_hat = dat$beta_hat,
-      se_beta_hat = dat$s_estimate,
-      pval_select = pval_select,
-      R = R
-  )
+    n_mvmr_res <- esmr::nesmr_complete_mvmr(
+        beta_hat = dat$beta_hat,
+        se_beta_hat = dat$s_estimate,
+        pval_select = pval_select,
+        R = R
+    )
+  }
 
   # TODO: Replace this with a true hash
   #visited_graphs <- list()
 
   ## For MH algorithm we need to compute g(M|M') and g(M'|M)
 
-  full_graph_zscores <- res_nesmr_full$beta_hat / res_nesmr_full$se_beta_hat
+  full_graph_zscores <- n_mvmr_res$beta_hat / n_mvmr_res$se_beta_hat
+  stopifnot(ncol(n_mvmr_res$beta_hat) == d)
   non_diag_i <- -seq(1, d^2, by = d + 1)
   diag(full_graph_zscores) <- 0
 
@@ -282,6 +289,23 @@ mh_graph_explore <- function(
           # print(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
 
           iter <- iter + 1
+          print(sprintf("Starting next iteration: %d", iter))
+          print(sprintf("Number of nesmr fits: %d", nesmr_fits))
+            if (!is.null(checkpoint_file) && nesmr_fits %% checkpoint_every == 0) {
+                saveRDS(
+                    list(
+                        visited_graphs = visited_graphs,
+                        mh_chain = mh_chain,
+                        mh_accept = mh_accept,
+                        mh_elbo_chain = mh_elbo_chain,
+                        iter = iter,
+                        nesmr_fits = nesmr_fits,
+                        elbo_denom = elbo_denom
+                    ),
+                    file = checkpoint_file
+                )
+                print(sprintf("Checkpoint saved at iteration %d", iter))
+            }
       }
   }
 

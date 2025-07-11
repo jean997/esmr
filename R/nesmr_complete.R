@@ -18,7 +18,7 @@ nesmr_complete_mvmr <- function(
   }
 
   MVMR_models <- lapply(seq_len(d), function(i) {
-    mvmr_minp <- apply(pval_select[,-i], 1, min)
+    mvmr_minp <- apply(pval_select[,-i, drop = FALSE], 1, min)
     mvmr_ix <- which(mvmr_minp < alpha)
 
     # Estimate G at each step for fair comparison

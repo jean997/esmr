@@ -309,7 +309,7 @@ mh_graph_explore <- function(
       }
   }
 
-  return(list(
+  rtn <- list(
       visited_graphs = visited_graphs,
       mh_chain = mh_chain,
       mh_accept = mh_accept,
@@ -317,8 +317,11 @@ mh_graph_explore <- function(
       elbo_chain = mh_elbo_chain,
       iter = iter,
       nesmr_fits = nesmr_fits,
-      elbo_denom = elbo_denom
-  ))
+      elbo_denom = elbo_denom,
+      mvmr_all = n_mvmr_res
+  )
+  class(rtn) <- "nesmr_mh_graph_explore"
+  return(rtn)
 }
 
 draw_graph <- function(g, x) {
@@ -412,4 +415,29 @@ get_adjacent_graphs <- function(g, weight_mat) {
 get_Z_to_prob <- function(x, y) {
     suppressWarnings(mod_coefs <- unname(glm(y ~ x, family = binomial)$coef))
     return(function(x) plogis(mod_coefs[1] + mod_coefs[2] * x))
+}
+
+summary.nesmr_mh_graph_explore <- discovery_summary <- function(x) {
+    # Want:
+    # Table of graphs with number of edges, elbo, norm_elbo, and visited count
+    n <- length(x$visited_graphs)
+    all_elbos <- sapply(x$visited_graphs, function(g) g$elbo)
+    norm_elbo <- exp(all_elbos - x$elbo_denom)
+    flat_graphs <- names(x$visited_graphs)
+    num_edges <- sapply(flat_graphs, function(s) {
+        sum(as.numeric(stringr::str_split(s, "")[[1]]))
+    })
+    visit_count <- sapply(x$visited_graphs, function(g) g$visited_count %||% 0)
+
+    graph_summary <- data.frame(
+        graph = flat_graphs,
+        num_edges = num_edges,
+        elbo = all_elbos,
+        norm_elbo = norm_elbo,
+        visit_count = visit_count
+    )
+    rownames(graph_summary) <- NULL
+    graph_summary <- graph_summary[order(graph_summary$norm_elbo, decreasing = TRUE), ]
+
+    return(graph_summary)
 }

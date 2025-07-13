@@ -429,6 +429,12 @@ summary.nesmr_mh_graph_explore <- discovery_summary <- function(x) {
     })
     visit_count <- sapply(x$visited_graphs, function(g) g$visited_count %||% 0)
 
+    # Get the order that the models were visited
+    # Could either/both do the actual index time as well as the model visit index
+    # lapply(seq_along(x$mh_chain), function(i) {
+    #    match(flat_graphs, x$mh_chain[[i]])
+    # })
+
     graph_summary <- data.frame(
         graph = flat_graphs,
         num_edges = num_edges,
@@ -440,4 +446,26 @@ summary.nesmr_mh_graph_explore <- discovery_summary <- function(x) {
     graph_summary <- graph_summary[order(graph_summary$norm_elbo, decreasing = TRUE), ]
 
     return(graph_summary)
+}
+
+edge_inclusion_probs <- function(x, min_prob_threshold = 0) {
+    discovery_table <- discovery_summary(x)
+
+    discovery_table <- discovery_table[discovery_table$norm_elbo > min_prob_threshold, ]
+
+    inclusion_prob_long <- purrr::map_dfr(seq_along(discovery_table$graph), function(i) {
+        g <- discovery_table$graph[i]
+        cbind(matrix_to_edgelist(flat_string_to_adj_mat(g)),
+              norm_elbo = discovery_table$norm_elbo[i], graph_i = i) |>
+        dplyr::filter(value > 0)
+    }) |>
+    dplyr::group_by(from, to) |>
+    dplyr::summarise(
+        inclusion_prob = sum(norm_elbo)
+    ) |>
+    dplyr::ungroup() |>
+    dplyr::arrange(desc(inclusion_prob)) |>
+    as.data.frame()
+
+    return(inclusion_prob_long)
 }

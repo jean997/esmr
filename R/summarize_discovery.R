@@ -1,4 +1,5 @@
-summary.nesmr_mh_graph_explore <- discovery_summary <- function(x) {
+#' @export
+discovery_summary <- function(x) {
     # Want:
     # Table of graphs with number of edges, elbo, norm_elbo, and visited count
     n <- length(x$visited_graphs)
@@ -29,6 +30,10 @@ summary.nesmr_mh_graph_explore <- discovery_summary <- function(x) {
     return(graph_summary)
 }
 
+#' @export
+summary.nesmr_mh_graph_explore <- discovery_summary
+
+#' @export
 edge_inclusion_probs <- function(x, min_prob_threshold = 0) {
     discovery_table <- discovery_summary(x)
 
@@ -49,4 +54,15 @@ edge_inclusion_probs <- function(x, min_prob_threshold = 0) {
     as.data.frame()
 
     return(inclusion_prob_long)
+}
+
+#' @export
+top_i_graph <- function(x, i = 1) {
+    all_elbos <- sapply(x$visited_graphs, function(g) g$elbo)
+    norm_elbo <- exp(all_elbos - x$elbo_denom)
+    # Get the min index of the graph
+    graph_idx <- order(norm_elbo, decreasing = TRUE)[i]
+
+    top_graph <- x$visited_graphs[[graph_idx]]
+    return(top_graph)
 }

@@ -1,6 +1,30 @@
-plot_nesmr_network <- function(x) {
+#' @export
+plot_nesmr_network <- function(
+  adj_mat, nice_names = NULL, layout = "stress",
+  pos_col = "#EE220C",
+  neg_col = "#00A2FF") {
 # Probably want to time order using:
 # https://github.com/r-causal/ggdag/blob/535386358b86db3e713eacd7dbbd99e8498acd67/R/layouts.R#L69
+  if (is.null(nice_names)) {
+    nice_names <- colnames(adj_mat) %||% as.character(seq_len(ncol(adj_mat)))
+  }
+
+  edgelist <- which(adj_mat != 0, arr.ind = T)
+  edgelist <- data.frame(name = nice_names[edgelist[, 1]],
+                          to = nice_names[edgelist[, 2]],
+                          value = adj_mat[edgelist])
+
+  g <- edgelist %>%
+    as_tidy_dagitty(layout = layout) %>%
+    mutate(color = ifelse(value > 0, pos_col, neg_col)) %>%
+    ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+      geom_dag_point(col = "white") +
+      geom_dag_edges(
+        aes(edge_colour = color), show.legend = TRUE) +
+      geom_dag_label() +
+      theme_void()
+
+  g
 }
 
 #' Layered topological sort

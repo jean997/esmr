@@ -33,6 +33,7 @@ discovery_summary <- function(x) {
 #' @export
 summary.nesmr_mh_graph_explore <- discovery_summary
 
+# TODO: Add variable names here or read from the results object
 #' @export
 edge_inclusion_probs <- function(x, min_prob_threshold = 0) {
     discovery_table <- discovery_summary(x)

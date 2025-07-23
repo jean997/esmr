@@ -134,20 +134,17 @@ layered_topo_with_edges <- function(adj, x_spacing = 1, y_spacing = 1, nice_name
   )
 }
 
-plot_layered_topo <- function(tg) {
+plot_layered_topo <- function(tg, plot_type = "adj") {
   ts_graph <- layered_topological_sort(tg)
   coords <- coordinates_from_layers(ts_graph)
-  #coords$ix <- as.integer(coords$name)
-  print(ts_graph)
-  print(coords)
 
   if (is.matrix(tg)) {
     edgelist <- which(g_adj != 0, arr.ind = T)
     edgelist <- data.frame(from = edgelist[, 1],
                           to = edgelist[, 2],
                           from_name = nice_names[edgelist[, 1]],
-                          to_name = nice_names[edgelist[, 2]],
-                          weight = g_adj[edgelist])
+                          to_name = nice_names[edgelist[, 2]])
+    edgelist[[plot_type]] <- g_adj[edgelist]
 
     tg <- tbl_graph(edges = edgelist, nodes = data.frame(name = nice_names, ix = seq_along(nice_names)))
   }
@@ -158,6 +155,9 @@ plot_layered_topo <- function(tg) {
 
   tg <- tg %>%
     activate(edges) %>%
+    mutate(
+      `adj` = sign(zapsmall(beta)),
+    ) %>%
     left_join(coords, by = c("from_name" = "name"), suffix = c("_from", "_to")) %>%
     left_join(coords, by = c("to_name" = "name"), suffix = c("_from", "_to"))
 
@@ -169,7 +169,7 @@ plot_layered_topo <- function(tg) {
     geom_edge_arc(
       aes(
         filter = abs(x_from - x_to) > 2 | abs(y_from - y_to) > 0.5,
-        colour = weight > 0),
+        colour = get(plot_type) > 0),
       strength = 0.05,
       arrow = grid::arrow(length = grid::unit(5, "pt"), type = "closed"),
       start_cap = circle(1, 'cm'),
@@ -181,7 +181,7 @@ plot_layered_topo <- function(tg) {
   geom_edge_link(
       aes(
         filter = abs(x_from - x_to) <= 2 & abs(y_from - y_to) <= 0.5,
-        colour = weight > 0),
+        colour = get(plot_type) > 0),
       arrow = grid::arrow(length = grid::unit(5, "pt"), type = "closed"),
       start_cap = circle(1, 'cm'),
       end_cap = circle(1, 'cm'),
@@ -189,4 +189,56 @@ plot_layered_topo <- function(tg) {
       geom_node_point() +
     geom_node_label(aes(label = name)) +
     theme_dag()
+}
+
+
+plot_graph_differences <- function(tg1, tg2, diff_type = c("adj", "beta")) {
+  names1 <- tg1 %>% tidygraph::activate(nodes) %>% pull(name)
+  names2 <- tg2 %>% tidygraph::activate(nodes) %>% pull(name)
+  stopifnot(identical(names1, names2))
+  #print(tidygraph::activate(tg1, edges))
+  #print(tidygraph::activate(tg2, edges))
+
+  graph_diffs <- tg1 %>%
+    activate(edges) %>%
+    as_tibble() %>%
+    select(from_name, to_name, beta) %>%
+    full_join(
+      tg2 %>% activate(edges) %>% as_tibble(),
+      by = c("from_name", "to_name"),
+      suffix = c("_tg1", "_tg2")
+    ) %>%
+    mutate(
+      across(ends_with("_tg1"), ~replace_na(., 0)),
+      across(ends_with("_tg2"), ~replace_na(., 0))
+    ) %>%
+    mutate(
+      beta_diff = beta_tg1 - beta_tg2,
+      sign_diff = sign(beta_diff),
+      diff_sign = sign(beta_tg1) - sign(beta_tg2),
+      inc_sign = (beta_tg1 != 0) - (beta_tg2 != 0)
+    )
+
+  # TODO: Different plots for different diff types
+  # tg_diff <- tbl_graph(
+  #   edges = graph_diffs,
+  #   nodes = data.frame(name = names1, ix = seq_along(names1)))
+
+  ggplot(graph_diffs, aes(x = to_name, y = from_name, fill = factor(inc_sign))) +
+  geom_tile(color = "white") +
+  scale_fill_manual(
+    values = c("-1" = "red", "0" = "white", "1" = "blue"),
+    name = "Difference",
+    labels = c("-1" = "Removed", "0" = "No Change", "1" = "Added")
+  ) +
+  scale_x_discrete(limits = names1) +  # Ensure x-axis is in the same order as names1
+  scale_y_discrete(limits = rev(names1)) +  # Reverse y-axis for matrix ordering
+  labs(title = "Edge Differences Between Top Two Graphs",
+       x = "To",
+       y = "From") +
+  theme_classic(base_size = 16) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  coord_equal() +
+  geom_vline(xintercept = seq(0.5, length(nice_names) + 0.5, by = 1), color = "grey80") +
+  geom_hline(yintercept = seq(0.5, length(nice_names) + 0.5, by = 1), color = "grey80")
 }

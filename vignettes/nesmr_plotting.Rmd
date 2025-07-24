@@ -1,0 +1,78 @@
+---
+title: "nesmr_plotting"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{nesmr_plotting}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(esmr)
+```
+
+
+## Simulation Example
+
+```{r}
+G <- matrix(
+  c(0, 0, 0, 0,
+    0.25, 0, 0, 0,
+    0, 0, 0,  0,
+    0, -0.15, 0.2, 0),
+  nrow = 4,
+  byrow = 4
+)
+
+d <- ncol(G)
+
+B_full <- matrix(1, d, d)
+B_lower <- lower.tri(G) + 0
+B_correct <- (G != 0) + 0
+
+h2 <- 0.2
+J <- 5000
+N <- 20000
+pi_J <- 0.1
+alpha <- 5e-8
+
+dat <- sim_mv(
+    G = G,
+    N = N,
+    J = J,
+    h2 = h2,
+    pi = pi_J,
+    sporadic_pleiotropy = TRUE,
+    est_s = TRUE
+)
+```
+
+## Discovery
+
+```{r}
+mh_results <- mh_graph_explore(dat)
+```
+
+There are two simple plots to summarize the discovery algorithm:
+ - Norm elbo
+ - Cumulative normalized elbo
+
+### Discovery Plots
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+
+p1 <- plot(mh_results, plot_type = "norm_elbo")
+p2 <- plot(mh_results, plot_type = "cum_norm_elbo")
+p3 <- plot(mh_results, plot_type = "both")
+
+grid.arrange(p1, p2, p3, nrow = 1)
+```

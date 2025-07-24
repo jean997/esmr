@@ -2,7 +2,9 @@
 
 S3method(as_tbl_graph,nesmr)
 S3method(logLik,esmr)
+S3method(plot,nesmr_mh_graph_explore)
 S3method(print,esmr_tbl_graph)
+S3method(print,nesmr_mh_graph_explore)
 S3method(summary,nesmr_mh_graph_explore)
 export(calc_ell2)
 export(direct_to_total)

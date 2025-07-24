@@ -309,8 +309,12 @@ mh_graph_explore <- function(
       }
   }
 
+  all_elbos <- sapply(visited_graphs, function(g) g$elbo)
+  norm_elbo <- exp(all_elbos - elbo_denom)
+
   rtn <- list(
       visited_graphs = visited_graphs,
+      norm_elbo = norm_elbo,
       mh_chain = mh_chain,
       mh_accept = mh_accept,
       mh_accept_ratio = mean(unlist(mh_accept[[i]])),

@@ -64,7 +64,7 @@ esmr <- function(beta_hat_X, se_X,
   }
 
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
-
+  dat$direct_effect_template <- direct_effect_template
   class(dat) <- c(c("esmr"), class(dat))
   dat$is_nesmr <- ! is.null(direct_effect_template)
   if (dat$is_nesmr) {
@@ -133,11 +133,12 @@ esmr <- function(beta_hat_X, se_X,
   o <- match(1:dat$p, dat$traits)
   dat <- reorder_data(dat, o)
 
-  if (!is.null(direct_effect_template) && restrict_dag) {
-    dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
+  if (!is.null(direct_effect_template) && is_dag(direct_effect_template)) {
+    # Multiply by direct effect template to ensure rounding is not an issue
+    dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * direct_effect_template
     delt_pvals <- delta_method_pvals(dat)
-    dat$pvals_dm <- delt_pvals$pmat
-    dat$se_dm <- delt_pvals$semat
+    dat$pvals_dm <- delt_pvals$pmat * dat$direct_effect_template
+    dat$se_dm <- delt_pvals$semat * dat$direct_effect_template
   }
 
   # Reformat beta_hat and beta_se to matrix format

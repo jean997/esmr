@@ -108,10 +108,16 @@ plot.nesmr_mh_graph_explore <- function(
     if (max_graphs < 1) {
         stop("max_graphs must be at least 1.")
     }
-    if (plot_type == "norm_elbo") {
-        top_norm_elbo <- sort(x$norm_elbo, decreasing = TRUE)[1:max_graphs]
-        plot_df <- data.frame(Index = 1:max_graphs, norm_elbo = top_norm_elbo)
 
+    top_norm_elbo <- sort(x$norm_elbo, decreasing = TRUE)[1:max_graphs]
+    cum_norm_elbo <- cumsum(top_norm_elbo)
+    plot_df <- data.frame(
+        Index = 1:max_graphs,
+        norm_elbo = top_norm_elbo,
+        cum_norm_elbo = cum_norm_elbo
+    )
+
+    if (plot_type == "norm_elbo") {
         ggplot(plot_df, aes(x = Index, y = norm_elbo)) +
             geom_point(size = 3) +
             scale_y_continuous(limits = c(0, 1.05)) +
@@ -122,10 +128,6 @@ plot.nesmr_mh_graph_explore <- function(
             ) +
             theme_classic(base_size = 20)
     } else if (plot_type == "cum_norm_elbo") {
-        top_norm_elbo <- sort(x$norm_elbo, decreasing = TRUE)[1:max_graphs]
-        cum_norm_elbo <- cumsum(top_norm_elbo)
-        plot_df <- data.frame(Index = 1:max_graphs, cum_norm_elbo = cum_norm_elbo)
-
         ggplot(plot_df, aes(x = Index, y = cum_norm_elbo)) +
             geom_point(size = 3) +
             geom_line(size = 1) +
@@ -137,14 +139,6 @@ plot.nesmr_mh_graph_explore <- function(
             ) +
             theme_classic(base_size = 20)
     } else if (plot_type == "both") {
-        top_norm_elbo <- sort(x$norm_elbo, decreasing = TRUE)[1:max_graphs]
-        cum_norm_elbo <- cumsum(top_norm_elbo)
-        plot_df <- data.frame(
-            Index = 1:max_graphs,
-            norm_elbo = top_norm_elbo,
-            cum_norm_elbo = cum_norm_elbo
-        )
-
         ggplot(plot_df, aes(x = Index)) +
             geom_point(aes(y = cum_norm_elbo, color = "Cumulative Norm ELBO"), size = 3) +
             geom_line(aes(y = cum_norm_elbo, color = "Cumulative Norm ELBO"), size = 1) +

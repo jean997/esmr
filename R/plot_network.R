@@ -89,61 +89,64 @@ layered_topo_with_edges <- function(adj, x_spacing = 1, y_spacing = 1, nice_name
   )
 }
 
-plot_layered_topo <- function(tg, plot_type = "adj") {
+# Note: Only adjacency for now
+plot_layered_topo <- function(
+  tg,
+  weight = c("direct_effect", "total_effect"),
+  plot_type = c("adj", "beta")) {
+  weight <- match.arg(weight)
+  plot_type <- match.arg(plot_type)
+  if (!inherits(tg, "nesmr_tbl_graph")) {
+    tg <- as_tbl_graph(tg)
+  }
   ts_graph <- layered_topological_sort(tg)
   coords <- coordinates_from_layers(ts_graph)
-
-  if (is.matrix(tg)) {
-    edgelist <- which(g_adj != 0, arr.ind = T)
-    edgelist <- data.frame(from = edgelist[, 1],
-                          to = edgelist[, 2],
-                          from_name = nice_names[edgelist[, 1]],
-                          to_name = nice_names[edgelist[, 2]])
-    edgelist[[plot_type]] <- g_adj[edgelist]
-
-    tg <- tbl_graph(edges = edgelist, nodes = data.frame(name = nice_names, ix = seq_along(nice_names)))
-  }
 
   tg <- tg %>%
     activate(nodes) %>%
     left_join(coords)
 
+  print(tg)
+
+  print(weight)
+
   tg <- tg %>%
     activate(edges) %>%
+    left_join(coords, by = c("from" = "name"), suffix = c("_from", "_to")) %>%
+    left_join(coords, by = c("to" = "name"), suffix = c("_from", "_to")) %>%
     mutate(
-      `adj` = sign(zapsmall(beta)),
-    ) %>%
-    left_join(coords, by = c("from_name" = "name"), suffix = c("_from", "_to")) %>%
-    left_join(coords, by = c("to_name" = "name"), suffix = c("_from", "_to"))
-
-  ggraph(
+      colour = ifelse(!!sym(weight) > 0, "blue", "red"),
+    )
+  print(tg)
+  ggraph::ggraph(
     tg, layout = "manual",
     x = x,
     y = y
     ) +
-    geom_edge_arc(
+    ggraph::geom_edge_arc(
+    data = ~filter(ggraph::get_edges()(.x), abs(x_from - x_to) > 2 | abs(y_from - y_to) > 0.5),
       aes(
-        filter = abs(x_from - x_to) > 2 | abs(y_from - y_to) > 0.5,
-        colour = get(plot_type) > 0),
+        colour = colour),
       strength = 0.05,
       arrow = grid::arrow(length = grid::unit(5, "pt"), type = "closed"),
-      start_cap = circle(1, 'cm'),
-      end_cap = circle(1, 'cm'),
+      start_cap = ggraph::circle(1, 'cm'),
+      end_cap = ggraph::circle(1, 'cm'),
       angle_calc = "along",
       force_flip = F,
       check_overlap = T
     ) +
-  geom_edge_link(
+  ggraph::geom_edge_link(
+    data = ~filter(ggraph::get_edges()(.x), abs(x_from - x_to) <= 2 & abs(y_from - y_to) <= 0.5),
       aes(
-        filter = abs(x_from - x_to) <= 2 & abs(y_from - y_to) <= 0.5,
-        colour = get(plot_type) > 0),
+        colour = colour),
       arrow = grid::arrow(length = grid::unit(5, "pt"), type = "closed"),
-      start_cap = circle(1, 'cm'),
-      end_cap = circle(1, 'cm'),
+      start_cap = ggraph::circle(1, 'cm'),
+      end_cap = ggraph::circle(1, 'cm'),
       check_overlap = T) +
-      geom_node_point() +
-    geom_node_label(aes(label = name)) +
-    theme_dag()
+    ggraph::geom_node_point() +
+    ggraph::geom_node_label(aes(label = name)) +
+    theme(legend.position = "bottom", legend.justification = c(0, 0)) +
+    theme_void(base_size = 16)
 }
 
 

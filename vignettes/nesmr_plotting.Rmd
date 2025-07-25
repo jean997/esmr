@@ -76,3 +76,17 @@ p3 <- plot(mh_results, plot_type = "both")
 
 grid.arrange(p1, p2, p3, nrow = 1)
 ```
+
+Now we can also get the best graph and plot it
+
+```{r}
+best_graph <- top_i_graph(mh_results)
+
+print(best_graph)
+```
+
+## Individual Graph Plots
+
+```{r}
+plot_layered_topo(best_graph)
+```

@@ -89,6 +89,7 @@ top_i_graph <- function(x, i = 1) {
 
         tg <- tidygraph::tbl_graph(nodes = nodes, edges = edgelist)
         tg$elbo <- top_graph$elbo
+        tg$norm_elbo <- norm_elbo[graph_idx]
         class(tg) <- c("discovery_tbl_graph", "nesmr_tbl_graph", "esmr_tbl_graph", class(tg))
         top_graph <- tg
     }

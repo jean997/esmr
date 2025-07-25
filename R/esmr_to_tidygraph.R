@@ -38,8 +38,8 @@ as_tbl_graph.nesmr <- function(x, ...) {
 print.esmr_tbl_graph <- function(x, ...) {
   cat("esmr tidygraph object\n")
   cat("Evidence lower bound (ELBO) objective function:", x$elbo, "\n")
-  if ("norm_elbo" %in% names(x)) {
-    cat("Normalized ELBO (Approximate posterior probability):", x$norm_elbo, "\n")
+  if (!is.null(x$norm_elbo)) {
+    cat("Normalized ELBO (Approximate posterior probability):", round(x$norm_elbo, 2), "\n")
   }
   NextMethod("print", x)
 }

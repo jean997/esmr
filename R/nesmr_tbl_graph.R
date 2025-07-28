@@ -1,3 +1,5 @@
+#' @importFrom tidygraph as_tbl_graph tbl_graph
+#' @export
 as.matrix.nesmr_tbl_graph <- function(x, value = c("direct_effect", "total_effect"), ...) {
   value <- match.arg(value)
 
@@ -15,6 +17,7 @@ as.matrix.nesmr_tbl_graph <- function(x, value = c("direct_effect", "total_effec
   return(rtn_mat)
 }
 
+#' @export
 as_matrix.nesmr_tbl_graph <- function(x, ...) {
   as.matrix.nesmr_tbl_graph(x, ...)
 }

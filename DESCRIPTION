@@ -24,6 +24,7 @@ Imports:
     igraph,
     gtools,
     rstackdeque,
-    combinat
+    combinat,
+    tidygraph
 Remotes:
     jean997/GFA

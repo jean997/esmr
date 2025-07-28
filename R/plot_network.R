@@ -89,36 +89,59 @@ layered_topo_with_edges <- function(adj, x_spacing = 1, y_spacing = 1, nice_name
   )
 }
 
-# Note: Only adjacency for now
+
+#' @export
+#' @importFrom ggraph guide_edge_colourbar
 plot_layered_topo <- function(
   tg,
   weight = c("direct_effect", "total_effect"),
-  plot_type = c("adj", "beta")) {
+  plot_type = c("adj", "beta"),
+  pos_colour = "#d62728",
+  neg_colour = "#1f77b4",
+  scale_limit = NULL,
+  scale_factor = 1) {
   weight <- match.arg(weight)
   plot_type <- match.arg(plot_type)
   if (!inherits(tg, "nesmr_tbl_graph")) {
-    tg <- as_tbl_graph(tg)
+    tg <- tidygraph::as_tbl_graph(tg)
   }
   ts_graph <- layered_topological_sort(tg)
   coords <- coordinates_from_layers(ts_graph)
 
   tg <- tg %>%
-    activate(nodes) %>%
-    left_join(coords)
-
-  print(tg)
-
-  print(weight)
+    tidygraph::activate(nodes) %>%
+    left_join(coords, by = "name")
 
   tg <- tg %>%
-    activate(edges) %>%
+    tidygraph::activate(edges) %>%
     left_join(coords, by = c("from" = "name"), suffix = c("_from", "_to")) %>%
-    left_join(coords, by = c("to" = "name"), suffix = c("_from", "_to")) %>%
-    mutate(
-      colour = ifelse(!!sym(weight) > 0, "blue", "red"),
-    )
-  print(tg)
-  ggraph::ggraph(
+    left_join(coords, by = c("to" = "name"), suffix = c("_from", "_to"))
+
+  # Calculate scale limits for beta plots
+  if (plot_type == "beta" && is.null(scale_limit)) {
+    weight_values <- tg %>%
+      tidygraph::activate(edges) %>%
+      pull(!!sym(weight))
+    scale_limit <- max(abs(weight_values), na.rm = TRUE)
+  }
+
+  # Create appropriate color variable based on plot type
+  if (plot_type == "adj") {
+    tg <- tg %>%
+      tidygraph::activate(edges) %>%
+      mutate(
+        colour = factor(
+          ifelse(!!sym(weight) > 0, "Positive", "Negative"),
+          levels = c("Negative", "Positive")
+        )
+      )
+  } else if (plot_type == "beta") {
+    tg <- tg %>%
+      tidygraph::activate(edges) %>%
+      mutate(colour = !!sym(weight))
+  }
+
+  g <- ggraph::ggraph(
     tg, layout = "manual",
     x = x,
     y = y
@@ -126,11 +149,15 @@ plot_layered_topo <- function(
     ggraph::geom_edge_arc(
     data = ~filter(ggraph::get_edges()(.x), abs(x_from - x_to) > 2 | abs(y_from - y_to) > 0.5),
       aes(
-        colour = colour),
+        edge_colour = colour,
+        label = if (plot_type == "beta") sprintf("%.2f", round(!!sym(weight), 2)) else NULL
+        ),
       strength = 0.05,
-      arrow = grid::arrow(length = grid::unit(5, "pt"), type = "closed"),
-      start_cap = ggraph::circle(1, 'cm'),
-      end_cap = ggraph::circle(1, 'cm'),
+      arrow = grid::arrow(length = grid::unit(5 * scale_factor, "pt"), type = "closed"),
+      edge_width = 1.5 * scale_factor,
+      label_size = 8 * scale_factor,
+      start_cap = ggraph::circle(1 * scale_factor, 'cm'),
+      end_cap = ggraph::circle(1 * scale_factor, 'cm'),
       angle_calc = "along",
       force_flip = F,
       check_overlap = T
@@ -138,18 +165,51 @@ plot_layered_topo <- function(
   ggraph::geom_edge_link(
     data = ~filter(ggraph::get_edges()(.x), abs(x_from - x_to) <= 2 & abs(y_from - y_to) <= 0.5),
       aes(
-        colour = colour),
-      arrow = grid::arrow(length = grid::unit(5, "pt"), type = "closed"),
-      start_cap = ggraph::circle(1, 'cm'),
-      end_cap = ggraph::circle(1, 'cm'),
+        edge_colour = colour,
+        label = if (plot_type == "beta") sprintf("%.2f", round(!!sym(weight), 2)) else NULL),
+      arrow = grid::arrow(length = grid::unit(5 * scale_factor, "pt"), type = "closed"),
+      edge_width = 1.5 * scale_factor,
+      label_size = 10 * scale_factor,
+      start_cap = ggraph::circle(1 * scale_factor, 'cm'),
+      end_cap = ggraph::circle(1 * scale_factor, 'cm'),
       check_overlap = T) +
-    ggraph::geom_node_point() +
-    ggraph::geom_node_label(aes(label = name)) +
-    theme(legend.position = "bottom", legend.justification = c(0, 0)) +
-    theme_void(base_size = 16)
+    ggraph::geom_node_point(size = 3 * scale_factor) +
+    ggraph::geom_node_label(aes(label = name), size = 8 * scale_factor) +
+    theme(legend.position = c(0.98, 0.02), legend.justification = c("right", "bottom")) +
+    theme_void(base_size = 30 * scale_factor)
+
+  # Add appropriate color scale based on plot type
+  if (plot_type == "adj") {
+    g <- g + ggraph::scale_edge_colour_manual(
+      values = c("Negative" = neg_colour, "Positive" = pos_colour),
+      name = "Effect Sign"
+    )
+  } else if (plot_type == "beta") {
+    g <- g + ggraph::scale_edge_colour_gradient2(
+      low = neg_colour,
+      mid = "white",
+      high = pos_colour,
+      midpoint = 0,
+      limits = c(-scale_limit, scale_limit),
+      name = "Beta"
+    ) +
+    guides(edge_colour = guide_edge_colourbar(barheight = 10 * scale_factor, barwidth = 0.5 * scale_factor))
+  }
+  return(g)
 }
 
 
+
+#' Plot Differences Between Two Graphs
+#'
+#' This function visualizes the differences between two graphs, either by adjacency matrices or beta coefficients.
+#'
+#' @param tg1 first graph object
+#' @param tg2 second graph object
+#' @param diff_type Character vector specifying the type of difference to plot. Options are \code{"adj"} for adjacency matrix differences or \code{"beta"} for beta coefficient differences.
+#'
+#' @return A plot visualizing the differences between the two graphs.
+#' @export
 plot_graph_differences <- function(tg1, tg2, diff_type = c("adj", "beta")) {
   names1 <- tg1 %>% tidygraph::activate(nodes) %>% pull(name)
   names2 <- tg2 %>% tidygraph::activate(nodes) %>% pull(name)

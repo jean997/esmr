@@ -1,3 +1,4 @@
+#' @export
 mh_graph_explore <- function(
   dat,
   n_mvmr_res = NULL,
@@ -14,8 +15,16 @@ mh_graph_explore <- function(
   max_nesmr_fits = 100,
   visited_graphs = list(),
   checkpoint_file = NULL,
-  checkpoint_every = 0
+  checkpoint_every = 0,
+  verbose = FALSE
   ) {
+  # Create a logging function based on verbose parameter
+  log_msg <- function(...) {
+    if (verbose) {
+      message(...)
+    }
+  }
+
   d <- ncol(dat$beta_hat)
   max_edges <- d * (d - 1)
   if (is.null(pval_select)) {
@@ -102,8 +111,9 @@ mh_graph_explore <- function(
   for (i in seq_along(mh_chain_init)) {
       # Note: This could be outside of the while or inside..
     curr_adj_mat <- mh_chain_init[[i]]
-#       print(sprintf("Initial graph: correct = %s", B_correct_str == paste0((curr_adj_mat != 0) + 0, collapse = "")))
-      print(curr_adj_mat)
+#       log_msg(sprintf("Initial graph: correct = %s", B_correct_str == paste0((curr_adj_mat != 0) + 0, collapse = "")))
+      log_msg("Initial adjacency matrix:")
+      if (verbose) print(curr_adj_mat)
       # Collect the graphs as flattened strings as we go
       # TODO: Should we fit this initial model ? Probably...
       curr_B <- (curr_adj_mat != 0) + 0
@@ -127,8 +137,8 @@ mh_graph_explore <- function(
         )
         end_time <- Sys.time()
         init_fit_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
-        print(sprintf("Initial fit time: %.2f seconds", init_fit_time))
-        print(sprintf("Expect the total time to be around %.2f minutes", init_fit_time * max_nesmr_fits / 60))
+        log_msg(sprintf("Initial fit time: %.2f seconds", init_fit_time))
+        log_msg(sprintf("Expect the total time to be around %.2f minutes", init_fit_time * max_nesmr_fits / 60))
 
 #        }, file = nullfile())
 
@@ -153,7 +163,8 @@ mh_graph_explore <- function(
       nesmr_fits <- 1
       #while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
       while(iter < max_iter && nesmr_fits < max_nesmr_fits) {
-          print(curr_B)
+          log_msg("Current graph B matrix:")
+          if (verbose) print(curr_B)
           if (curr_B_str %in% names(visited_graphs) && !is.null(visited_graphs[[curr_B_str]]$adj_graph_info)) {
               adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
           } else {
@@ -161,7 +172,8 @@ mh_graph_explore <- function(
               adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
           }
 
-          print(adj_graph_info)
+          log_msg("Adjacent graph information:")
+          if (verbose) print(adj_graph_info)
           candidate_draw <- esmr:::draw_graph(ig, adj_graph_info)
           tmp_ig <- candidate_draw$g
           # Denominator: h(G'|G)
@@ -209,7 +221,7 @@ mh_graph_explore <- function(
               # If we have zero edges; continue
               # Eventually esmr should support having zero edges
               if (sum(prop_B) == 0) {
-                  print("Zero edges; continue")
+                  log_msg("Zero edges; continue")
                   mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
                   mh_accept[[i]] <- append(mh_accept[[i]], 0)
                   mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
@@ -247,22 +259,22 @@ mh_graph_explore <- function(
           visited_graphs[[prop_B_str]]$proposed <- (visited_graphs[[prop_B_str]]$proposed %||% 0) + 1
 
           elbo_diff <- proposal_graph_info$elbo - visited_graphs[[curr_B_str]]$elbo
-          print(sprintf("ELBO diff: %s", round(elbo_diff, 4)))
-          print(sprintf("ELBO curr: %s", round(visited_graphs[[curr_B_str]]$elbo, 4)))
-          print(sprintf("ELBO denom: %s", round(elbo_denom, 4)))
-          print(sprintf("exp(ELBO curr - ELBO denom): %s", round(exp(visited_graphs[[curr_B_str]]$elbo - elbo_denom), 4)))
+          log_msg(sprintf("ELBO diff: %s", round(elbo_diff, 4)))
+          log_msg(sprintf("ELBO curr: %s", round(visited_graphs[[curr_B_str]]$elbo, 4)))
+          log_msg(sprintf("ELBO denom: %s", round(elbo_denom, 4)))
+          log_msg(sprintf("exp(ELBO curr - ELBO denom): %s", round(exp(visited_graphs[[curr_B_str]]$elbo - elbo_denom), 4)))
 
 
           # TODO: Switch to log scale for everything
           prop_ratio <- prop_num / prop_denom
-          print(sprintf("Proposal ratio: %s", round(prop_ratio, 4)))
+          log_msg(sprintf("Proposal ratio: %s", round(prop_ratio, 4)))
 
           # Check accept/reject
           # max(1, exp(elbo(tmp_ig) - elbo(ig)))
           accept_prob <- min(
               1, exp(elbo_diff) * prop_ratio
           )
-          print(sprintf("Total proposal ratio: %s", round(exp(elbo_diff) * prop_ratio, 4)))
+          log_msg(sprintf("Total proposal ratio: %s", round(exp(elbo_diff) * prop_ratio, 4)))
 
 
         # Note: This is not really the "chain elbo" but rather the elbo of the proposal at each step
@@ -284,13 +296,13 @@ mh_graph_explore <- function(
               #mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
               visited_graphs[[curr_B_str]]$visited_count <- (visited_graphs[[curr_B_str]]$visited_count %||% 0 ) + 1
           }
-          print(sprintf("Accept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
+          log_msg(sprintf("Accept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
 
-          # print(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
+          # log_msg(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
 
           iter <- iter + 1
-          print(sprintf("Starting next iteration: %d", iter))
-          print(sprintf("Number of nesmr fits: %d", nesmr_fits))
+          log_msg(sprintf("Starting next iteration: %d", iter))
+          log_msg(sprintf("Number of nesmr fits: %d", nesmr_fits))
             if (!is.null(checkpoint_file) && nesmr_fits %% checkpoint_every == 0) {
                 saveRDS(
                     list(
@@ -304,7 +316,7 @@ mh_graph_explore <- function(
                     ),
                     file = checkpoint_file
                 )
-                print(sprintf("Checkpoint saved at iteration %d", iter))
+                log_msg(sprintf("Checkpoint saved at iteration %d", iter))
             }
       }
   }

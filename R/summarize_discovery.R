@@ -123,7 +123,7 @@ plot.nesmr_mh_graph_explore <- function(
             geom_point(size = 3) +
             scale_y_continuous(limits = c(0, 1.05)) +
             labs(
-                title = "Normalized ELBO for Top Graphs",
+                title = "Normalized ELBO",
                 x = "Graph Index",
                 y = "Normalized ELBO"
             ) +
@@ -134,7 +134,7 @@ plot.nesmr_mh_graph_explore <- function(
             geom_line(size = 1) +
             scale_y_continuous(limits = c(0, 1.05)) +
             labs(
-                title = "Cumulative Normalized ELBO for Top Graphs",
+                title = "Cumulative Normalized ELBO",
                 x = "Graph Index",
                 y = "Cumulative Normalized ELBO"
             ) +
@@ -146,10 +146,10 @@ plot.nesmr_mh_graph_explore <- function(
             geom_point(aes(y = norm_elbo, color = "Norm ELBO"), size = 3) +
             scale_y_continuous(limits = c(0, 1.05)) +
             labs(
-                title = "Normalized ELBO and Cumulative ELBO for Top Graphs",
+                title = "Normalized ELBO and Cumulative ELBO",
                 x = "Graph Index",
                 y = "Normalized ELBO",
-                color = "Legend"
+                color = ""
             ) +
             scale_color_manual(values = c("Norm ELBO" = "blue", "Cumulative Norm ELBO" = "orange")) +
             theme_classic(base_size = 20)

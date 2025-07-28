@@ -193,7 +193,7 @@ plot_layered_topo <- function(
       limits = c(-scale_limit, scale_limit),
       name = "Beta"
     ) +
-    guides(edge_color = guide_edge_colourbar(barheight = 10 * scale_factor, barwidth = 0.5 * scale_factor))
+    guides(edge_color = guide_edge_colorbar(barheight = 10 * scale_factor, barwidth = 0.5 * scale_factor))
   }
   return(g)
 }

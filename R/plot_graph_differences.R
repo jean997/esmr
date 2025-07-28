@@ -24,6 +24,11 @@ plot_graph_differences <- function(
     node_order <- as.integer(igraph::topo_sort(tg1))
   }
 
+  diag_df <- data.frame(
+    from = names1,
+    to = names1
+  )
+
   graph_diffs <- tg1 %>%
     tidygraph::activate(edges) %>%
     tidygraph::as_tibble() %>%
@@ -38,11 +43,19 @@ plot_graph_differences <- function(
       across(ends_with("_tg1"), ~tidyr::replace_na(., 0)),
       across(ends_with("_tg2"), ~tidyr::replace_na(., 0))
     ) %>%
+    full_join(
+      diag_df,
+      by = c("from", "to")
+    ) %>%
     mutate(
       effect_diff = effect_tg1 - effect_tg2,
       sign_diff = sign(effect_diff),
       diff_sign = sign(effect_tg1) - sign(effect_tg2),
-      inc_sign = (effect_tg1 != 0) - (effect_tg2 != 0)
+      inc_sign = (effect_tg1 != 0) - (effect_tg2 != 0),
+      from = factor(from, levels = node_order),
+      to = factor(to, levels = rev(node_order)),
+      effect_diff = ifelse(from == to, NA, effect_diff),
+      diff_sign = ifelse(from == to, NA, diff_sign)
     )
 
   # TODO: Different plots for different diff types
@@ -65,7 +78,8 @@ plot_graph_differences <- function(
         high = pos_color,
         midpoint = 0,
         limits = c(-max_diff, max_diff),
-        name = paste(tools::toTitleCase(gsub("_", " ", effect)), "Difference")
+        name = paste(tools::toTitleCase(gsub("_", " ", effect)), "Difference"),
+        na.value = "lightgrey"
       ) +
       labs(title = paste("Effect Differences Between Graphs (", tools::toTitleCase(gsub("_", " ", effect)), ")"),
            x = "To",
@@ -87,7 +101,7 @@ plot_graph_differences <- function(
           "2" = "Sign Flip: + → -"
         ),
         drop = FALSE,
-
+        na.value = "lightgrey",
         guide = guide_legend(override.aes = list(color = "black", size = 1))
       ) +
       labs(title = "Edge Differences Between Graphs",
@@ -97,8 +111,8 @@ plot_graph_differences <- function(
 
   # Add common styling elements
   p <- p +
-    scale_x_discrete(limits = factor(node_order, levels = node_order)) +  # Ensure x-axis is in the same order as names1
-    scale_y_discrete(limits = factor(rev(node_order), levels = rev(node_order))) +  # Reverse y-axis for matrix ordering
+    scale_y_discrete(drop = FALSE) +
+    scale_x_discrete(drop = FALSE) +
     theme_classic(base_size = 16) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     coord_equal() +

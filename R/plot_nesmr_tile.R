@@ -1,5 +1,9 @@
 #' @export
-plot_nesmr_tile.nesmr_tbl_graph <- function(x, weight = c("direct_effect", "total_effect"), ...) {
+plot_nesmr_tile.nesmr_tbl_graph <- function(
+  x, weight = c("direct_effect", "total_effect"),
+  neg_color = "#1f77b4",
+  pos_color = "#d62728",
+  ...) {
   # If we are plotting a graph, use the weights from direct/total effects
   weight <- match.arg(weight)
 
@@ -13,7 +17,8 @@ plot_nesmr_tile.nesmr_tbl_graph <- function(x, weight = c("direct_effect", "tota
       # TODO: Might be a better way to handle this?
       # This does maximal feedback arc set and topo sort from there
       ig <- igraph::as.igraph(x)
-      as.integer(igraph::topo_sort(ig - igraph::feedback_arc_set(ig)))
+      ts <- as.integer(igraph::topo_sort(ig - igraph::feedback_arc_set(ig)))
+      c(ts, setdiff(seq_len(nrow(x)), ts))  # Ensure all nodes are included
     }
   )
 
@@ -27,31 +32,44 @@ plot_nesmr_tile.nesmr_tbl_graph <- function(x, weight = c("direct_effect", "tota
   # Create nice title from weight name
   weight_title <- tools::toTitleCase(gsub("_", " ", weight))
 
+  # Get all node names for diagonal elements
+  all_nodes <- x %>% tidygraph::activate(nodes) %>% pull(name)
+  diag_df <- data.frame(
+    from = all_nodes,
+    to = all_nodes
+  )
+
   x %>%
     tidygraph::activate(edges) %>%
+    tidygraph::as_tibble() %>%
+    full_join(
+      diag_df,
+      by = c("from", "to")
+    ) %>%
     mutate(
       from = factor(from, levels = node_order),
-      to = factor(to, levels = node_order)
+      to = factor(to, levels = rev(node_order)),
+      !!sym(weight) := ifelse(from == to, NA, !!sym(weight))
     ) %>%
-    tidygraph::as_tibble() %>%
     ggplot(., aes(x = to, y = from, fill = !!sym(weight))) +
     geom_tile(color = "white") +
     geom_text(
       aes(label = ifelse(abs(!!sym(weight)) > 0.01, sprintf("%.2f", !!sym(weight)), "")),
       size = 5, color = "black") +
     scale_fill_gradient2(
-      low = "#1f77b4",
+      low = neg_color,
       mid = "white",
-      high = "#d62728",
+      high = pos_color,
       midpoint = 0,
       limits = c(-scale_limit, scale_limit),
-      name = weight_title
+      name = weight_title,
+      na.value = "lightgrey"
     ) +
-    scale_y_discrete(limits = factor(rev(node_order))) +  # Reverse y-axis for matrix ordering
-    scale_x_discrete(limits = factor(node_order)) +
     labs(title = paste(weight_title, "Matrix"),
          x = "To",
          y = "From") +
+    scale_y_discrete(drop = FALSE) +
+    scale_x_discrete(drop = FALSE) +
     theme_classic(base_size = 16) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     coord_equal() +
@@ -72,7 +90,9 @@ edge_inclusion_tile_plot <- function(x, ...) {
 #' @export
 edge_inclusion_tile_plot.nesmr_mh_graph_explore <- function(x, ...) {
   eip <- edge_inclusion_probs(x)
-  edge_inclusion_tile_plot(eip, ...)
+  best_graph <- top_i_graph(x, i = 1)
+  node_order <- unlist(layered_topological_sort(best_graph))
+  edge_inclusion_tile_plot(eip, node_order = node_order, ...)
 }
 
 #' @export
@@ -83,7 +103,8 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
   pos_color = "#d62728",
   neg_color = "#1f77b4",
   scale_limit = NULL,
-  scale_factor = 1) {
+  scale_factor = 1,
+  node_order = NULL) {
 
   weight <- match.arg(weight)
   plot_type <- match.arg(plot_type)
@@ -92,22 +113,38 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
     x <- tidygraph::as_tbl_graph(x)
   }
 
-  node_order <- tryCatch(
-    unlist(layered_topological_sort(x)),
-    error = function(e) {
-      # TODO: Might be a better way to handle this?
-      # This does maximal feedback arc set and topo sort from there
-      as.integer(igraph::topo_sort(x - igraph::feedback_arc_set(x)))
-    }
+  if (is.null(node_order)) {
+    # Get the node order from the layered topological sort
+    node_order <- tryCatch(
+      unlist(layered_topological_sort(x)),
+      error = function(e) {
+        # TODO: Might be a better way to handle this?
+        # This does maximal feedback arc set and topo sort from there
+        ts <- as.integer(igraph::topo_sort(x - igraph::feedback_arc_set(x)))
+        c(ts, setdiff(ts, tidygraph::activate(x, nodes) %>% pull(name)))  # Ensure all nodes are included
+      })
+  }
+
+  # Get all node names for diagonal elements
+  all_nodes <- x %>% tidygraph::activate(nodes) %>% pull(name)
+  diag_df <- data.frame(
+    from = all_nodes,
+    to = all_nodes
   )
+
   # TODO: Add a extra row of tiles (like BPG plots) for node layer
   x %>%
     tidygraph::activate(edges) %>%
+    tidygraph::as_tibble() %>%
+    full_join(
+      diag_df,
+      by = c("from", "to")
+    ) %>%
     mutate(
       from = factor(from, levels = node_order),
-      to = factor(to, levels = node_order)
+      to = factor(to, levels = rev(node_order)),
+      inclusion_prob = ifelse(from == to, NA, inclusion_prob)
     ) %>%
-    tidygraph::as_tibble() %>%
   ggplot(., aes(x = to, y = from, fill = round(inclusion_prob, 4))) +
     geom_tile(color = "white") +
     geom_text(
@@ -115,13 +152,14 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
     scale_fill_gradient(
       low = "white", high = "orange",
       name = "Edge Inclusion",
-      limits = c(0, 1)
+      limits = c(0, 1),
+      na.value = "lightgrey"
     ) +
-    scale_y_discrete(limits = factor(rev(node_order))) +  # Reverse y-axis for matrix ordering
-    scale_x_discrete(limits = factor(node_order)) +
     labs(title = "Edge Inclusion Probability",
         x = "To",
         y = "From") +
+    scale_y_discrete(drop = FALSE) +
+    scale_x_discrete(drop = FALSE) +
     theme_classic(base_size = 16) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     coord_equal() +
@@ -133,11 +171,13 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
 plot_nesmr_tile.nesmr_mh_graph_explore <- function(x, type = c("edge_inc_prob", "best")) {
   # Plot the edge inclusion probability or the best graph
   type <- match.arg(type)
+  best_graph <- top_i_graph(x, i = 1)
   if (type == "edge_inc_prob") {
-    edge_inclusion_tile_plot.nesmr_tbl_graph(edge_inclusion_probs(x))
+    # First get the ordering from th best graph
+    node_order <- unlist(layered_topological_sort(best_graph))
+    edge_inclusion_tile_plot.nesmr_tbl_graph(edge_inclusion_probs(x), node_order = node_order)
   } else if (type == "best") {
     # Get the best graph
-    best_graph <- top_i_graph(x, i = 1)
     plot_nesmr_tile.nesmr_tbl_graph(best_graph, weight = "direct_effect", plot_type = "beta")
   } else {
     stop("Unknown type for nesmr_mh_graph_explore.")

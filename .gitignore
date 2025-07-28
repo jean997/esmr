@@ -7,3 +7,4 @@ no_commit/
 *.rds
 *.Rd
 inst/doc
+docs

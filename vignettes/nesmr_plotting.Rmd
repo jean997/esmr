@@ -23,6 +23,7 @@ devtools::load_all(".")
 ## Simulation Example
 
 ```{r}
+set.seed(13)
 library(GWASBrewer)
 G <- matrix(
   c(0, 0, 0, 0,

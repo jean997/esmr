@@ -101,3 +101,14 @@ plot_layered_topo(best_graph)
 plot_layered_topo(best_graph, plot_type = "beta", weight = "direct_effect")
 ```
 
+### Weighted Graph - Tile
+
+```{r}
+plot_nesmr_tile(best_graph)
+```
+
+### Edge Inclusion Probabilities - Tile
+
+```{r}
+edge_inclusion_tile_plot(mh_results)
+```

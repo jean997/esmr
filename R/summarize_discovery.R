@@ -41,9 +41,13 @@ print.nesmr_mh_graph_explore <- function(x, ...) {
     invisible(x)
 }
 
-# TODO: Add variable names here or read from the results object
 #' @export
-edge_inclusion_probs <- function(x, min_prob_threshold = 0) {
+edge_inclusion_probs <- function(x, ...) {
+    UseMethod("edge_inclusion_probs")
+}
+
+#' @export
+edge_inclusion_probs.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 0) {
     discovery_table <- discovery_summary(x)
 
     discovery_table <- discovery_table[discovery_table$norm_elbo > min_prob_threshold, ]
@@ -62,7 +66,15 @@ edge_inclusion_probs <- function(x, min_prob_threshold = 0) {
     dplyr::arrange(desc(inclusion_prob)) |>
     as.data.frame()
 
-    return(inclusion_prob_long)
+    inc_tg <- tidygraph::tbl_graph(
+        # TODO: Fix this when I figure out best way to handle names
+        nodes = data.frame(name = sort(unique(c(inclusion_prob_long$from, inclusion_prob_long$to)))),
+        edges = inclusion_prob_long
+    )
+
+    class(inc_tg) <- c("nesmr_tbl_graph", "esmr_tbl_graph", class(inc_tg))
+
+    return(inc_tg)
 }
 
 #' @export

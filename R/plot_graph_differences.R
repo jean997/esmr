@@ -13,6 +13,9 @@ plot_graph_differences <- function(
   effect = c("direct_effect", "total_effect"),
   pos_color = "#d62728",
   neg_color = "#1f77b4",
+  scale_colors = c(
+    `-2` = "#D7191C", `-1` = "#FDAE61",
+    `0` = "white", `1` = "#ABDDA4", `2` = "#2B83BA"),
   node_order = NULL) {
   effect <- match.arg(effect)
   diff_type <- match.arg(diff_type)
@@ -89,9 +92,9 @@ plot_graph_differences <- function(
     p <- ggplot(graph_diffs,
       aes(x = to, y = from, fill = factor(as.character(diff_sign), levels = c("-2", "-1", "0", "1", "2")))) +
       geom_tile(color = "white", show.legend = TRUE) +
+      geom_tile(data = subset(graph_diffs, is.na(diff_sign)), fill = "grey") +
       scale_fill_manual(
-        values = setNames(c("#D7191C", "#FDAE61", "white", "#ABDDA4", "#2B83BA"),
-                          c("-2", "-1", "0", "1", "2")),
+        values = scale_colors,
         name = "Edge Change",
         labels = c(
           "-2" = "Sign Flip: - → +",
@@ -102,7 +105,10 @@ plot_graph_differences <- function(
         ),
         drop = FALSE,
         na.value = "lightgrey",
-        guide = guide_legend(override.aes = list(color = "black", size = 1))
+        na.translate = FALSE,
+        guide = guide_legend(
+          override.aes = list(color = "black", size = 1)
+        )
       ) +
       labs(title = "Edge Differences Between Graphs",
            x = "To",

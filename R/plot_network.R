@@ -91,13 +91,13 @@ layered_topo_with_edges <- function(adj, x_spacing = 1, y_spacing = 1, nice_name
 
 
 #' @export
-#' @importFrom ggraph guide_edge_colourbar
+#' @importFrom ggraph guide_edge_colorbar
 plot_layered_topo <- function(
   tg,
   weight = c("direct_effect", "total_effect"),
   plot_type = c("adj", "beta"),
-  pos_colour = "#d62728",
-  neg_colour = "#1f77b4",
+  pos_color = "#d62728",
+  neg_color = "#1f77b4",
   scale_limit = NULL,
   scale_factor = 1) {
   weight <- match.arg(weight)
@@ -149,7 +149,7 @@ plot_layered_topo <- function(
     ggraph::geom_edge_arc(
     data = ~filter(ggraph::get_edges()(.x), abs(x_from - x_to) > 2 | abs(y_from - y_to) > 0.5),
       aes(
-        edge_colour = colour,
+        edge_color = colour,
         label = if (plot_type == "beta") sprintf("%.2f", round(!!sym(weight), 2)) else NULL
         ),
       strength = 0.05,
@@ -165,7 +165,7 @@ plot_layered_topo <- function(
   ggraph::geom_edge_link(
     data = ~filter(ggraph::get_edges()(.x), abs(x_from - x_to) <= 2 & abs(y_from - y_to) <= 0.5),
       aes(
-        edge_colour = colour,
+        edge_color = colour,
         label = if (plot_type == "beta") sprintf("%.2f", round(!!sym(weight), 2)) else NULL),
       arrow = grid::arrow(length = grid::unit(5 * scale_factor, "pt"), type = "closed"),
       edge_width = 1.5 * scale_factor,
@@ -180,83 +180,20 @@ plot_layered_topo <- function(
 
   # Add appropriate color scale based on plot type
   if (plot_type == "adj") {
-    g <- g + ggraph::scale_edge_colour_manual(
-      values = c("Negative" = neg_colour, "Positive" = pos_colour),
+    g <- g + ggraph::scale_edge_color_manual(
+      values = c("Negative" = neg_color, "Positive" = pos_color),
       name = "Effect Sign"
     )
   } else if (plot_type == "beta") {
-    g <- g + ggraph::scale_edge_colour_gradient2(
-      low = neg_colour,
+    g <- g + ggraph::scale_edge_color_gradient2(
+      low = neg_color,
       mid = "white",
-      high = pos_colour,
+      high = pos_color,
       midpoint = 0,
       limits = c(-scale_limit, scale_limit),
       name = "Beta"
     ) +
-    guides(edge_colour = guide_edge_colourbar(barheight = 10 * scale_factor, barwidth = 0.5 * scale_factor))
+    guides(edge_color = guide_edge_colourbar(barheight = 10 * scale_factor, barwidth = 0.5 * scale_factor))
   }
   return(g)
-}
-
-
-
-#' Plot Differences Between Two Graphs
-#'
-#' This function visualizes the differences between two graphs, either by adjacency matrices or beta coefficients.
-#'
-#' @param tg1 first graph object
-#' @param tg2 second graph object
-#' @param diff_type Character vector specifying the type of difference to plot. Options are \code{"adj"} for adjacency matrix differences or \code{"beta"} for beta coefficient differences.
-#'
-#' @return A plot visualizing the differences between the two graphs.
-#' @export
-plot_graph_differences <- function(tg1, tg2, diff_type = c("adj", "beta")) {
-  names1 <- tg1 %>% tidygraph::activate(nodes) %>% pull(name)
-  names2 <- tg2 %>% tidygraph::activate(nodes) %>% pull(name)
-  stopifnot(identical(names1, names2))
-  #print(tidygraph::activate(tg1, edges))
-  #print(tidygraph::activate(tg2, edges))
-
-  graph_diffs <- tg1 %>%
-    activate(edges) %>%
-    as_tibble() %>%
-    select(from_name, to_name, beta) %>%
-    full_join(
-      tg2 %>% activate(edges) %>% as_tibble(),
-      by = c("from_name", "to_name"),
-      suffix = c("_tg1", "_tg2")
-    ) %>%
-    mutate(
-      across(ends_with("_tg1"), ~replace_na(., 0)),
-      across(ends_with("_tg2"), ~replace_na(., 0))
-    ) %>%
-    mutate(
-      beta_diff = beta_tg1 - beta_tg2,
-      sign_diff = sign(beta_diff),
-      diff_sign = sign(beta_tg1) - sign(beta_tg2),
-      inc_sign = (beta_tg1 != 0) - (beta_tg2 != 0)
-    )
-
-  # TODO: Different plots for different diff types
-  # tg_diff <- tbl_graph(
-  #   edges = graph_diffs,
-  #   nodes = data.frame(name = names1, ix = seq_along(names1)))
-
-  ggplot(graph_diffs, aes(x = to_name, y = from_name, fill = factor(inc_sign))) +
-  geom_tile(color = "white") +
-  scale_fill_manual(
-    values = c("-1" = "red", "0" = "white", "1" = "blue"),
-    name = "Difference",
-    labels = c("-1" = "Removed", "0" = "No Change", "1" = "Added")
-  ) +
-  scale_x_discrete(limits = names1) +  # Ensure x-axis is in the same order as names1
-  scale_y_discrete(limits = rev(names1)) +  # Reverse y-axis for matrix ordering
-  labs(title = "Edge Differences Between Top Two Graphs",
-       x = "To",
-       y = "From") +
-  theme_classic(base_size = 16) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  coord_equal() +
-  geom_vline(xintercept = seq(0.5, length(nice_names) + 0.5, by = 1), color = "grey80") +
-  geom_hline(yintercept = seq(0.5, length(nice_names) + 0.5, by = 1), color = "grey80")
 }

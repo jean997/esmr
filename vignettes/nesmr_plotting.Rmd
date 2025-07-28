@@ -112,3 +112,19 @@ plot_nesmr_tile(best_graph)
 ```{r}
 edge_inclusion_tile_plot(mh_results)
 ```
+
+## Graph Differences
+
+### Graph Differences - Beta difference
+
+```{r}
+best_graph <- top_i_graph(mh_results)
+next_graph <- top_i_graph(mh_results, i = 2)
+
+plot_graph_differences(best_graph, next_graph, diff_type = "beta")
+```
+
+```{r}
+# Adjacency (edge presence) differences
+plot_graph_differences(best_graph, next_graph, diff_type = "adj")
+```

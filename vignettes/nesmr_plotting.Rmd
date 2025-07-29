@@ -1,5 +1,5 @@
 ---
-title: "nesmr_plotting"
+title: "NESMR Plotting"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{nesmr_plotting}
@@ -10,20 +10,17 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#͜#>"
+  comment = "#͜#>",
+  fig.width = 7,
+  fig.height = 7
 )
-```
-
-```{r setup}
-# library(esmr)
-devtools::load_all(".")
 ```
 
 
 ## Simulation Example
-
 ```{r}
 set.seed(13)
+library(esmr)
 library(GWASBrewer)
 G <- matrix(
   c(0, 0, 0, 0,
@@ -61,15 +58,13 @@ dat <- sim_mv(
 
 ```{r}
 suppressWarnings(capture.output(mh_results <- mh_graph_explore(dat), file = nullfile()))
+
+kableExtra::kable(discovery_summary(mh_results), digits = 4, row.names = F)
 ```
 
-There are two simple plots to summarize the discovery algorithm:
- - Norm elbo
- - Cumulative normalized elbo
+### Discovery Plots - ELBO
 
-### Discovery Plots
-
-```{r}
+```{r, fig.height = 6}
 library(ggplot2)
 
 plot(mh_results, plot_type = "norm_elbo")
@@ -77,16 +72,17 @@ plot(mh_results, plot_type = "cum_norm_elbo")
 plot(mh_results, plot_type = "both")
 ```
 
-Now we can also get the best graph and plot it
+## Individual Graph Plots
+
+Individual graph objects extend [tidygraphs](https://tidygraph.data-imaginist.com/) which provide an easy interface that works with [ggraph](https://ggraph.data-imaginist.com/index.html) for plotting.
+
+We can get the best graph from the discovery results.
 
 ```{r}
 best_graph <- top_i_graph(mh_results)
 
 print(best_graph)
 ```
-
-## Individual Graph Plots
-
 
 ### Adjacency Graph
 

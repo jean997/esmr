@@ -230,6 +230,8 @@ create_tile_plot <- function(
   # Add text only if threshold is not Inf
   if (fill_var != "diff_sign_factor" && text_threshold < Inf) {
     p <- p + geom_text(
+      data = data %>%
+        filter(!is.na(!!sym(fill_var))),
       aes(label = ifelse(
         abs(!!sym(fill_var)) > text_threshold,
         sprintf(text_format, !!sym(fill_var)), "")),

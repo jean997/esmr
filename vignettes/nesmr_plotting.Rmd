@@ -16,11 +16,20 @@ knitr::opts_chunk$set(
 )
 ```
 
+# Introduction
+
+In this vignette, we demonstrate how to use the NESMR package for plotting and visualizing network structures inferred from GWAS summary statistics.
+We provide a simulation example, perform network discovery, and illustrate various plotting functions available in the package.
+
 
 ## Simulation Example
+
+We simulate GWAS summary statistics for traits that have a specified network structure using [GWASBrewer](https://github.com/jean997/GWASBrewer).
+
 ```{r}
 set.seed(13)
-library(esmr)
+#library(esmr)
+devtools::load_all()
 library(GWASBrewer)
 G <- matrix(
   c(0, 0, 0, 0,
@@ -101,7 +110,8 @@ plot_layered_topo(best_graph, plot_type = "beta", weight = "direct_effect")
 ### Weighted Graph - Tile
 
 ```{r}
-plot_nesmr_tile(best_graph)
+plot_nesmr_tile(best_graph, x_axis_position = "bottom")
+plot_nesmr_tile(best_graph, x_axis_position = "top")
 ```
 
 ### Edge Inclusion Probabilities - Tile

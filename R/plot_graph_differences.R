@@ -16,9 +16,11 @@ plot_graph_differences <- function(
   scale_colors = c(
     `-2` = "#D7191C", `-1` = "#FDAE61",
     `0` = "white", `1` = "#ABDDA4", `2` = "#2B83BA"),
-  node_order = NULL) {
+  node_order = NULL,
+  x_axis_position = c("top", "bottom")) {
   effect <- match.arg(effect)
   diff_type <- match.arg(diff_type)
+  x_axis_position <- match.arg(x_axis_position)
   names1 <- tg1 %>% tidygraph::activate(nodes) %>% pull(name)
   names2 <- tg2 %>% tidygraph::activate(nodes) %>% pull(name)
   stopifnot(identical(names1, names2))
@@ -70,60 +72,96 @@ plot_graph_differences <- function(
     # For beta differences, show the actual effect differences with gradient
     max_diff <- max(abs(graph_diffs$effect_diff), na.rm = TRUE)
 
-    p <- ggplot(graph_diffs, aes(x = to, y = from, fill = effect_diff)) +
-      geom_tile(color = "white") +
-      geom_text(
-        aes(label = ifelse(abs(effect_diff) > 0.01, sprintf("%.2f", effect_diff), "")),
-        size = 5, color = "black") +
-      scale_fill_gradient2(
-        low = neg_color,
-        mid = "white",
-        high = pos_color,
-        midpoint = 0,
-        limits = c(-max_diff, max_diff),
-        name = paste(tools::toTitleCase(gsub("_", " ", effect)), "Difference"),
-        na.value = "lightgrey"
-      ) +
-      labs(title = paste("Effect Differences Between Graphs (", tools::toTitleCase(gsub("_", " ", effect)), ")"),
-           x = "To",
-           y = "From")
+    # Create scale parameters for gradient2
+    scale_params <- list(
+      low = neg_color,
+      mid = "white",
+      high = pos_color,
+      midpoint = 0,
+      limits = c(-max_diff, max_diff),
+      name = paste(tools::toTitleCase(gsub("_", " ", effect)), "Difference")
+    )
+
+    # Use common tile plot function
+    p <- create_tile_plot(
+      data = graph_diffs,
+      fill_var = "effect_diff",
+      scale_type = "gradient2",
+      scale_params = scale_params,
+      title = paste("Effect Differences Between Graphs (", tools::toTitleCase(gsub("_", " ", effect)), ")"),
+      x_axis_position = x_axis_position,
+      node_order = names1
+    )
   } else {
     # For adjacency differences, show discrete edge changes
-    p <- ggplot(graph_diffs,
-      aes(x = to, y = from, fill = factor(as.character(diff_sign), levels = c("-2", "-1", "0", "1", "2")))) +
-      geom_tile(color = "white", show.legend = TRUE) +
-      geom_tile(data = subset(graph_diffs, is.na(diff_sign)), fill = "grey") +
-      scale_fill_manual(
-        values = scale_colors,
-        name = "Edge Change",
-        labels = c(
-          "-2" = "Sign Flip: - → +",
-          "-1" = "Edge Added",
-          "0" = "No Change",
-          "1" = "Edge Removed",
-          "2" = "Sign Flip: + → -"
-        ),
-        drop = FALSE,
-        na.value = "lightgrey",
-        na.translate = FALSE,
-        guide = guide_legend(
-          override.aes = list(color = "black", size = 1)
-        )
-      ) +
-      labs(title = "Edge Differences Between Graphs",
-           x = "To",
-           y = "From")
+    all_levels <- c("-2", "-1", "0", "1", "2")
+    scale_params <- list(
+      values = scale_colors,
+      name = "Edge Change",
+      labels = c(
+        "-2" = "Sign Flip: - → +",
+        "-1" = "Edge Removed",
+        "0" = "No Change",
+        "1" = "Edge Added",
+        "2" = "Sign Flip: + → -"
+      ),
+      breaks = all_levels,
+      limits = all_levels,
+      drop = FALSE,
+      guide = guide_legend(override.aes = list(color = "black", size = 1))
+    )
+
+    # Prepare data with factor levels - ensure all levels are represented
+    plot_data <- graph_diffs %>%
+      mutate(diff_sign_factor = factor(as.character(diff_sign), levels = all_levels))    # Use common tile plot function
+
+    p <- create_tile_plot(
+      data = plot_data,
+      fill_var = "diff_sign_factor",
+      scale_type = "manual",
+      scale_params = scale_params,
+      title = "Edge Differences Between Graphs",
+      x_axis_position = x_axis_position,
+      node_order = names1,
+      text_threshold = Inf  # Don't show text for manual scale
+    )
   }
 
-  # Add common styling elements
-  p <- p +
-    scale_y_discrete(drop = FALSE) +
-    scale_x_discrete(drop = FALSE) +
-    theme_classic(base_size = 16) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    coord_equal() +
-    geom_vline(xintercept = seq(0.5, length(names1) + 0.5, by = 1), color = "grey80") +
-    geom_hline(yintercept = seq(0.5, length(names1) + 0.5, by = 1), color = "grey80")
-
   return(p)
+}
+
+#' Prepare data for tile plots
+#'
+#' Internal function to prepare edge data with diagonal elements for tile plotting
+#'
+#' @param x A tidygraph object
+#' @param node_order Character vector specifying node order
+#' @param weight_var Character name of the weight variable to handle
+#' @param x_axis_position Position of x-axis ("top" or "bottom") for factor level ordering
+#'
+#' @return Data frame prepared for tile plotting
+prepare_tile_plot_data <- function(x, node_order, weight_var, x_axis_position = "top") {
+  # Get all node names for diagonal elements
+  all_nodes <- x %>% tidygraph::activate(nodes) %>% pull(name)
+  diag_df <- data.frame(
+    from = all_nodes,
+    to = all_nodes
+  )
+
+  # Prepare plot data with diagonal elements
+  plot_data <- x %>%
+    tidygraph::activate(edges) %>%
+    tidygraph::as_tibble() %>%
+    full_join(
+      diag_df,
+      by = c("from", "to")
+    ) %>%
+    mutate(
+      from = factor(from, levels = node_order),
+      to = factor(to, levels = if (x_axis_position == "top") rev(node_order) else node_order),
+      # Set diagonal elements to NA for the weight variable
+      !!weight_var := ifelse(from == to, NA, !!sym(weight_var))
+    )
+
+  return(plot_data)
 }

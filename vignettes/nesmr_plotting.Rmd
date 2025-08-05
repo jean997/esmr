@@ -109,12 +109,20 @@ plot_layered_topo(best_graph, plot_type = "beta", weight = "direct_effect")
 
 ### Weighted Graph - Tile
 
+The default plot for the weighted adjacency matrix plots the the tiles in matrix ordering. This can be controlled with the `x_axis_position` argument which accepts `top` or `bottom`.
+The variables are topologically ordered by default in the same order as the `plot_layered_topo` function.
+
 ```{r}
-plot_nesmr_tile(best_graph, x_axis_position = "bottom")
 plot_nesmr_tile(best_graph, x_axis_position = "top")
 ```
 
+```{r}
+plot_nesmr_tile(best_graph, x_axis_position = "bottom")
+```
+
 ### Edge Inclusion Probabilities - Tile
+
+Edge inclusion probabilities are the approximate posterior inclusion probability, or the sum of all of the normalized ELBOs in which that edge is present in a graph.
 
 ```{r}
 edge_inclusion_tile_plot(mh_results)
@@ -122,12 +130,35 @@ edge_inclusion_tile_plot(mh_results)
 
 ## Graph Differences
 
+We can compare the different graphs returned from NESMR discovery using a few different plotting function.
+
 ### Graph Differences - Beta difference
 
 ```{r}
 best_graph <- top_i_graph(mh_results)
 next_graph <- top_i_graph(mh_results, i = 2)
+```
 
+We can use the `-` operation on graphs to compute the differences between the graphs.
+This returns a tidygraph object which has edge comparisons for each edge in both graphs.
+These are columns in the tidygraph edges:
+
+  - `adj_diff` Adjacency difference. For a single graph, an edge present is considered a 1 and missing is considered zero. Then `adj_diff` is subtraction from these binary variables resulting in possible values of -1, 0, 1 representing edge in second graph only, edge present or absent in both graphs, or edge present in first graph only
+  - `sign_diff` Differences in the signs of the effects
+    - `-2 = "Sign Flip: - → +"`
+    - `-1 = "Edge Removed"`
+    - `0 = "No Change"`
+    - `1 = "Edge Added"`
+    - `2 = "Sign Flip: + → -"`
+  - `direct_effect` is now the difference of effects
+
+```{r}
+print(best_graph - next_graph)
+```
+
+These differences can be plotted in matrix/tile plotting functions
+
+```{r}
 plot_graph_differences(best_graph, next_graph, diff_type = "beta")
 ```
 

@@ -78,12 +78,12 @@ edge_inclusion_probs.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 
 }
 
 #' @export
-pip_graph <- function(x, ...) {
+eip_weighted_graph <- function(x, ...) {
     UseMethod("pip_graph")
 }
 
 #' @export
-pip_graph.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 0) {
+eip_weighted_graph.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 0) {
     if ("norm_elbo" %in% names(x)) {
         norm_elbo <- x$norm_elbo
     } else {

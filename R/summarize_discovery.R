@@ -78,6 +78,26 @@ edge_inclusion_probs.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 
 }
 
 #' @export
+pip_graph <- function(x, ...) {
+    UseMethod("pip_graph")
+}
+
+#' @export
+pip_graph.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 0) {
+    if ("norm_elbo" %in% names(x)) {
+        norm_elbo <- x$norm_elbo
+    } else {
+        norm_elbo <- exp(sapply(x$visited_graphs, function(g) g$elbo) - x$elbo_denom)
+    }
+
+    Reduce("+", lapply(seq_along(x$visited_graphs), function(i) {
+        beta_hat <- x$visited_graphs[[i]]$beta_hat
+        (norm_elbo[i] > min_prob_threshold) * (beta_hat * norm_elbo[i])
+    }))
+}
+
+
+#' @export
 top_i_graph <- function(x, i = 1) {
     all_elbos <- sapply(x$visited_graphs, function(g) g$elbo)
     norm_elbo <- exp(all_elbos - x$elbo_denom)

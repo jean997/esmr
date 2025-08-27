@@ -77,9 +77,10 @@ edge_inclusion_probs.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 
     return(inc_tg)
 }
 
+#' This is a sum of the edge inclusion probabilities times the estimated effect sizes.
 #' @export
 eip_weighted_graph <- function(x, ...) {
-    UseMethod("pip_graph")
+    UseMethod("eip_weighted_graph")
 }
 
 #' @export
@@ -95,7 +96,6 @@ eip_weighted_graph.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 0)
         (norm_elbo[i] > min_prob_threshold) * (beta_hat * norm_elbo[i])
     }))
 }
-
 
 #' @export
 top_i_graph <- function(x, i = 1) {

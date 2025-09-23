@@ -16,12 +16,13 @@ mh_graph_explore <- function(
   visited_graphs = list(),
   checkpoint_file = NULL,
   checkpoint_every = 0,
-  verbose = FALSE
+  verbose = FALSE,
+  debug = FALSE
   ) {
   # Create a logging function based on verbose parameter
   log_msg <- function(...) {
     if (verbose) {
-      message(...)
+      message("mh_graph_explore: ", ...)
     }
   }
 
@@ -37,12 +38,12 @@ mh_graph_explore <- function(
 
   if (is.null(n_mvmr_res)) {
     ## Start function here
-    n_mvmr_res <- esmr::nesmr_complete_mvmr(
+    capture.output({n_mvmr_res <- esmr::nesmr_complete_mvmr(
         beta_hat = dat$beta_hat,
         se_beta_hat = dat$s_estimate,
         pval_select = pval_select,
         R = R
-    )
+    )}, file = nullfile()) # if (verbose) "" else nullfile())
   }
 
   # TODO: Replace this with a true hash
@@ -108,14 +109,29 @@ mh_graph_explore <- function(
   mh_chain <- list()
   mh_accept <- list()
   mh_elbo_chain <- list()
+  elbo_denom <- -Inf
+  if (debug) {
+    mh_prop_denom <- list()
+    mh_prop_num <- list()
+    mh_prop_ratio <- list()
+    mh_exp_elbo_diff <- list()
+    mh_accept_prob <- list()
+  }
+
   for (i in seq_along(mh_chain_init)) {
+    if (debug) {
+        mh_prop_denom[[i]] <- list()
+        mh_prop_num[[i]] <- list()
+        mh_prop_ratio[[i]] <- list()
+        mh_exp_elbo_diff[[i]] <- list()
+        mh_accept_prob[[i]] <- list()
+    }
       # Note: This could be outside of the while or inside..
     curr_adj_mat <- mh_chain_init[[i]]
 #       log_msg(sprintf("Initial graph: correct = %s", B_correct_str == paste0((curr_adj_mat != 0) + 0, collapse = "")))
-      log_msg("Initial adjacency matrix:")
-      if (verbose) print(curr_adj_mat)
+      #log_msg("Initial adjacency matrix:")
+      # if (verbose) print(curr_adj_mat)
       # Collect the graphs as flattened strings as we go
-      # TODO: Should we fit this initial model ? Probably...
       curr_B <- (curr_adj_mat != 0) + 0
       curr_B_str <- paste0(curr_B, collapse = "")
 
@@ -124,6 +140,7 @@ mh_graph_explore <- function(
         # Initial NESMR fit
 #        capture.output({
         start_time <- Sys.time()
+        capture.output({
         init_mod <- esmr::esmr(
             beta_hat_X = dat$beta_hat,
             se_X = dat$s_estimate,
@@ -134,7 +151,7 @@ mh_graph_explore <- function(
             restrict_dag = T,
             beta_prior_cov = 1,
             R = R
-        )
+        )}, file = nullfile()) # if (verbose) stdout() else nullfile())
         end_time <- Sys.time()
         init_fit_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
         log_msg(sprintf("Initial fit time: %.2f seconds", init_fit_time))
@@ -146,9 +163,12 @@ mh_graph_explore <- function(
         visited_graphs[[curr_B_str]]$beta_hat <- init_mod$direct_effects
         visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$se_dm
         visited_graphs[[curr_B_str]]$proposed <- (visited_graphs[[curr_B_str]]$proposed %||% 0) + 1
+
+        elbo_denom <- matrixStats::logSumExp(c(elbo_denom, init_mod$elbo), na.rm = TRUE)
       }
 
-      elbo_denom <- visited_graphs[[curr_B_str]]$elbo
+
+      if (i == 1) elbo_denom <- visited_graphs[[curr_B_str]]$elbo
 
       mh_chain[[i]] <- list(curr_B_str)
       mh_accept[[i]] <- 1
@@ -163,8 +183,12 @@ mh_graph_explore <- function(
       nesmr_fits <- 1
       #while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
       while(iter < max_iter && nesmr_fits < max_nesmr_fits) {
-          log_msg("Current graph B matrix:")
-          if (verbose) print(curr_B)
+        log_msg("========================")
+        log_msg(sprintf("Chain %s, Iteration %d of max %d", names(mh_chain_init)[i], iter, max_iter))
+        log_msg(sprintf("Current number of unique graphs: %d", length(visited_graphs)))
+        log_msg(sprintf("Current number of NESMR fits: %d of max %d", nesmr_fits, max_nesmr_fits))
+          #log_msg("Current graph B matrix:")
+          #if (verbose) print(curr_B)
           if (curr_B_str %in% names(visited_graphs) && !is.null(visited_graphs[[curr_B_str]]$adj_graph_info)) {
               adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
           } else {
@@ -172,8 +196,8 @@ mh_graph_explore <- function(
               adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
           }
 
-          log_msg("Adjacent graph information:")
-          if (verbose) print(adj_graph_info)
+          # log_msg("Adjacent graph information:")
+          # if (verbose) print(adj_graph_info)
           candidate_draw <- esmr:::draw_graph(ig, adj_graph_info)
           tmp_ig <- candidate_draw$g
           # Denominator: h(G'|G)
@@ -230,8 +254,8 @@ mh_graph_explore <- function(
               }
 
               # TODO: Probably want to just re-fit from initial/previous chain
-#              capture.output(
-#                  {
+              capture.output(
+                  {
                       new_mod <- esmr::esmr(
                           beta_hat_X = dat$beta_hat,
                           se_X = dat$s_estimate,
@@ -245,9 +269,9 @@ mh_graph_explore <- function(
                       )
                       nesmr_fits <- nesmr_fits + 1
                       elbo_denom <- matrixStats::logSumExp(c(elbo_denom, new_mod$elbo), na.rm = TRUE)
-#                  },
-#                  file = nullfile()
-#              )
+                  },
+                  file = nullfile() #if (verbose) stdout() else nullfile()
+              )
 
               visited_graphs[[prop_B_str]]$elbo <- new_mod$elbo
               visited_graphs[[prop_B_str]]$beta_hat <- new_mod$direct_effects
@@ -259,22 +283,32 @@ mh_graph_explore <- function(
           visited_graphs[[prop_B_str]]$proposed <- (visited_graphs[[prop_B_str]]$proposed %||% 0) + 1
 
           elbo_diff <- proposal_graph_info$elbo - visited_graphs[[curr_B_str]]$elbo
-          log_msg(sprintf("ELBO diff: %s", round(elbo_diff, 4)))
-          log_msg(sprintf("ELBO curr: %s", round(visited_graphs[[curr_B_str]]$elbo, 4)))
-          log_msg(sprintf("ELBO denom: %s", round(elbo_denom, 4)))
-          log_msg(sprintf("exp(ELBO curr - ELBO denom): %s", round(exp(visited_graphs[[curr_B_str]]$elbo - elbo_denom), 4)))
+          #log_msg(sprintf("\tELBO diff: %s", round(elbo_diff, 4)))
+          #log_msg(sprintf("\tELBO curr: %s", round(visited_graphs[[curr_B_str]]$elbo, 4)))
+          #log_msg(sprintf("\tELBO denom: %s", round(elbo_denom, 4)))
+          # log_msg(sprintf("\texp(ELBO curr - ELBO denom): %s", round(exp(visited_graphs[[curr_B_str]]$elbo - elbo_denom), 4)))
 
 
           # TODO: Switch to log scale for everything
           prop_ratio <- prop_num / prop_denom
-          log_msg(sprintf("Proposal ratio: %s", round(prop_ratio, 4)))
+
+          log_msg(sprintf("\tProposal ratio: %s", round(prop_ratio, 4)))
 
           # Check accept/reject
           # max(1, exp(elbo(tmp_ig) - elbo(ig)))
           accept_prob <- min(
               1, exp(elbo_diff) * prop_ratio
           )
-          log_msg(sprintf("Total proposal ratio: %s", round(exp(elbo_diff) * prop_ratio, 4)))
+
+          if (debug) {
+            mh_prop_denom[[i]] <- append(mh_prop_denom[[i]], prop_denom)
+            mh_prop_num[[i]] <- append(mh_prop_num[[i]], prop_num)
+            mh_prop_ratio[[i]] <- append(mh_prop_ratio[[i]], prop_ratio)
+            mh_exp_elbo_diff[[i]] <- append(mh_exp_elbo_diff[[i]], exp(elbo_diff))
+            mh_accept_prob[[i]] <- append(mh_accept_prob[[i]], exp(elbo_diff) * prop_ratio)
+          }
+
+          log_msg(sprintf("\tTotal proposal ratio: %s", round(exp(elbo_diff) * prop_ratio, 4)))
 
 
         # Note: This is not really the "chain elbo" but rather the elbo of the proposal at each step
@@ -296,13 +330,13 @@ mh_graph_explore <- function(
               #mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
               visited_graphs[[curr_B_str]]$visited_count <- (visited_graphs[[curr_B_str]]$visited_count %||% 0 ) + 1
           }
-          log_msg(sprintf("Accept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
+          log_msg(sprintf("\tAccept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
 
           # log_msg(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
 
           iter <- iter + 1
-          log_msg(sprintf("Starting next iteration: %d", iter))
-          log_msg(sprintf("Number of nesmr fits: %d", nesmr_fits))
+          # log_msg(sprintf("Starting next iteration: %d", iter))
+          # log_msg(sprintf("Number of nesmr fits: %d", nesmr_fits))
             if (!is.null(checkpoint_file) && nesmr_fits %% checkpoint_every == 0) {
                 saveRDS(
                     list(
@@ -334,8 +368,17 @@ mh_graph_explore <- function(
       iter = iter,
       nesmr_fits = nesmr_fits,
       elbo_denom = elbo_denom,
-      mvmr_all = n_mvmr_res
+      mvmr_all = n_mvmr_res,
+      mh_chain_init = mh_chain_init
   )
+
+  if (debug) {
+    rtn$mh_prop_denom <- mh_prop_denom
+    rtn$mh_prop_num <- mh_prop_num
+    rtn$mh_prop_ratio <- mh_prop_ratio
+    rtn$mh_exp_elbo_diff <- mh_exp_elbo_diff
+    rtn$mh_accept_prob <- mh_accept_prob
+  }
   class(rtn) <- "nesmr_mh_graph_explore"
   return(rtn)
 }

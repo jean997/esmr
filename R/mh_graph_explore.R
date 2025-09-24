@@ -1,3 +1,80 @@
+#' Metropolis-Hastings Graph Exploration for NESMR
+#'
+#' This function performs Metropolis-Hastings (MH) sampling to explore the space of possible directed acyclic graphs (DAGs) which are then fit using NESMR.
+#' It starts from one or more initial graphs ("best", "sparse", "dense") and iteratively proposes new graphs by adding or removing edges, accepting or rejecting proposals based on the change in model evidence (ELBO) and a proposal probability.
+#'
+#' Edges are proposed based on a logistic transformation of the Z-scores. The shape of the logistic function is determined from the points: (0, min_prob) and (max_Z, max_prob).
+#' A lower max_prob will flatten the curve and make the difference between higher and lower Z-scores less. A higher max_Z will shift the curve to the right and make it more flat.
+#'
+#' @param dat A list containing GWAS summary statistics which must include `beta_hat` and `s_estimate` (matrices of effect sizes and standard errors).
+#' @param n_mvmr_res Optional. Precomputed NESMR MVMR results. If NULL, will be computed internally. This is computed from the nesmr_complete_mvmr and is beneficial pass if graph explorations are run multiple times.
+#' @param pval_select Optional. Matrix of p-values for variant selection. If NULL, will be computed from `dat` as 2 * pnorm(-abs( dat$beta_hat / dat$s_estimate))
+#' @param R Optional. LD matrix or NULL. See `?esmr::esmr` for more details.
+#' @param alpha P-value threshold for variant selection. Default is 5e-8. Ignored if `pval_select` is provided.
+#' @param max_Z Maximum Z-score for edge proposal probability mapping. Default is 5.
+#' @param max_prob Maximum probability for edge proposal mapping. Default is 0.7.
+#' @param min_prob Minimum probability for edge proposal mapping. Default is 0.01.
+#' @param init_prob_threshold Initial probability threshold for edge inclusion. Default is 0.1.
+#' @param sparse_chain Logical. Whether to initialize a sparse chain (single best edge). Default is FALSE.
+#' @param dense_chain Logical. Whether to initialize a dense chain (all possible edges). Default is FALSE.
+#' @param max_iter Maximum number of MH iterations per chain. Default is 1000.
+#' @param max_nesmr_fits Maximum number of NESMR model fits per chain. Default is 100.
+#' @param visited_graphs List of previously visited graphs (for warm start or checkpointing). Default is empty list.
+#' @param checkpoint_file Optional. File path to save checkpoints. Default is NULL.
+#' @param checkpoint_every Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).
+#' @param verbose Logical. Print progress and debug information. Default is FALSE.
+#' @param debug Logical. If TRUE, collects additional debug information during the MH sampling. Default is FALSE.
+#'
+#' @return An object of class `nesmr_mh_graph_explore`, a list containing:
+#'   - visited_graphs: List of all visited graphs and their ELBOs
+#'   - norm_elbo: Normalized ELBOs for all graphs
+#'   - mh_chain: List of graph chains (one per initialization)
+#'   - mh_accept: List of accept/reject indicators per chain
+#'   - mh_accept_ratio: Mean acceptance ratio per chain
+#'   - elbo_chain: List of ELBOs per chain
+#'   - iter: Number of iterations per chain
+#'   - nesmr_fits: Number of NESMR fits performed
+#'   - elbo_denom: Log-sum-exp denominator for normalization
+#'   - mvmr_all: The full MVMR NESMR result
+#'
+#' @examples
+#'
+#' library(GWASBrewer)
+#' library(esmr)
+#' # Generate a simple 4-node DAG and simulate using GWASBrewer
+#' G <- matrix(
+#'   c(0, 0, 0, 0,
+#'     0.25, 0, 0, 0,
+#'     0, 0, 0,  0,
+#'     0, -0.15, 0.2, 0),
+#'   nrow = 4,
+#'   byrow = 4
+#' )
+#' d <- ncol(G)
+#' h2 <- 0.2
+#' J <- 5000
+#' N <- 20000
+#' pi_J <- 0.1
+#' alpha <- 5e-8
+#'
+#' dat <- sim_mv(
+#'     G = G,
+#'     N = N,
+#'     J = J,
+#'     h2 = h2,
+#'     pi = pi_J,
+#'     sporadic_pleiotropy = TRUE,
+#'     est_s = TRUE
+#' )
+#'
+#' Z <- dat$beta_hat / dat$s_estimate
+#' pval_select <- 2*pnorm(-abs(Z))
+#' minp <- apply(pval_select, 1, min)
+#' ix <- which(minp < alpha)
+#' discovery_results <- mh_graph_explore(
+#'   dat, pval_select = pval_select, verbose = TRUE)
+#' print(discovery_results)
+#'
 #' @export
 mh_graph_explore <- function(
   dat,
@@ -16,6 +93,9 @@ mh_graph_explore <- function(
   visited_graphs = list(),
   checkpoint_file = NULL,
   checkpoint_every = 0,
+  temperature = FALSE,
+  burnin = round(max_iter / 10),
+  max_heat = 5,
   verbose = FALSE,
   debug = FALSE
   ) {
@@ -77,12 +157,12 @@ mh_graph_explore <- function(
   # Maximal acyclic subgraph (with filtering); Should be close to the true graph
   # A graph with single best Z-score
 
+  edge_prob_matrix <- Z_to_prob(abs(full_graph_zscores))
+
   mh_chain_init <- list(
     best_approx = {
       mat_init <- matrix(0, nrow = d, ncol = d)
-
       mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
-      edge_prob_matrix <- Z_to_prob(abs(mat_init))
       init_filter_zscore <- mat_init * (edge_prob_matrix > init_prob_threshold)
       sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
     }
@@ -116,6 +196,10 @@ mh_graph_explore <- function(
     mh_prop_ratio <- list()
     mh_exp_elbo_diff <- list()
     mh_accept_prob <- list()
+    mh_heat <- list()
+    mh_insert_edge <- list()
+    mh_mod_edge <- list()
+    mh_prop_edge_Z_score <- list()
   }
 
   for (i in seq_along(mh_chain_init)) {
@@ -125,6 +209,10 @@ mh_graph_explore <- function(
         mh_prop_ratio[[i]] <- list()
         mh_exp_elbo_diff[[i]] <- list()
         mh_accept_prob[[i]] <- list()
+        mh_heat[[i]] <- list()
+        mh_insert_edge[[i]] <- list()
+        mh_mod_edge[[i]] <- list()
+        mh_prop_edge_Z_score[[i]] <- list()
     }
       # Note: This could be outside of the while or inside..
     curr_adj_mat <- mh_chain_init[[i]]
@@ -181,6 +269,11 @@ mh_graph_explore <- function(
       )
       iter <- 1
       nesmr_fits <- 1
+      heat_param_func <- approxfun(
+        x = c(1, burnin),
+        y = c(max_heat, 1),
+      )
+
       #while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
       while(iter < max_iter && nesmr_fits < max_nesmr_fits) {
         log_msg("========================")
@@ -200,6 +293,8 @@ mh_graph_explore <- function(
           # if (verbose) print(adj_graph_info)
           candidate_draw <- esmr:::draw_graph(ig, adj_graph_info)
           tmp_ig <- candidate_draw$g
+
+
           # Denominator: h(G'|G)
           prop_denom <- candidate_draw$prob
 
@@ -294,10 +389,13 @@ mh_graph_explore <- function(
 
           log_msg(sprintf("\tProposal ratio: %s", round(prop_ratio, 4)))
 
+          heat_param <- if (temperature && iter <= burnin) heat_param_func(iter) else 1
+          # This should flatten the distribution so that more weight is on the proposal
+          mh_ratio <- prop_ratio * exp(elbo_diff / heat_param)
           # Check accept/reject
           # max(1, exp(elbo(tmp_ig) - elbo(ig)))
           accept_prob <- min(
-              1, exp(elbo_diff) * prop_ratio
+              1, mh_ratio
           )
 
           if (debug) {
@@ -305,11 +403,19 @@ mh_graph_explore <- function(
             mh_prop_num[[i]] <- append(mh_prop_num[[i]], prop_num)
             mh_prop_ratio[[i]] <- append(mh_prop_ratio[[i]], prop_ratio)
             mh_exp_elbo_diff[[i]] <- append(mh_exp_elbo_diff[[i]], exp(elbo_diff))
-            mh_accept_prob[[i]] <- append(mh_accept_prob[[i]], exp(elbo_diff) * prop_ratio)
+            mh_accept_prob[[i]] <- append(mh_accept_prob[[i]], mh_ratio)
+            mh_heat[[i]] <- append(mh_heat[[i]], heat_param)
+            mh_insert_edge[[i]] <- append(mh_insert_edge[[i]], candidate_draw$insert_edge)
+            mh_mod_edge[[i]] <- append(mh_mod_edge[[i]], candidate_draw$mod_edge)
+
+            mh_prop_edge_Z_score[[i]] <- append(
+                mh_prop_edge_Z_score[[i]],
+                full_graph_zscores[
+                    as.numeric(candidate_draw$from), as.numeric(candidate_draw$to)
+                ])
           }
 
-          log_msg(sprintf("\tTotal proposal ratio: %s", round(exp(elbo_diff) * prop_ratio, 4)))
-
+          log_msg(sprintf("\tTotal proposal ratio: %s (Heat parameter: %s)", round(mh_ratio, 4), round(heat_param, 4)))
 
         # Note: This is not really the "chain elbo" but rather the elbo of the proposal at each step
           mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], proposal_graph_info$elbo)
@@ -332,11 +438,7 @@ mh_graph_explore <- function(
           }
           log_msg(sprintf("\tAccept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
 
-          # log_msg(sprintf("Diff from true elbo: %.2f", true_mod$elbo - proposal_graph_info$elbo))
-
           iter <- iter + 1
-          # log_msg(sprintf("Starting next iteration: %d", iter))
-          # log_msg(sprintf("Number of nesmr fits: %d", nesmr_fits))
             if (!is.null(checkpoint_file) && nesmr_fits %% checkpoint_every == 0) {
                 saveRDS(
                     list(
@@ -378,6 +480,10 @@ mh_graph_explore <- function(
     rtn$mh_prop_ratio <- mh_prop_ratio
     rtn$mh_exp_elbo_diff <- mh_exp_elbo_diff
     rtn$mh_accept_prob <- mh_accept_prob
+    rtn$mh_mod_edge <- mh_mod_edge
+    rtn$mh_insert_edge <- mh_insert_edge
+    rtn$mh_heat <- mh_heat
+    rtn$mh_prop_edge_Z_score <- mh_prop_edge_Z_score
   }
   class(rtn) <- "nesmr_mh_graph_explore"
   return(rtn)
@@ -409,9 +515,15 @@ draw_graph <- function(g, x) {
       new_graph <- igraph::delete_edges(g, mod_edge)
       prob <- cond_prob[remove_edge_ix] / total_prob
   }
+
+  mod_edge_ix <- strsplit(mod_edge, "\\|")
+
   return(
       list(
-          g = new_graph, prob = prob, mod_edge = mod_edge, insert_edge = insert_edge))
+          g = new_graph, prob = prob, mod_edge = mod_edge, insert_edge = insert_edge,
+          from = mod_edge_ix[[1]][1], to = mod_edge_ix[[1]][2]
+          )
+)
 }
 
 # TODO: Import igraph

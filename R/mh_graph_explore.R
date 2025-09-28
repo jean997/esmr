@@ -14,7 +14,9 @@
 #' @param max_Z Maximum Z-score for edge proposal probability mapping. Default is 5.
 #' @param max_prob Maximum probability for edge proposal mapping. Default is 0.7.
 #' @param min_prob Minimum probability for edge proposal mapping. Default is 0.01.
-#' @param init_prob_threshold Initial probability threshold for edge inclusion. Default is 0.1.
+#' @param init_prob_threshold Initial probability threshold for edge inclusion based on Z-score p-values. Default is 0.05.
+#' @param init_prob_method Method for determining initial edge inclusion threshold. Options are "pvalue", "fdr". If "pvalue", then directly use the p-values from Z-score if "fdr", then use FDR adjusted values.
+#' @param mh_chain_init A named list of initial adjacency matrices to start MH chains from. If empty, will start one chain from the "best_approx" graph derived from the full MVMR results.
 #' @param sparse_chain Logical. Whether to initialize a sparse chain (single best edge). Default is FALSE.
 #' @param dense_chain Logical. Whether to initialize a dense chain (all possible edges). Default is FALSE.
 #' @param max_iter Maximum number of MH iterations per chain. Default is 1000.
@@ -85,9 +87,11 @@ mh_graph_explore <- function(
   max_Z = 5,
   max_prob = 0.7,
   min_prob = 0.01,
-  init_prob_threshold = 0.1,
-  sparse_chain = FALSE,
-  dense_chain = FALSE,
+  init_prob_threshold = 0.05, # TODO: Change this to Z-threshold/p-value threshold
+  init_prob_method = c("pvalue", "fdr"),
+  mh_chain_init = list(), # Default is empty list which is one chain at "best_approx"
+  sparse_chain = FALSE, # TODO: Remove this ?
+  dense_chain = FALSE, # TODO: Remove this?
   max_iter = 1000,
   max_nesmr_fits = 100,
   visited_graphs = list(),
@@ -105,6 +109,8 @@ mh_graph_explore <- function(
       message("mh_graph_explore: ", ...)
     }
   }
+
+  init_prob_method <- match.arg(init_prob_method)
 
   d <- ncol(dat$beta_hat)
   max_edges <- d * (d - 1)
@@ -159,14 +165,27 @@ mh_graph_explore <- function(
 
   edge_prob_matrix <- Z_to_prob(abs(full_graph_zscores))
 
-  mh_chain_init <- list(
-    best_approx = {
+  # Edge filter matrix
+  init_filter_matrix <- if (init_prob_method == "pvalue") {
+      (2 * pnorm(-abs(full_graph_zscores)) < init_prob_threshold) * 1
+  } else if (init_prob_method == "fdr") {
+      pval_matrix <- 2 * pnorm(-abs(full_graph_zscores))
+      # pval_matrix[diag(d)] <- NA
+      pval_vector <- pval_matrix[non_diag_i]
+      fdr_vector <- p.adjust(pval_vector, method = "fdr")
+      fdr_matrix <- matrix(0, nrow = d, ncol = d)
+      fdr_matrix[non_diag_i] <- fdr_vector
+      (fdr_matrix < init_prob_threshold) * 1 - diag(d)
+  } else {
+      stop("Unknown init_prob_method")
+  }
+
+  mh_chain_init$best_approx = {
       mat_init <- matrix(0, nrow = d, ncol = d)
       mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
-      init_filter_zscore <- mat_init * (edge_prob_matrix > init_prob_threshold)
+      init_filter_zscore <- mat_init * init_filter_matrix
       sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
     }
-  )
 
   if (sparse_chain) {
     mh_chain_init$min_graph <- {
@@ -328,12 +347,12 @@ mh_graph_explore <- function(
           } else {
               # We removed the edge
               add_candidates <- proposal_graph_info$adj_graph_info$add_candidates
-              add_candidate_prob <- proposal_graph_info$adj_graph_info$add_candidate_prob
+              add_edge_prob <- proposal_graph_info$adj_graph_info$add_edge_prob
               add_candidate_ix <- which(apply(add_candidates, 1, function(x) {
                   paste0(x, collapse = "|")
               }) == candidate_draw$mod_edge)
               # Numerator: h(G|G')
-              prop_num <- add_candidate_prob[add_candidate_ix]
+              prop_num <- add_edge_prob[add_candidate_ix]
           }
 
           if (is.null(proposal_graph_info$elbo)) {
@@ -491,7 +510,7 @@ mh_graph_explore <- function(
 
 draw_graph <- function(g, x) {
   add_candidates <- x$add_candidates
-  add_candidate_prob <- x$add_candidate_prob
+  add_edge_prob <- x$add_edge_prob
   total_add_prob <- x$total_add_prob
   total_remove_prob <- x$total_remove_prob
   remove_candidates <- x$remove_candidates
@@ -502,7 +521,7 @@ draw_graph <- function(g, x) {
   insert_edge <- runif(1) < total_add_prob / total_prob
   if (insert_edge) {
       # Draw from the add candidates
-      cond_prob <- add_candidate_prob / total_add_prob
+      cond_prob <- add_edge_prob / total_add_prob
       add_candidate_ix <- sample(seq_along(cond_prob), 1, prob = cond_prob)
       new_graph <- igraph::add_edges(g, add_candidates[add_candidate_ix, ])
       prob <- cond_prob[add_candidate_ix] / total_prob
@@ -526,7 +545,6 @@ draw_graph <- function(g, x) {
 )
 }
 
-# TODO: Import igraph
 get_adjacent_graphs <- function(g, weight_mat) {
     g_comp <- igraph::complementer(g, loops = FALSE)
 
@@ -547,15 +565,15 @@ get_adjacent_graphs <- function(g, weight_mat) {
     keep_graphs <- sapply(add_candidate_g, Negate(is.null))
 
     if (length(keep_graphs) == 0) {
-        add_candidate_prob <- 0
-        add_candidates <- 0
+        add_edge_prob <- numeric(0)
+        add_candidates <- matrix(numeric(0), ncol = 2)
     } else {
         add_candidate_g <- add_candidate_g[keep_graphs]
         add_candidates <- add_candidates[keep_graphs,, drop = FALSE]
-        add_candidate_prob <- weight_mat[add_candidates]
+        add_edge_prob <- weight_mat[add_candidates]
     }
 
-    total_add_prob <- sum(add_candidate_prob)
+    total_add_prob <- sum(add_edge_prob)
 
     # Remove candidates : all edges
     remove_candidates <- igraph::as_edgelist(g, names = FALSE)
@@ -565,17 +583,17 @@ get_adjacent_graphs <- function(g, weight_mat) {
 
     total_prob <- total_add_prob + total_remove_prob
     # Normalize both the probabilities
-    add_candidate_prob <- add_candidate_prob / total_prob
+    add_edge_prob <- add_edge_prob / total_prob
     remove_edge_prob <- remove_edge_prob / total_prob
 
     # First draw: Add w prob total_add_prob / (total_add_prob + total_remove_prob)
-    # Second if add: Draw from one of the add candidates w weights in add_candidate_prob
+    # Second if add: Draw from one of the add candidates w weights in add_edge_prob
     # Third if remove:
     #   - Draw from one of the remove candidates w weights in remove_edge_prob
     #   - Fit the graph that is removed
     list(
         add_candidates = add_candidates,
-        add_candidate_prob = add_candidate_prob,
+        add_edge_prob = add_edge_prob,
         total_add_prob = total_add_prob,
         total_remove_prob = total_remove_prob,
         remove_candidates = remove_candidates,

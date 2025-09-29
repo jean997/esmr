@@ -16,6 +16,7 @@
 #' @param min_prob Minimum probability for edge proposal mapping. Default is 0.01.
 #' @param init_prob_threshold Initial probability threshold for edge inclusion based on Z-score p-values. Default is 0.05.
 #' @param init_prob_method Method for determining initial edge inclusion threshold. Options are "pvalue", "fdr". If "pvalue", then directly use the p-values from Z-score if "fdr", then use FDR adjusted values.
+#' @param logistic_scale_range A numeric vector of length 2 indicating the range of logistic scaling. Default c(3, 0.0001) which linearly decrease the scale from 3 to 0.0001 over [1, max_iter]. This progressively puts more weight on the ELBO difference and more on the initial Z-score MVMR estimates as the chain progresses.
 #' @param mh_chain_init A named list of initial adjacency matrices to start MH chains from. If empty, will start one chain from the "best_approx" graph derived from the full MVMR results.
 #' @param sparse_chain Logical. Whether to initialize a sparse chain (single best edge). Default is FALSE.
 #' @param dense_chain Logical. Whether to initialize a dense chain (all possible edges). Default is FALSE.
@@ -89,6 +90,7 @@ mh_graph_explore <- function(
   min_prob = 0.01,
   init_prob_threshold = 0.05, # TODO: Change this to Z-threshold/p-value threshold
   init_prob_method = c("pvalue", "fdr"),
+  logistic_scale_range = c(3, 0.0001),
   mh_chain_init = list(), # Default is empty list which is one chain at "best_approx"
   sparse_chain = FALSE, # TODO: Remove this ?
   dense_chain = FALSE, # TODO: Remove this?
@@ -108,6 +110,16 @@ mh_graph_explore <- function(
     if (verbose) {
       message("mh_graph_explore: ", ...)
     }
+  }
+
+  if (! length(logistic_scale_range) %in% c(1, 2)) {
+      stop("logistic_scale_range must be a numeric vector of length 1 or 2")
+  } else if (length(logistic_scale_range) == 1) {
+      logistic_scale_range <- rep(logistic_scale_range, 2)
+  }
+
+  if (diff(logistic_scale_range) > 0) {
+      warning("logistic_scale_range should be decreasing. Consider reversing the order. This means that more weight is put on the ELBO difference at the start which is probably the opposite of what you want.")
   }
 
   init_prob_method <- match.arg(init_prob_method)
@@ -163,7 +175,8 @@ mh_graph_explore <- function(
   # Maximal acyclic subgraph (with filtering); Should be close to the true graph
   # A graph with single best Z-score
 
-  edge_prob_matrix <- Z_to_prob(abs(full_graph_zscores))
+  MVMR_abs_Z_scores <- abs(full_graph_zscores)
+  # edge_prob_matrix <- Z_to_prob(abs(full_graph_zscores))
 
   # Edge filter matrix
   init_filter_matrix <- if (init_prob_method == "pvalue") {
@@ -206,6 +219,7 @@ mh_graph_explore <- function(
   }
 
   mh_chain <- list()
+  mh_chain_prop <- list()
   mh_accept <- list()
   mh_elbo_chain <- list()
   elbo_denom <- -Inf
@@ -278,6 +292,7 @@ mh_graph_explore <- function(
       if (i == 1) elbo_denom <- visited_graphs[[curr_B_str]]$elbo
 
       mh_chain[[i]] <- list(curr_B_str)
+      mh_chain_prop[[i]] <- list(curr_B_str)
       mh_accept[[i]] <- 1
       mh_elbo_chain[[i]] <- visited_graphs[[curr_B_str]]$elbo
       # Now we expore the graph starting from curr_adj_mat
@@ -291,10 +306,19 @@ mh_graph_explore <- function(
       heat_param_func <- approxfun(
         x = c(1, burnin),
         y = c(max_heat, 1),
+        rule = 2
+      )
+
+      logistic_scale_func <- approxfun(
+        x = c(1, max_iter),
+        y = logistic_scale_range,
+        method = "linear",
+        rule = 2
       )
 
       #while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
       while(iter < max_iter && nesmr_fits < max_nesmr_fits) {
+        logistic_scale <-logistic_scale_func(iter)
         log_msg("========================")
         log_msg(sprintf("Chain %s, Iteration %d of max %d", names(mh_chain_init)[i], iter, max_iter))
         log_msg(sprintf("Current number of unique graphs: %d", length(visited_graphs)))
@@ -304,7 +328,8 @@ mh_graph_explore <- function(
           if (curr_B_str %in% names(visited_graphs) && !is.null(visited_graphs[[curr_B_str]]$adj_graph_info)) {
               adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
           } else {
-              visited_graphs[[curr_B_str]]$adj_graph_info <- esmr:::get_adjacent_graphs(ig, edge_prob_matrix)
+              visited_graphs[[curr_B_str]]$adj_graph_info <- esmr:::get_adjacent_graphs(
+                ig, MVMR_abs_Z_scores, logistic_scale = logistic_scale)
               adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
           }
 
@@ -328,7 +353,11 @@ mh_graph_explore <- function(
 
           # Check if we have neighboring graph information
           if (is.null(proposal_graph_info$adj_graph_info)) {
-              proposal_graph_info$adj_graph_info <- esmr:::get_adjacent_graphs(tmp_ig, edge_prob_matrix)
+              proposal_graph_info$adj_graph_info <- esmr:::get_adjacent_graphs(
+                tmp_ig, MVMR_abs_Z_scores,
+                location = adj_graph_info$location, # Use location from previous graph as need same proposal dist
+                logistic_scale = logistic_scale
+                )
               # Get the remove_candidate probability that we are removing
           }
 
@@ -394,6 +423,10 @@ mh_graph_explore <- function(
           }
 
           visited_graphs[[prop_B_str]] <- proposal_graph_info
+          # TODO: I think we can keep this but should recompute the probabilities each time
+          # This seems like the simplest way to do it for now
+
+          visited_graphs[[prop_B_str]]$adj_graph_info <- NULL
           visited_graphs[[prop_B_str]]$proposed <- (visited_graphs[[prop_B_str]]$proposed %||% 0) + 1
 
           elbo_diff <- proposal_graph_info$elbo - visited_graphs[[curr_B_str]]$elbo
@@ -434,12 +467,13 @@ mh_graph_explore <- function(
                 ])
           }
 
-          log_msg(sprintf("\tTotal proposal ratio: %s (Heat parameter: %s)", round(mh_ratio, 4), round(heat_param, 4)))
+          log_msg(sprintf("\tTotal proposal ratio: %s (Heat parameter: %s Logistic scale: %s)",
+              round(mh_ratio, 4), round(heat_param, 4), round(logistic_scale, 4)))
 
         # Note: This is not really the "chain elbo" but rather the elbo of the proposal at each step
           mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], proposal_graph_info$elbo)
 
-          mh_chain[[i]] <- append(mh_chain[[i]], prop_B_str)
+          mh_chain_prop[[i]] <- append(mh_chain_prop[[i]], prop_B_str)
 
           if (accept_prob == 1 || runif(1) < accept_prob) {
               curr_B <- prop_B
@@ -448,12 +482,14 @@ mh_graph_explore <- function(
               visited_graphs[[prop_B_str]]$visited_count <- (visited_graphs[[prop_B_str]]$visited_count %||% 0) + 1
 
               mh_accept[[i]] <- append(mh_accept[[i]], 1)
+              mh_chain[[i]] <- append(mh_chain[[i]], prop_B_str)
               #mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], proposal_graph_info$elbo)
           } else {
               #mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
               mh_accept[[i]] <- append(mh_accept[[i]], 0)
               #mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
               visited_graphs[[curr_B_str]]$visited_count <- (visited_graphs[[curr_B_str]]$visited_count %||% 0 ) + 1
+              mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
           }
           log_msg(sprintf("\tAccept/Reject ratio: %.2f", mean(unlist(mh_accept[[i]]))))
 
@@ -483,6 +519,7 @@ mh_graph_explore <- function(
       visited_graphs = visited_graphs,
       norm_elbo = norm_elbo,
       mh_chain = mh_chain,
+      mh_chain_prop = mh_chain_prop,
       mh_accept = mh_accept,
       mh_accept_ratio = mean(unlist(mh_accept[[i]])),
       elbo_chain = mh_elbo_chain,
@@ -545,7 +582,12 @@ draw_graph <- function(g, x) {
 )
 }
 
-get_adjacent_graphs <- function(g, weight_mat) {
+# If missing location, then use the maximum value in the current adjacency matrix
+# TODO: May be an issue for the proposal distribution for the inverse?
+get_adjacent_graphs <- function(
+    g, weight_mat, logistic_scale = 1,
+    location = NULL
+    ) {
     g_comp <- igraph::complementer(g, loops = FALSE)
 
 #    # TODO: Is it from here that we ned
@@ -565,20 +607,31 @@ get_adjacent_graphs <- function(g, weight_mat) {
     keep_graphs <- sapply(add_candidate_g, Negate(is.null))
 
     if (length(keep_graphs) == 0) {
-        add_edge_prob <- numeric(0)
+        add_edge_weight <- add_edge_prob <- numeric(0)
         add_candidates <- matrix(numeric(0), ncol = 2)
     } else {
         add_candidate_g <- add_candidate_g[keep_graphs]
         add_candidates <- add_candidates[keep_graphs,, drop = FALSE]
-        add_edge_prob <- weight_mat[add_candidates]
+        add_edge_weight <- weight_mat[add_candidates]
+        # add_edge_prob <- weight_mat[add_candidates]
     }
-
-    total_add_prob <- sum(add_edge_prob)
 
     # Remove candidates : all edges
     remove_candidates <- igraph::as_edgelist(g, names = FALSE)
-    remove_edge_prob <- 1 - weight_mat[remove_candidates]
+    remove_edge_weight <- weight_mat[remove_candidates]
 
+    if (is.null(location)) {
+        if (length(add_edge_weight) > 0) {
+            location <- max(remove_edge_weight, na.rm = TRUE)
+        } else if (length(remove_edge_weight) == 0) {
+            # Use the global max if no add candidates
+            location <- max(weight_mat, na.rm = TRUE)
+        }
+    }
+    add_edge_prob <- plogis(weight_mat[add_candidates], location = location, scale = logistic_scale)
+    remove_edge_prob <- 1 - plogis(weight_mat[remove_candidates], location = location, scale = logistic_scale)
+
+    total_add_prob <- sum(add_edge_prob)
     total_remove_prob <- sum(remove_edge_prob)
 
     total_prob <- total_add_prob + total_remove_prob
@@ -591,13 +644,16 @@ get_adjacent_graphs <- function(g, weight_mat) {
     # Third if remove:
     #   - Draw from one of the remove candidates w weights in remove_edge_prob
     #   - Fit the graph that is removed
+    # TODO: Put this into a single dataframe/matrix instead?
     list(
         add_candidates = add_candidates,
         add_edge_prob = add_edge_prob,
         total_add_prob = total_add_prob,
         total_remove_prob = total_remove_prob,
         remove_candidates = remove_candidates,
-        remove_edge_prob = remove_edge_prob
+        remove_edge_prob = remove_edge_prob,
+        logistic_scale = logistic_scale,
+        location = location
     )
 }
 

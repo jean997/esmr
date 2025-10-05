@@ -4,27 +4,50 @@ discovery_summary <- function(x) {
     # Table of graphs with number of edges, elbo, norm_elbo, and visited count
     n <- length(x$visited_graphs)
     all_elbos <- sapply(x$visited_graphs, function(g) g$elbo)
-    norm_elbo <- x$norm_elbo
+    norm_elbo <- matrixStats::logSumExp(all_elbos)
     flat_graphs <- names(x$visited_graphs)
-    num_edges <- sapply(flat_graphs, function(s) {
-        sum(as.numeric(stringr::str_split(s, "")[[1]]))
-    })
-    visit_count <- sapply(x$visited_graphs, function(g) g$visited_count %||% 0)
-
-    # Get the order that the models were visited
-    # Could either/both do the actual index time as well as the model visit index
-    # lapply(seq_along(x$mh_chain), function(i) {
-    #    match(flat_graphs, x$mh_chain[[i]])
+    # num_edges <- sapply(flat_graphs, function(s) {
+    #     sum(as.numeric(stringr::str_split(s, "")[[1]]))
     # })
-
-    graph_summary <- data.frame(
+    # visit_count <- sapply(x$visited_graphs, function(g) g$visited_count %||% 0)
+    all_elbos <- data.frame(
         graph = flat_graphs,
-        num_edges = num_edges,
         elbo = all_elbos,
-        norm_elbo = norm_elbo,
-        visit_count = visit_count
+        num_edges = sapply(stringr::str_split(flat_graphs, ""), function(s) sum(as.numeric(s)))
     )
+
+    # Total times visited
+    visit_count <- x$mh_chain_info %>%
+        group_by(curr_graph) %>%
+        summarize(
+            visit_count = n()
+        ) %>%
+        rename(
+            graph = curr_graph
+        )
+
+    # Proposed count
+    prop_count <- x$mh_chain_info %>%
+        group_by(prop_graph) %>%
+        summarize(
+            prop_count = n()
+        ) %>%
+        rename(
+            graph = prop_graph
+        )
+
+    graph_summary <- left_join(all_elbos, visit_count, by = "graph") %>%
+        left_join(prop_count, by = "graph") %>%
+        mutate(
+            norm_elbo = exp(elbo - norm_elbo)
+        ) %>%
+        mutate(
+            prop_count = ifelse(is.na(prop_count), 0, prop_count),
+            visit_count = ifelse(is.na(visit_count), 0, visit_count)
+        )
+
     rownames(graph_summary) <- NULL
+
     graph_summary <- graph_summary[order(graph_summary$norm_elbo, decreasing = TRUE), ]
 
     return(graph_summary)

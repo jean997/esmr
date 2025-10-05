@@ -90,7 +90,7 @@ mh_graph_explore <- function(
     init_prob_threshold = 0.05, # TODO: Change this to Z-threshold/p-value threshold
     init_prob_method = c("pvalue", "fdr"),
     logistic_location = 4,
-    logistic_scale = 1.5, # c(0.25, 3),
+    logistic_scale = 1, # c(0.25, 3),
     mh_chain_init = list(), # Default is empty list which is one chain at "best_approx"
     sparse_chain = FALSE, # TODO: Remove this ?
     dense_chain = FALSE, # TODO: Remove this?

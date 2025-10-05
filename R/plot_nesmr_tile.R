@@ -4,6 +4,7 @@ plot_nesmr_tile.nesmr_tbl_graph <- function(
   neg_color = "#1f77b4",
   pos_color = "#d62728",
   x_axis_position = c("top", "bottom"),
+  node_order = NULL,
   ...) {
   # If we are plotting a graph, use the weights from direct/total effects
   weight <- match.arg(weight)
@@ -13,16 +14,18 @@ plot_nesmr_tile.nesmr_tbl_graph <- function(
     x <- tidygraph::as_tbl_graph(x)
   }
 
-  node_order <- tryCatch(
-    unlist(layered_topological_sort(x)),
-    error = function(e) {
-      # TODO: Might be a better way to handle this?
-      # This does maximal feedback arc set and topo sort from there
-      ig <- igraph::as.igraph(x)
-      ts <- as.integer(igraph::topo_sort(ig - igraph::feedback_arc_set(ig)))
-      c(ts, setdiff(seq_len(nrow(x)), ts))  # Ensure all nodes are included
-    }
-  )
+  if (is.null(node_order)) {
+    node_order <- tryCatch(
+      unlist(layered_topological_sort(x)),
+      error = function(e) {
+        # TODO: Might be a better way to handle this?
+        # This does maximal feedback arc set and topo sort from there
+        ig <- igraph::as.igraph(x)
+        ts <- as.integer(igraph::topo_sort(ig - igraph::feedback_arc_set(ig)))
+        c(ts, setdiff(seq_len(nrow(x)), ts))  # Ensure all nodes are included
+      }
+    )
+  }
 
   # Get the weight values for scale limits
   weight_values <- x %>%
@@ -69,10 +72,10 @@ edge_inclusion_tile_plot <- function(x, ...) {
 }
 
 #' @export
-edge_inclusion_tile_plot.nesmr_mh_graph_explore <- function(x, ...) {
+edge_inclusion_tile_plot.nesmr_mh_graph_explore <- function(x, node_order = NULL, ...) {
   eip <- edge_inclusion_probs(x)
   best_graph <- top_i_graph(x, i = 1)
-  node_order <- unlist(layered_topological_sort(best_graph))
+  if (is.null(node_order)) node_order <- unlist(layered_topological_sort(best_graph))
   edge_inclusion_tile_plot(eip, node_order = node_order, ...)
 }
 
@@ -134,17 +137,18 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
 }
 
 #' @export
-plot_nesmr_tile.nesmr_mh_graph_explore <- function(x, type = c("edge_inc_prob", "best"), ...) {
+plot_nesmr_tile.nesmr_mh_graph_explore <- function(
+  x, type = c("edge_inc_prob", "best"), node_order = NULL, ...) {
   # Plot the edge inclusion probability or the best graph
   type <- match.arg(type)
   best_graph <- top_i_graph(x, i = 1)
   if (type == "edge_inc_prob") {
     # First get the ordering from th best graph
-    node_order <- unlist(layered_topological_sort(best_graph))
+    if (is.null(node_order)) node_order <- unlist(layered_topological_sort(best_graph))
     edge_inclusion_tile_plot.nesmr_tbl_graph(edge_inclusion_probs(x), node_order = node_order)
   } else if (type == "best") {
     # Get the best graph
-    plot_nesmr_tile.nesmr_tbl_graph(best_graph, weight = "direct_effect", plot_type = "beta", ...)
+    plot_nesmr_tile.nesmr_tbl_graph(best_graph, weight = "direct_effect", plot_type = "beta", node_order = node_order, ...)
   } else {
     stop("Unknown type for nesmr_mh_graph_explore.")
   }

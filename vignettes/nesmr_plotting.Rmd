@@ -2,7 +2,7 @@
 title: "NESMR Plotting"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{nesmr_plotting}
+  %\VignetteIndexEntry{NESMR Plotting}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -28,8 +28,7 @@ We simulate GWAS summary statistics for traits that have a specified network str
 
 ```{r}
 set.seed(13)
-#library(esmr)
-devtools::load_all()
+library(esmr)
 library(GWASBrewer)
 G <- matrix(
   c(0, 0, 0, 0,
@@ -68,12 +67,14 @@ dat <- sim_mv(
 ```{r}
 suppressWarnings(capture.output(mh_results <- mh_graph_explore(dat), file = nullfile()))
 
-kableExtra::kable(discovery_summary(mh_results), digits = 4, row.names = F)
+kableExtra::kable(
+  head(discovery_summary(mh_results), n = 10),
+  digits = 4)
 ```
 
 ### Discovery Plots - ELBO
 
-```{r, fig.height = 6}
+```{r norm-elbo-plots, fig.height = 6}
 library(ggplot2)
 
 plot(mh_results, plot_type = "norm_elbo")
@@ -87,7 +88,7 @@ Individual graph objects extend [tidygraphs](https://tidygraph.data-imaginist.co
 
 We can get the best graph from the discovery results.
 
-```{r}
+```{r best-graph}
 best_graph <- top_i_graph(mh_results)
 
 print(best_graph)
@@ -97,13 +98,13 @@ print(best_graph)
 
 Plot trinary graph (+1,0,-1) for positive and negative effects
 
-```{r}
+```{r best-graph-adj}
 plot_layered_topo(best_graph)
 ```
 
 ### Weighted Graph
 
-```{r}
+```{r best-graph-beta}
 plot_layered_topo(best_graph, plot_type = "beta", weight = "direct_effect")
 ```
 
@@ -112,20 +113,20 @@ plot_layered_topo(best_graph, plot_type = "beta", weight = "direct_effect")
 The default plot for the weighted adjacency matrix plots the the tiles in matrix ordering. This can be controlled with the `x_axis_position` argument which accepts `top` or `bottom`.
 The variables are topologically ordered by default in the same order as the `plot_layered_topo` function.
 
-```{r}
-plot_nesmr_tile(best_graph, x_axis_position = "top")
+```{r tile-best-graph-beta}
+plot_nesmr_tile(best_graph, x_axis_position = "top", node_order = 4:1)
 ```
 
-```{r}
-plot_nesmr_tile(best_graph, x_axis_position = "bottom")
+```{r, tile-best-graph-beta-bottom}
+plot_nesmr_tile(best_graph, x_axis_position = "bottom", node_order = 4:1)
 ```
 
 ### Edge Inclusion Probabilities - Tile
 
 Edge inclusion probabilities are the approximate posterior inclusion probability, or the sum of all of the normalized ELBOs in which that edge is present in a graph.
 
-```{r}
-edge_inclusion_tile_plot(mh_results)
+```{r eip-tile-plot}
+edge_inclusion_tile_plot(mh_results, node_order = 4:1)
 ```
 
 ## Graph Differences
@@ -134,9 +135,15 @@ We can compare the different graphs returned from NESMR discovery using a few di
 
 ### Graph Differences - Beta difference
 
-```{r}
+```{r graph-diff-plot, fig.width = 10, fig.height = 5}
+library(gridExtra)
 best_graph <- top_i_graph(mh_results)
 next_graph <- top_i_graph(mh_results, i = 2)
+
+coords <- layered_topo_sort_coords(best_graph)
+p1 <- plot_nesmr_graph(best_graph, coords = coords, plot_type = "beta") + ggtitle("Best Graph")
+p2 <- plot_nesmr_graph(next_graph, coords = coords, plot_type = "beta") + ggtitle("Next Graph")
+grid.arrange(p1, p2, nrow = 1)
 ```
 
 We can use the `-` operation on graphs to compute the differences between the graphs.
@@ -152,17 +159,17 @@ These are columns in the tidygraph edges:
     - `2 = "Sign Flip: + → -"`
   - `direct_effect` is now the difference of effects
 
-```{r}
+```{r graph-diff}
 print(best_graph - next_graph)
 ```
 
 These differences can be plotted in matrix/tile plotting functions
 
-```{r}
-plot_graph_differences(best_graph, next_graph, diff_type = "beta")
+```{r graph-diff-plot-beta}
+plot_graph_differences(best_graph, next_graph, diff_type = "beta", node_order = 4:1)
 ```
 
-```{r}
+```{r graph-diff-plot-adj}
 # Adjacency (edge presence) differences
-plot_graph_differences(best_graph, next_graph, diff_type = "adj")
+plot_graph_differences(best_graph, next_graph, diff_type = "adj", node_order = 4:1)
 ```

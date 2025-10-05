@@ -113,7 +113,7 @@ plot_graph_differences <- function(
 
     # Prepare data with factor levels - ensure all levels are represented
     plot_data <- graph_diffs %>%
-      mutate(diff_sign_factor = factor(as.character(diff_sign), levels = all_levels))    # Use common tile plot function
+      mutate(diff_sign_factor = factor(as.character(inc_sign), levels = all_levels))    # Use common tile plot function
 
     p <- create_tile_plot(
       data = plot_data,

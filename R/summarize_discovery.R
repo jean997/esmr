@@ -122,10 +122,11 @@ eip_weighted_graph.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 0)
 
 #' @export
 top_i_graph <- function(x, i = 1) {
-    all_elbos <- sapply(x$visited_graphs, function(g) g$elbo)
-    norm_elbo <- exp(all_elbos - x$elbo_denom)
+    x_summary <- discovery_summary(x)
+
     # Get the min index of the graph
-    graph_idx <- order(norm_elbo, decreasing = TRUE)[i]
+    graph_idx <- order(x_summary$norm_elbo, decreasing = TRUE)[i]
+    graph_str <- x_summary$graph[graph_idx]
 
     top_graph <- x$visited_graphs[[graph_idx]]
 
@@ -144,7 +145,7 @@ top_i_graph <- function(x, i = 1) {
 
         tg <- tidygraph::tbl_graph(nodes = nodes, edges = edgelist)
         tg$elbo <- top_graph$elbo
-        tg$norm_elbo <- norm_elbo[graph_idx]
+        tg$norm_elbo <- x_summary$norm_elbo[graph_idx]
         class(tg) <- c("discovery_tbl_graph", "nesmr_tbl_graph", "esmr_tbl_graph", class(tg))
         top_graph <- tg
     }
@@ -158,14 +159,17 @@ plot.nesmr_mh_graph_explore <- function(
     plot_type = c("norm_elbo", "cum_norm_elbo", "both"),
     ...) {
     plot_type <- match.arg(plot_type)
-    if (max_graphs > length(x$norm_elbo)) {
-        max_graphs <- length(x$norm_elbo)
+
+    x_summary <- discovery_summary(x)
+
+    if (max_graphs > length(x_summary$norm_elbo)) {
+        max_graphs <- length(x_summary$norm_elbo)
     }
     if (max_graphs < 1) {
         stop("max_graphs must be at least 1.")
     }
 
-    top_norm_elbo <- sort(x$norm_elbo, decreasing = TRUE)[1:max_graphs]
+    top_norm_elbo <- sort(x_summary$norm_elbo, decreasing = TRUE)[1:max_graphs]
     cum_norm_elbo <- cumsum(top_norm_elbo)
     plot_df <- data.frame(
         Index = 1:max_graphs,

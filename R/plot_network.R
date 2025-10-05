@@ -1,3 +1,14 @@
+#' Generate coordinates for layered topological sort layout
+#'
+#' @export
+#' @param g A graph object (matrix, tbl_graph, or igraph)
+#' @param names Optional character vector of node names (if g is a matrix)
+layered_topo_sort_coords <- function(g, names = NULL) {
+  layers <- layered_topological_sort(g, names)
+  coords <- coordinates_from_layers(layers)
+  return(coords)
+}
+
 #' Layered topological sort
 #' @param adj A square adjacency matrix, where [i,j] = 1 means an edge from i -> j
 #' @return A list of layers, where each layer is a vector of node names (or indices) that can be processed in parallel
@@ -10,13 +21,18 @@ layered_topological_sort <- function(g, names = NULL) {
     stop("Input must be a matrix, tbl_graph, or igraph object.")
   }
 
+  # Ensure all vertices have names; if not, assign indices as names
+  if (is.null(igraph::V(g)$name)) {
+    igraph::V(g)$name <- as.character(seq_len(igraph::vcount(g)))
+  }
+
   layers <- list()
   remaining <- g
 
-  while (igraph::vcount(remaining) > 0) {
+  while (igraph::ecount(remaining) > 0 && igraph::vcount(remaining) > 0) {
     in_deg <- igraph::degree(remaining, mode = "in")
-    # TODO: This will fail if no names
-    current_layer <- igraph::V(remaining)[in_deg == 0]$name
+    vnames <- igraph::V(remaining)$name
+    current_layer <- vnames[in_deg == 0]
 
     if (length(current_layer) == 0) {
       stop("Cycle detected: topological sort not possible.")
@@ -24,6 +40,23 @@ layered_topological_sort <- function(g, names = NULL) {
 
     layers[[length(layers) + 1]] <- current_layer
     remaining <- igraph::delete_vertices(remaining, current_layer)
+  }
+
+  # If any vertices remain (isolated nodes), add them as the last layer
+  if (igraph::vcount(remaining) > 0) {
+    vnames <- igraph::V(remaining)$name
+    if (length(vnames) > 0) {
+      layers[[length(layers) + 1]] <- vnames
+    }
+  }
+
+  # If original input had no names, return indices as numeric
+  if (!is.null(names) || (!is.null(igraph::V(g)$name) && !anyNA(suppressWarnings(as.numeric(igraph::V(g)$name))))) {
+    # Try to convert to numeric if names are just indices
+    try_numeric <- suppressWarnings(as.numeric(unlist(layers)))
+    if (!any(is.na(try_numeric))) {
+      layers <- lapply(layers, as.numeric)
+    }
   }
 
   return(layers)
@@ -89,9 +122,7 @@ layered_topo_with_edges <- function(adj, x_spacing = 1, y_spacing = 1, nice_name
   )
 }
 
-
 #' @export
-#' @importFrom ggraph guide_edge_colorbar
 plot_layered_topo <- function(
   tg,
   weight = c("direct_effect", "total_effect"),
@@ -99,14 +130,45 @@ plot_layered_topo <- function(
   pos_color = "#d62728",
   neg_color = "#1f77b4",
   scale_limit = NULL,
-  scale_factor = 1) {
+  scale_factor = 1,
+  coords = NULL,
+  ...) {
+    #ts_graph <- layered_topological_sort(tg)
+    #coords <- coordinates_from_layers(ts_graph)
+
+    plot_nesmr_graph(
+      tg,
+      weight = weight,
+      plot_type = plot_type,
+      pos_color = pos_color,
+      neg_color = neg_color,
+      scale_limit = scale_limit,
+      scale_factor = scale_factor,
+      coords = coords
+      #coords = coords
+    )
+}
+#' @export
+#' @importFrom ggraph guide_edge_colorbar
+plot_nesmr_graph <- function(
+  tg,
+  weight = c("direct_effect", "total_effect"),
+  plot_type = c("adj", "beta"),
+  pos_color = "#d62728",
+  neg_color = "#1f77b4",
+  scale_limit = NULL,
+  scale_factor = 1,
+  coords = NULL) {
   weight <- match.arg(weight)
   plot_type <- match.arg(plot_type)
   if (!inherits(tg, "nesmr_tbl_graph")) {
     tg <- tidygraph::as_tbl_graph(tg)
   }
-  ts_graph <- layered_topological_sort(tg)
-  coords <- coordinates_from_layers(ts_graph)
+
+  if (is.null(coords)) {
+    ts_graph <- layered_topological_sort(tg)
+    coords <- coordinates_from_layers(ts_graph)
+  }
 
   tg <- tg %>%
     tidygraph::activate(nodes) %>%
@@ -173,7 +235,7 @@ plot_layered_topo <- function(
       start_cap = ggraph::circle(1 * scale_factor, 'cm'),
       end_cap = ggraph::circle(1 * scale_factor, 'cm'),
       check_overlap = T) +
-    ggraph::geom_node_point(size = 3 * scale_factor) +
+#    ggraph::geom_node_point(size = 3 * scale_factor) +
     ggraph::geom_node_label(aes(label = name), size = 8 * scale_factor) +
     theme(legend.position = c(0.98, 0.02), legend.justification = c("right", "bottom")) +
     theme_void(base_size = 30 * scale_factor)

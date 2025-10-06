@@ -127,8 +127,7 @@ top_i_graph <- function(x, i = 1) {
     # Get the min index of the graph
     graph_idx <- order(x_summary$norm_elbo, decreasing = TRUE)[i]
     graph_str <- x_summary$graph[graph_idx]
-
-    top_graph <- x$visited_graphs[[graph_idx]]
+    top_graph <- x$visited_graphs[[graph_str]]
 
     # TODO: Remove this check if we make the graph a tidygraph
     if (!inherits(top_graph, "tidygraph")) {

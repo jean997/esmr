@@ -133,7 +133,7 @@ esmr <- function(beta_hat_X, se_X,
   o <- match(1:dat$p, dat$traits)
   dat <- reorder_data(dat, o)
 
-  if (!is.null(direct_effect_template) && is_dag(direct_effect_template)) {
+  if (!is.null(direct_effect_template) && is_dag(direct_effect_template) && !all(direct_effect_template == 0)) {
     # Multiply by direct effect template to ensure rounding is not an issue
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * direct_effect_template
     delt_pvals <- delta_method_pvals(dat)

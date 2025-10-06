@@ -49,7 +49,7 @@ init_beta <- function(dat, restrict_dag = TRUE, beta_prior_cov = NULL){
     }
 
     dat$beta$prior_cov <- beta_prior_cov
-    dat$beta$prior_precision <- solve(beta_prior_cov)
+    if (length(beta_prior_cov) > 0) dat$beta$prior_precision <- solve(beta_prior_cov)
   }
 
   return(dat)

@@ -16,6 +16,7 @@
 #' @param logistic_location Location parameter for logistic scaling. Default is 5 which centers the logistic function at the midpoint of the logistic function such that Z-score of 5 maps to 0.5.
 #' @param logistic_scale_range A numeric vector of length 2 indicating the range of logistic scaling. Default c(3, 0.0001) which linearly decrease the scale from 3 to 0.0001 over [1, max_iter]. This progressively puts more weight on the ELBO difference and more on the initial Z-score MVMR estimates as the chain progresses.
 #' @param mh_chain_init A named list of initial adjacency matrices to start MH chains from. If empty, will start one chain from the "best_approx" graph derived from the full MVMR results.
+#' @param mh_chain_params A list of additional parameters for the MH chains. If the chain has an entry in this list, it will use the parameters (logistic_location, logistic_scale) from this list instead of the global parameters. Some of the names of chains provided are "best_approx", "min_graph", "max_graph", "random_start_1", "random_start_2", etc.
 #' @param sparse_chain Logical. Whether to initialize a sparse chain (single best edge). Default is FALSE.
 #' @param dense_chain Logical. Whether to initialize a dense chain (all possible edges). Default is FALSE.
 #' @param max_iter Maximum number of MH iterations per chain. Default is 1000.
@@ -92,8 +93,10 @@ mh_graph_explore <- function(
     logistic_location = 4,
     logistic_scale = 1, # c(0.25, 3),
     mh_chain_init = list(), # Default is empty list which is one chain at "best_approx"
+    mh_chain_params = list(),
     sparse_chain = FALSE, # TODO: Remove this ?
     dense_chain = FALSE, # TODO: Remove this?
+    random_starts = 0,
     max_iter = 1000,
     max_nesmr_fits = 100,
     visited_graphs = list(),
@@ -203,6 +206,21 @@ mh_graph_explore <- function(
         }
     }
 
+    if (random_starts > 0) {
+        # Note: Question here about unique or not.
+        # If we are fitting with a single set of parameters, only makes sense to fit unique graphs
+        # If we are fitting with different parameters, then makes sense to fit non-unique graphs
+        random_start_graphs <- unique(map(seq_len(random_starts), function(i) {
+            noisy_zscores <- matrix(0, nrow = K, ncol = K)
+            noisy_zscores[non_diag_i] <- map(full_graph_zscores[non_diag_i], ~ rnorm(1, mean = .x, sd = 1)) %>% unlist()
+            diag(noisy_zscores) <- 0
+            initial_filter <- (abs(noisy_zscores) > qnorm(init_prob_threshold / 2, lower.tail = FALSE)) + 0
+            noisy_zscores <- noisy_zscores * initial_filter
+            (maximal_acyclic_subgraph(noisy_zscores^2) != 0) + 0
+            }))
+        mh_chain_init <- append(mh_chain_init, random_start_graphs %>% setNames(paste0("random_start_", seq_along(.))))
+    }
+
     mh_chain_info <- lapply(seq_along(mh_chain_init), function(x) vector("list", length = max_iter))
     elbo_denom <- -Inf
 
@@ -211,6 +229,7 @@ mh_graph_explore <- function(
         curr_adj_mat <- mh_chain_init[[i]]
         curr_B <- (curr_adj_mat != 0) + 0
         curr_B_str <- paste0(curr_B, collapse = "")
+        chain_name <- names(mh_chain_init)[i]
 
         if (is.null(visited_graphs[[curr_B_str]])) {
             # Initial NESMR fit
@@ -260,21 +279,29 @@ mh_graph_explore <- function(
             rule = 2
         )
 
-        logistic_scale_func <- approxfun(
-            x = c(1, max_iter),
-            y = logistic_scale_range,
-            method = "linear",
-            rule = 2
-        )
 
-        logistic_location_func <- approxfun(
-            x = c(1, max_iter),
-            y = logistic_location_range,
-            method = "linear",
-            rule = 2
-        )
+        if (chain_name %in% names(mh_chain_params) && !is.null(mh_chain_params[[chain_name]]$logistic_scale)) {
+            logistic_scale_func <- function(i) mh_chain_params[[chain_name]]$logistic_scale
+        } else {
+            logistic_scale_func <- approxfun(
+                x = c(1, max_iter),
+                y = logistic_scale_range,
+                method = "linear",
+                rule = 2
+            )
+        }
 
-        # while (hit_old_graph <= no_new_graph_limit && iter < max_iter) {
+        if (chain_name %in% names(mh_chain_params) && !is.null(mh_chain_params[[chain_name]]$logistic_location)) {
+            logistic_location_func <- function(i) mh_chain_params[[chain_name]]$logistic_location
+        } else {
+            logistic_location_func <- approxfun(
+                x = c(1, max_iter),
+                y = logistic_location_range,
+                method = "linear",
+                rule = 2
+            )
+        }
+
         while (iter <= max_iter && nesmr_fits <= max_nesmr_fits) {
             logistic_scale <- logistic_scale_func(iter)
             logistic_location <- logistic_location_func(iter)
@@ -349,9 +376,25 @@ mh_graph_explore <- function(
                 # Eventually esmr should support having zero edges
                 if (sum(prop_B) == 0) {
                     log_msg("Zero edges; continue")
-                    mh_chain[[i]] <- append(mh_chain[[i]], curr_B_str)
-                    mh_accept[[i]] <- append(mh_accept[[i]], 0)
-                    mh_elbo_chain[[i]] <- append(mh_elbo_chain[[i]], visited_graphs[[curr_B_str]]$elbo)
+                                # Record the chain info
+                    mh_chain_info[[i]][[iter]] <- list(
+                        chain = i,
+                        iter = iter,
+                        curr_graph = curr_B_str,
+                        prop_graph = prop_B_str,
+                        accepted = 0,
+                        curr_elbo = visited_graphs[[curr_B_str]]$elbo,
+                        prop_elbo = -Inf,
+                        elbo_diff = -Inf,
+                        prop_num = 0,
+                        prop_denom = 0,
+                        accept_prob = 0,
+                        mod_edge = candidate_draw$mod_edge,
+                        insert_edge = candidate_draw$insert_edge,
+                        heat_param = heat_param,
+                        logistic_scale = logistic_scale,
+                        logistic_location = logistic_location
+                    )
                     iter <- iter + 1
                     next
                 }
@@ -404,9 +447,12 @@ mh_graph_explore <- function(
             )
 
             log_msg(sprintf(
-                "\tTotal proposal ratio: %s (Heat parameter: %s Logistic scale: %s)",
-                round(mh_ratio, 4), round(heat_param, 4), round(logistic_scale, 4)
-            ))
+                "\tTotal proposal ratio: %s (%sLogistic scale: %s Logistic location: %s)",
+                round(mh_ratio, 4),
+                if (temperature) paste0("Heat parameter: ", round(heat_param, 4), " ") else "",
+                round(logistic_scale, 4),
+                round(logistic_location, 4))
+            )
 
             # Record all info for this step
             accepted <- as.integer(accept_prob == 1 || runif(1) < accept_prob)

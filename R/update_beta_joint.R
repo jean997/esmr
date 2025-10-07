@@ -1,15 +1,18 @@
 
 #'@export
-update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = FALSE){
+update_beta_joint <- function(dat,
+                              j=1, ix = NULL,
+                              return_W = FALSE,
+                              cond_num = 1e10){
 
   # j is the row of F that we will update. F is p rows by k columns
   # for factors version, abar and lbar are both n by k, lbar and abar are the same
-  
+
   p <- dat$p
   k <- dat$k
   n <- dat$n
- 
-  
+
+
   if(is.null(ix)){
     ix <- seq(k)[-j]
   }else{
@@ -18,12 +21,7 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     #ix <- sort(ix)
   }
   m <- length(ix)
-  if(is.null(prior_cov)){
-    T0 <- matrix(0, nrow = m, ncol = m)
-  }else{
-    T0 <- check_matrix(prior_cov, m, m)
-    T0 <- solve(prior_cov)
-  }
+
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
   if(dat$s_equal){
@@ -62,7 +60,7 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
 
   evR <- eigen(R, only.values = TRUE)$values
   condR <- abs(max(evR)/min(evR))
-  if(any(evR < 0) | condR > 1e15){
+  if(any(evR < 0) | condR > cond_num){
     all_zero_cols_lbar <- apply(zapsmall(dat$l$lbar, digits = 10), 2, function(x){
       all(x == 0)
     })
@@ -70,7 +68,7 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
       stop('lbar has a column of all zeros for column(s): ', which(all_zero_cols_lbar))
     }
     warning("Projecting internal R to nearest PD matrix in beta update.\n")
-    R <- Matrix::nearPD(R)$mat
+    R <- Matrix::nearPD(R, posd.tol = 1/cond_num)$mat
   }
 
   S <- solve(R)

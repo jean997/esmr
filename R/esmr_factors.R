@@ -34,6 +34,7 @@ esmr_factors <- function(beta_hat_X, se_X,
                  max_iter = 100,
                  sigma_beta = Inf,
                  tol = "default",
+                 cond_num = 1e10,
                  ####
                  beta_joint = TRUE){
 
@@ -58,7 +59,7 @@ esmr_factors <- function(beta_hat_X, se_X,
                   R, ld_scores, RE, tau_init)
 
   dat$G <- diag(dat$k )
-
+  dat$cond_num <- cond_num
   class(dat) <- c(c("esmr"), class(dat))
   dat$is_nesmr <- FALSE
   dat$is_factors <- TRUE

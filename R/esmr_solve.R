@@ -6,6 +6,9 @@ esmr_solve <- function(dat, max_iter, tol){
   i <- 1
 
   dat$obj_dec_warn <- FALSE
+  cond_num <- dat$cond_num
+  if(is.null(cond_num)) cond_num <- 1e10
+
   nb <- length(dat$beta$beta_j)
 
   while(i < max_iter & check > tol){
@@ -29,7 +32,7 @@ esmr_solve <- function(dat, max_iter, tol){
           ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)
           if(length(ii) == 0) next
           ix <- dat$beta$beta_k[ii]
-          beta_upd <- update_beta_joint(dat, j = j, ix = ix)
+          beta_upd <- update_beta_joint(dat, j = j, ix = ix, cond_num = cond_num)
 
           dat$beta$beta_m[ii] <- beta_upd$m
           dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))

@@ -41,7 +41,8 @@ esmr <- function(beta_hat_X, se_X,
                  # direct_effect_fix = NULL,
                  #fix_beta = FALSE,
                  beta_joint = TRUE,
-                 augment_G = TRUE){
+                 augment_G = TRUE,
+                 cond_num = 1e10){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
@@ -63,10 +64,12 @@ esmr <- function(beta_hat_X, se_X,
   }
 
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
-
   class(dat) <- c(c("esmr"), class(dat))
+
   dat$is_nesmr <- ! is.null(direct_effect_template)
   dat$is_factors <- FALSE
+  dat$cond_num <- cond_num
+
   if (dat$is_nesmr) {
     class(dat) <- c(c("nesmr"), class(dat))
   }

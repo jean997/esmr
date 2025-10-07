@@ -96,7 +96,7 @@ edge_inclusion_probs.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 
         # TODO: Fix this when I figure out best way to handle names
         nodes = data.frame(name = seq_len(K)),
         edges = inclusion_prob_long,
-        directed = FALSE
+        directed = TRUE
     )
 
     class(inc_tg) <- c("nesmr_tbl_graph", "esmr_tbl_graph", class(inc_tg))

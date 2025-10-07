@@ -75,6 +75,8 @@ edge_inclusion_probs.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 
 
     discovery_table <- discovery_table[discovery_table$norm_elbo > min_prob_threshold, ]
 
+    K <- sqrt(nchar(discovery_table$graph[[1]]))
+
     inclusion_prob_long <- purrr::map_dfr(seq_along(discovery_table$graph), function(i) {
         g <- discovery_table$graph[i]
         cbind(matrix_to_edgelist(flat_string_to_adj_mat(g)),
@@ -89,10 +91,12 @@ edge_inclusion_probs.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 
     dplyr::arrange(desc(inclusion_prob)) |>
     as.data.frame()
 
+
     inc_tg <- tidygraph::tbl_graph(
         # TODO: Fix this when I figure out best way to handle names
-        nodes = data.frame(name = sort(unique(c(inclusion_prob_long$from, inclusion_prob_long$to)))),
-        edges = inclusion_prob_long
+        nodes = data.frame(name = seq_len(K)),
+        edges = inclusion_prob_long,
+        directed = FALSE
     )
 
     class(inc_tg) <- c("nesmr_tbl_graph", "esmr_tbl_graph", class(inc_tg))

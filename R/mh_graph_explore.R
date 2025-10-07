@@ -497,10 +497,15 @@ mh_graph_explore <- function(
                     # TODO: Need to update this for the resume mh_graph_explore
                     list(
                         visited_graphs = visited_graphs,
-                        mh_chain_info = mh_chain_info,
+                        mh_chain_info = dplyr::bind_rows(mh_chain_info),
                         n_nesmr_fits = nesmr_fits,
                         mvmr_all = n_mvmr_res,
-                        mh_chain_init = mh_chain_init
+                        mh_chain_init = mh_chain_init,
+                        temperature = temperature,
+                        burnin = burnin,
+                        max_heat = max_heat,
+                        logistic_location = logistic_location_range,
+                        logistic_scale = logistic_scale_range
                     ),
                     file = checkpoint_file
                 )

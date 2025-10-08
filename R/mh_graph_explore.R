@@ -25,7 +25,6 @@
 #' @param checkpoint_file Optional. File path to save checkpoints. Default is NULL.
 #' @param checkpoint_every Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).
 #' @param verbose Logical. Print progress and debug information. Default is FALSE.
-#' @param debug Logical. If TRUE, collects additional debug information during the MH sampling. Default is FALSE.
 #'
 #' @return An object of class `nesmr_mh_graph_explore`, a list containing:
 #'   - visited_graphs: List of all visited graphs and their ELBOs
@@ -211,7 +210,7 @@ mh_graph_explore <- function(
         # If we are fitting with a single set of parameters, only makes sense to fit unique graphs
         # If we are fitting with different parameters, then makes sense to fit non-unique graphs
         random_start_graphs <- unique(map(seq_len(random_starts), function(i) {
-            noisy_zscores <- matrix(0, nrow = K, ncol = K)
+            noisy_zscores <- matrix(0, nrow = d, ncol = d)
             noisy_zscores[non_diag_i] <- map(full_graph_zscores[non_diag_i], ~ rnorm(1, mean = .x, sd = 1)) %>% unlist()
             diag(noisy_zscores) <- 0
             initial_filter <- (abs(noisy_zscores) > qnorm(init_prob_threshold / 2, lower.tail = FALSE)) + 0

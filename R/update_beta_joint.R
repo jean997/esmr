@@ -124,7 +124,7 @@ update_beta_full_joint <- function(dat, prior_cov = NULL){
     R <- Rfull
     a <- afull
   }
-  S <- solve(R)
+  S <- solve(R + T0)
   mu <- S %*% a
   return(list(m = mu, S = S))
 }

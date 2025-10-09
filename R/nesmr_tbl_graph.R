@@ -7,11 +7,11 @@ as.matrix.nesmr_tbl_graph <- function(x, value = c("direct_effect", "total_effec
     tidygraph::activate(edges) |>
     tidygraph::as_tibble()
 
-  if (ncol(edgelist) > 3) {
-    edgelist %>% dplyr::select(from, to, !!value)
+  edgelist <- if (ncol(edgelist) > 3) {
+    edgelist %>% dplyr::select(from, to, !!value) %>% as.matrix()
   } else {
-    edgelist
-  } %>% as.matrix()
+    edgelist %>% as.matrix()
+  }
 
   rtn_mat <- matrix(0, nrow = length(graph_names), ncol = length(graph_names))
   rtn_mat[edgelist[, 1:2]] <- edgelist[,3]

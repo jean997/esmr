@@ -3,9 +3,9 @@
 #' @export
 #' @param g A graph object (matrix, tbl_graph, or igraph)
 #' @param names Optional character vector of node names (if g is a matrix)
-layered_topo_sort_coords <- function(g, names = NULL) {
+layered_topo_sort_coords <- function(g, names = NULL, x_spacing = 1, y_spacing = 1) {
   layers <- layered_topological_sort(g, names)
-  coords <- coordinates_from_layers(layers)
+  coords <- coordinates_from_layers(layers, x_spacing = x_spacing, y_spacing = y_spacing)
   return(coords)
 }
 
@@ -13,50 +13,61 @@ layered_topo_sort_coords <- function(g, names = NULL) {
 #' @param adj A square adjacency matrix, where [i,j] = 1 means an edge from i -> j
 #' @return A list of layers, where each layer is a vector of node names (or indices) that can be processed in parallel
 layered_topological_sort <- function(g, names = NULL) {
+  # Accept adjacency matrix, tbl_graph, igraph, or logical adjacency (matrix != 0)
   if (is.matrix(g)) {
-    g <- igraph::graph_from_adjacency_matrix(g, mode = "directed")
+    adj <- (g != 0) * 1
+    node_names <- colnames(g)
+    if (is.null(node_names)) node_names <- as.character(seq_len(ncol(g)))
   } else if (inherits(g, "tbl_graph")) {
-    g <- igraph::as.igraph(g)
-  } else if (!inherits(g, "igraph")) {
+    g_ig <- igraph::as.igraph(g)
+    adj <- as.matrix(igraph::as_adj(g_ig, sparse = FALSE))
+    node_names <- igraph::V(g_ig)$name
+    if (is.null(node_names)) node_names <- as.character(seq_len(ncol(adj)))
+  } else if (inherits(g, "igraph")) {
+    adj <- as.matrix(igraph::as_adj(g, sparse = FALSE))
+    node_names <- igraph::V(g)$name
+    if (is.null(node_names)) node_names <- as.character(seq_len(ncol(adj)))
+  } else {
     stop("Input must be a matrix, tbl_graph, or igraph object.")
   }
 
-  # Ensure all vertices have names; if not, assign indices as names
-  if (is.null(igraph::V(g)$name)) {
-    igraph::V(g)$name <- as.character(seq_len(igraph::vcount(g)))
-  }
+  # Kahn's algorithm for layered/topological sort
+  n <- ncol(adj)
+  colnames(adj) <- node_names
+  rownames(adj) <- node_names
+
+  in_deg <- colSums(adj != 0)
+  remaining <- rep(TRUE, n)
+  names(remaining) <- node_names
 
   layers <- list()
-  remaining <- g
-
-  while (igraph::ecount(remaining) > 0 && igraph::vcount(remaining) > 0) {
-    in_deg <- igraph::degree(remaining, mode = "in")
-    vnames <- igraph::V(remaining)$name
-    current_layer <- vnames[in_deg == 0]
-
-    if (length(current_layer) == 0) {
-      stop("Cycle detected: topological sort not possible.")
+  while (any(remaining)) {
+    zero_in <- names(which(in_deg == 0 & remaining))
+    if (length(zero_in) == 0) {
+      # cycle detected; return partial layers and then remaining nodes as a final layer
+      warning("Cycle detected: returning partial order with remaining nodes grouped in final layer.")
+      rem_nodes <- names(remaining[remaining])
+      layers[[length(layers) + 1]] <- rem_nodes
+      break
     }
-
-    layers[[length(layers) + 1]] <- current_layer
-    remaining <- igraph::delete_vertices(remaining, current_layer)
+    # add current layer
+    layers[[length(layers) + 1]] <- zero_in
+    # remove these nodes from remaining and decrement in-degrees of their targets
+    for (v in zero_in) {
+      remaining[v] <- FALSE
+      # for each outgoing edge v -> u, decrement in_deg[u]
+      outs <- which(adj[v, ] != 0)
+      if (length(outs) > 0) {
+        out_names <- colnames(adj)[outs]
+        in_deg[out_names] <- in_deg[out_names] - 1
+      }
+    }
   }
 
-  # If any vertices remain (isolated nodes), add them as the last layer
-  if (igraph::vcount(remaining) > 0) {
-    vnames <- igraph::V(remaining)$name
-    if (length(vnames) > 0) {
-      layers[[length(layers) + 1]] <- vnames
-    }
-  }
-
-  # If original input had no names, return indices as numeric
-  if (!is.null(names) || (!is.null(igraph::V(g)$name) && !anyNA(suppressWarnings(as.numeric(igraph::V(g)$name))))) {
-    # Try to convert to numeric if names are just indices
-    try_numeric <- suppressWarnings(as.numeric(unlist(layers)))
-    if (!any(is.na(try_numeric))) {
-      layers <- lapply(layers, as.numeric)
-    }
+  # If names parameter was NULL and node_names are numeric-like, convert layers to numeric indices
+  maybe_numeric <- suppressWarnings(as.numeric(node_names))
+  if (!is.null(names) || (!any(is.na(maybe_numeric)) && all(node_names == as.character(maybe_numeric)))) {
+    layers <- lapply(layers, function(x) as.integer(x))
   }
 
   return(layers)
@@ -65,23 +76,48 @@ layered_topological_sort <- function(g, names = NULL) {
 coordinates_from_layers <- function(layers, x_spacing = 1, y_spacing = 1) {
   coords <- data.frame(name = character(), x = numeric(), y = numeric(), stringsAsFactors = FALSE)
 
+  # Determine maximum layer size to allow consistent vertical spacing
+  max_n <- if (length(layers) > 0) max(vapply(layers, length, integer(1))) else 0
+
   for (i in seq_along(layers)) {
     layer <- layers[[i]]
     n <- length(layer)
+    if (n == 0) next
 
-    even_shift_x <- (i %% 2) * 0.25
-    even_shift_y <- (n %% 2) * 0.25
+    # Base horizontal position for this layer (0-indexed)
+    x_base <- (i - 1) * x_spacing
 
-    # Spread nodes in layer evenly on y-axis, center around y = 0
-    y_positions <- seq(from = -(n - 1) / 2 + even_shift_x - even_shift_y, to = (n - 1) / 2 - even_shift_x + even_shift_y, length.out = n) * y_spacing
+    # Spread nodes within layer horizontally to reduce parallel edge overlap
+    intra_frac <- 0.6
+    if (n == 1) {
+      x_offsets <- 0
+    } else {
+      # offsets centered around 0, scaled by intra_frac * x_spacing
+      x_offsets <- seq(from = -(n - 1) / 2, to = (n - 1) / 2, length.out = n) / max(1, n - 1) * (x_spacing * intra_frac)
+    }
+
+    # Vertical positions: center nodes around y = 0 with spacing y_spacing
+    if (n == 1) {
+      y_positions <- 0
+    } else {
+      y_positions <- seq(from = (n - 1) / 2, to = - (n - 1) / 2, length.out = n) * y_spacing
+    }
+
     layer_df <- data.frame(
       name = layer,
-      x = rep(i * x_spacing, n),
+      x = x_base + x_offsets,
       y = y_positions,
       stringsAsFactors = FALSE
     )
 
     coords <- rbind(coords, layer_df)
+  }
+
+  # Center horizontally so graph is symmetric around x = 0
+  if (nrow(coords) > 0) {
+    x_range <- range(coords$x)
+    x_center <- mean(x_range)
+    coords$x <- coords$x - x_center
   }
 
   rownames(coords) <- NULL
@@ -224,7 +260,7 @@ plot_nesmr_graph <- function(
       force_flip = F,
       check_overlap = T
     ) +
-  ggraph::geom_edge_link(
+  ggraph::geom_edge_fan(
     data = ~filter(ggraph::get_edges()(.x), abs(x_from - x_to) <= 2 & abs(y_from - y_to) <= 0.5),
       aes(
         edge_color = colour,

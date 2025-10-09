@@ -82,8 +82,6 @@ edge_inclusion_tile_plot.nesmr_mh_graph_explore <- function(x, node_order = NULL
 #' @export
 edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
   x,
-  weight = c("direct_effect", "total_effect"),
-  plot_type = c("adj", "beta"),
   pos_color = "#d62728",
   neg_color = "#1f77b4",
   scale_limit = NULL,
@@ -91,8 +89,6 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
   node_order = NULL,
   x_axis_position = c("top", "bottom")) {
 
-  weight <- match.arg(weight)
-  plot_type <- match.arg(plot_type)
   x_axis_position <- match.arg(x_axis_position)
 
   if (!inherits(x, "nesmr_tbl_graph")) {
@@ -110,6 +106,7 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
         c(ts, setdiff(ts, tidygraph::activate(x, nodes) %>% pull(name)))  # Ensure all nodes are included
       })
   }
+
 
 
   # TODO: Add a extra row of tiles (like BPG plots) for node layer
@@ -168,8 +165,8 @@ prepare_tile_plot_data <- function(x, node_order, weight_var, x_axis_position = 
   # Get all node names for diagonal elements
   all_nodes <- x %>% tidygraph::activate(nodes) %>% pull(name)
   diag_df <- data.frame(
-    from = all_nodes,
-    to = all_nodes
+    from = seq_along(all_nodes),
+    to = seq_along(all_nodes)
   )
 
   # Prepare plot data with diagonal elements
@@ -179,7 +176,13 @@ prepare_tile_plot_data <- function(x, node_order, weight_var, x_axis_position = 
     full_join(
       diag_df,
       by = c("from", "to")
-    ) %>%
+    )
+
+  if (is.character(all_nodes)) {
+    plot_data$from <- all_nodes[plot_data$from]
+    plot_data$to <- all_nodes[plot_data$to]
+  }
+  plot_data <- plot_data %>%
     mutate(
       from = factor(from, levels = node_order),
       to = factor(to, levels = if (x_axis_position == "top") rev(node_order) else node_order),

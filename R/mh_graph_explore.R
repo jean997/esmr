@@ -105,7 +105,8 @@ mh_graph_explore <- function(
     burnin = round(max_iter / 10),
     max_heat = 5,
     verbose = FALSE,
-    debug = FALSE) {
+    debug = FALSE,
+    graph_edge_prior = 0.5) {
     # Create a logging function based on verbose parameter
     log_msg <- function(...) {
         if (verbose) {
@@ -142,6 +143,10 @@ mh_graph_explore <- function(
 
     minp <- apply(pval_select, 1, min)
     ix <- which(minp < alpha)
+    log_msg(sprintf("Number of selected variants: %d", length(ix)))
+
+    # TODO: Precompute later
+    # graph_prior <- log_graph_prior(c(0, seq_len(max_edges)), d, pi_0 = graph_edge_prior)
 
     if (is.null(n_mvmr_res)) {
         capture.output(
@@ -229,6 +234,7 @@ mh_graph_explore <- function(
         curr_B <- (curr_adj_mat != 0) + 0
         curr_B_str <- paste0(curr_B, collapse = "")
         chain_name <- names(mh_chain_init)[i]
+        n_edges <- sum(curr_B)
 
         if (is.null(visited_graphs[[curr_B_str]])) {
             # Initial NESMR fit
@@ -255,10 +261,12 @@ mh_graph_explore <- function(
             log_msg(sprintf("Initial fit time: %.2f seconds", init_fit_time))
             log_msg(sprintf("Expect the total time to be around %.2f minutes", init_fit_time * max_nesmr_fits / 60))
 
-            visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo
+            visited_graphs[[curr_B_str]]$elbo_without_prior <- init_mod$elbo
+            visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo + log_graph_prior(n_edges, d, pi_0 = graph_edge_prior)
             visited_graphs[[curr_B_str]]$beta_hat <- init_mod$direct_effects
             visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$se_dm
             visited_graphs[[curr_B_str]]$proposed <- (visited_graphs[[curr_B_str]]$proposed %||% 0) + 1
+            if (debug) visited_graphs[[curr_B_str]]$model <- init_mod
 
             elbo_denom <- matrixStats::logSumExp(c(elbo_denom, init_mod$elbo), na.rm = TRUE)
         }
@@ -272,12 +280,15 @@ mh_graph_explore <- function(
 
         iter <- 1
         nesmr_fits <- 1
-        heat_param_func <- approxfun(
-            x = c(1, burnin),
-            y = c(max_heat, 1),
-            rule = 2
-        )
-
+        if (temperature) {
+            heat_param_func <- approxfun(
+                x = c(1, burnin),
+                y = c(max_heat, 1),
+                rule = 2
+            )
+        } else {
+            heat_param_func <- function(i) 1
+        }
 
         if (chain_name %in% names(mh_chain_params) && !is.null(mh_chain_params[[chain_name]]$logistic_scale)) {
             logistic_scale_func <- function(i) mh_chain_params[[chain_name]]$logistic_scale
@@ -412,13 +423,15 @@ mh_graph_explore <- function(
                             beta_prior_cov = 1,
                             R = R
                         )
+                        if (debug) visited_graphs[[curr_B_str]]$model <- new_mod
                         nesmr_fits <- nesmr_fits + 1
                         elbo_denom <- matrixStats::logSumExp(c(elbo_denom, new_mod$elbo), na.rm = TRUE)
                     },
                     file = nullfile() # if (verbose) stdout() else nullfile()
                 )
-
-                visited_graphs[[prop_B_str]]$elbo <- new_mod$elbo
+                n_edges <- sum(prop_B)
+                visited_graphs[[prop_B_str]]$elbo_without_prior <- new_mod$elbo
+                visited_graphs[[prop_B_str]]$elbo <- new_mod$elbo + log_graph_prior(n_edges, d, pi_0 = graph_edge_prior)
                 visited_graphs[[prop_B_str]]$beta_hat <- new_mod$direct_effects
                 visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$se_dm
                 proposal_graph_info <- visited_graphs[[prop_B_str]]
@@ -514,7 +527,6 @@ mh_graph_explore <- function(
     }
 
     all_elbos <- sapply(visited_graphs, function(g) g$elbo)
-    norm_elbo <- exp(all_elbos - elbo_denom)
 
     rtn <- list(
         visited_graphs = visited_graphs,

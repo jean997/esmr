@@ -8,7 +8,6 @@
 #'@param R Optional correlation matrix for overlapping samples.
 #'@param ebnm_fn Options prior distribution family. Defaults to point-normal.
 #'@param max_iter Maximum number of iterations
-#'@param sigma_beta Optional prior variance for causal parameters
 #'@param tol Convergence tolerance
 #'@param pval_thresh p-value threshold for estimation
 #'@param variant_ix Instead of using pval_thresh, directly specify the indices of variants used for estimation.
@@ -31,7 +30,6 @@ esmr <- function(beta_hat_X, se_X,
                  g_init = NULL,
                  fix_g = FALSE,
                  max_iter = 100,
-                 sigma_beta = Inf,
                  tol = "default",
                  restrict_dag = TRUE,
                  #####
@@ -93,7 +91,6 @@ esmr <- function(beta_hat_X, se_X,
   dat <- init_beta(dat, restrict_dag = restrict_dag, beta_prior_cov = beta_prior_cov)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
-  dat$sigma_beta <- sigma_beta
   dat$R_is_id <- (is.null(R) || all(R == diag(dat$p))) & is.null(RE)
 
   dat$k <- ncol(dat$G)

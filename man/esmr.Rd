@@ -21,13 +21,14 @@ esmr(
   g_init = NULL,
   fix_g = FALSE,
   max_iter = 100,
-  sigma_beta = Inf,
   tol = "default",
   restrict_dag = TRUE,
   direct_effect_template = NULL,
   direct_effect_init = NULL,
+  beta_prior_cov = NULL,
   beta_joint = TRUE,
-  augment_G = TRUE
+  augment_G = TRUE,
+  cond_num = 1e+10
 )
 }
 \arguments{
@@ -50,8 +51,6 @@ esmr(
 \item{ebnm_fn}{Options prior distribution family. Defaults to point-normal.}
 
 \item{max_iter}{Maximum number of iterations}
-
-\item{sigma_beta}{Optional prior variance for causal parameters}
 
 \item{tol}{Convergence tolerance}
 

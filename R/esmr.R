@@ -93,7 +93,7 @@ esmr <- function(beta_hat_X, se_X,
   dat <- init_beta(dat, restrict_dag = restrict_dag, beta_prior_cov = beta_prior_cov)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
-  dat$sigma_beta <- sigma_beta
+
   dat$R_is_id <- (is.null(R) || all(R == diag(dat$p))) & is.null(RE)
 
   dat$k <- ncol(dat$G)

@@ -1,10 +1,12 @@
 
 #'@export
-update_beta_joint <- function(dat, j=1, ix = NULL, ii = NULL, return_W = FALSE){
+update_beta_joint <- function(dat, j=1, ix = NULL, ii = NULL,
+                              return_W = FALSE){
   p <- dat$p
   n <- dat$n
 
   prior_precision <- dat$beta$prior_precision
+
   if(is.null(ix)){
     ix <- seq(p)[-j]
   }else{
@@ -77,7 +79,7 @@ update_beta_joint <- function(dat, j=1, ix = NULL, ii = NULL, return_W = FALSE){
 }
 
 
-update_beta_full_joint <- function(dat, prior_cov = NULL){
+update_beta_full_joint <- function(dat){
 
   p <- dat$p
   n <- dat$n

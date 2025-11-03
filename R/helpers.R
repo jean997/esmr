@@ -172,44 +172,42 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
                              factors_matrix, factors_residual_sd,
                              R, ld_scores, RE, tau_init){
 
+  if(is.null(beta_hat_Y)){
+    stop("beta_hat_Y must be supplied for esmr_factors.\n")
+  }
   beta_hat_Z <- check_matrix(beta_hat_Z)
   n <- nrow(beta_hat_Z)
+  beta_hat_Y <- check_numeric(beta_hat_Y, n)
   beta_hat_X <- check_numeric(beta_hat_X, n)
-  p <- ncol(beta_hat_Z) + 1
+  p <- ncol(beta_hat_Z) + 2
 
-  se_Z <- check_matrix(se_Z, n, p-1)
+  se_Z <- check_matrix(se_Z, n, p-2)
   se_X <- check_numeric(se_X, n)
+  se_Y <- check_numeric(se_Y, n)
 
 
   ## check factors
   factors_matrix <- check_matrix(factors_matrix, p-2 ) # F should be p-2 by k
   factors_residual_sd <- check_numeric(factors_residual_sd, p-2)
-  k <- ncol(factor_matrix)
-  dat$factors_matrix <- factors_matrix
-  dat$nfactors <- k
-  dat$k <- k + 2
+  k <- ncol(factors_matrix)
+
 
   se_Z <- t(t(se_Z)*factors_residual_sd)
 
   beta_hat_X <- cbind(beta_hat_X, beta_hat_Z)
+  beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)
   se_X <- cbind(se_X, se_Z)
+  se_X <- cbind(se_Y, se_X)
 
-  if(!is.null(beta_hat_Y)){
-    beta_hat_Y <- check_numeric(beta_hat_Y, n)
-    se_Y <- check_numeric(se_Y, n)
-    p <- p + 1
-    beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)
-    se_X <- cbind(se_Y, se_X)
-  }else{
-    stop("Can't omit Y for esmr_factors\n")
-  }
 
   R <- check_matrix(R, p, p)
   R <- check_R(R)
 
   dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
   dat$traits <- 1:p
-
+  dat$factors_matrix <- factors_matrix
+  dat$nfactors <- k
+  dat$k <- k + 2
 
 
   if(is.null(RE)){

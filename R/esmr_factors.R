@@ -56,7 +56,7 @@ esmr_factors <- function(beta_hat_X, se_X,
   }
 
   dat <- set_data_factors(beta_hat_Y, se_Y, beta_hat_X, se_X,
-                  beta_hat_Z, se_Z, factors_matrix, factos_residual_sd,
+                  beta_hat_Z, se_Z, factors_matrix, factors_residual_sd,
                   R, ld_scores, RE, tau_init)
 
   dat$G <- diag(dat$k )

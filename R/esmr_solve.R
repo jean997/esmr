@@ -10,7 +10,10 @@ esmr_solve <- function(dat, max_iter, tol){
   if(is.null(cond_num)) cond_num <- 1e10
 
   nb <- length(dat$beta$beta_j)
+
   while(i < max_iter && check > tol){
+    low_info_flag <- FALSE
+
     # l update
     dat <- update_l_sequential(dat, seq(dat$k), dat$g_init, dat$fix_g)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
@@ -24,7 +27,6 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$beta$V <- diag(dat$beta$beta_s^2)
     }else{
       dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
-      dat$beta$kl <- 0
       if((dat$R_is_id | length(unique(dat$beta$beta_j)) == 1) & !dat$is_factors){
         # if all omega are diagonal or only estimating one row, update F by rows
         jj <- unique(dat$beta$beta_j)
@@ -42,6 +44,7 @@ esmr_solve <- function(dat, max_iter, tol){
           }else{
             dat$f <- make_f(dat)
           }
+          if(!is.null(beta_upd$remove_suggest)) low_info_flag <- TRUE
         }
       }else{
         e_ix <- which(!dat$beta$fix_beta)
@@ -54,6 +57,7 @@ esmr_solve <- function(dat, max_iter, tol){
         }else{
           dat$f <- make_f(dat)
         }
+        if(!is.null(ub$remove_suggest)) low_info_flag <- TRUE
       }
     }
 
@@ -64,6 +68,8 @@ esmr_solve <- function(dat, max_iter, tol){
       # Note: Can pass prior_precision instead to avoid solving a bunch of times
       dat$beta$kl <- - kl_mvn(
         dat$beta$beta_m[kl_ix], dat$beta$V[kl_ix, kl_ix,drop=F], 0, prior_cov_mat)
+    }else{
+      dat$beta$kl <- 0
     }
 
     ## update total effects based on constraints
@@ -112,6 +118,10 @@ esmr_solve <- function(dat, max_iter, tol){
     #cat(i, ": ", check, " ", dat$beta$beta_m, "\n")
 
     i <- i + 1
+
+    if(dat$is_factors & low_info_flag){
+      dat <- remove_worst_factor(dat)
+    }
   }
 
   dat$obj <- obj

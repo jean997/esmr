@@ -35,7 +35,7 @@ init_beta <- function(dat, restrict_dag = TRUE, beta_prior_cov = NULL){
     dat$beta$prior_cov <- check_beta_prior_cov(beta_prior_cov, nb)
     dat$beta$prior_precision <- solve(beta_prior_cov)
   }
-
+  dat$beta$kl <- 0
   return(dat)
 }
 
@@ -54,5 +54,6 @@ init_beta_factors <- function(dat){
   dat$beta$beta_m <- rep(0, nb)
   dat$beta$beta_s <- rep(0, nb)
   dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
+  dat$beta$kl <- 0
   return(dat)
 }

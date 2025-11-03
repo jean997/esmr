@@ -1,11 +1,6 @@
 update_l_sequential <- function(dat, jj, g_init, fix_g,
                                 return_sampler = FALSE){
-  #l_update <- list()
-  # abar <- dat$l$abar
-  # a2bar <- dat$l$a2bar
 
-  # lfsr <- dat$l$lfsr
-  # g_hat <- dat$l$g_hat
   kl <- c()
   if(!missing(jj)){
     coords <- jj

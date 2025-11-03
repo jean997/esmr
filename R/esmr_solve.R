@@ -95,7 +95,7 @@ esmr_solve <- function(dat, max_iter, tol){
 
     ###
     ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-    cat("ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
+    #cat("ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     obj_new <- obj[length(obj)]

@@ -24,6 +24,7 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$beta$V <- diag(dat$beta$beta_s^2)
     }else{
       dat$beta$V <- matrix(0, nrow = nb, ncol = nb)
+      dat$beta$kl <- 0
       if((dat$R_is_id | length(unique(dat$beta$beta_j)) == 1) & !dat$is_factors){
         # if all omega are diagonal or only estimating one row, update F by rows
         jj <- unique(dat$beta$beta_j)
@@ -31,7 +32,7 @@ esmr_solve <- function(dat, max_iter, tol){
           ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)
           if(length(ii) == 0) next
           ix <- dat$beta$beta_k[ii]
-          beta_upd <- update_beta_joint(dat, j = j, ix = ix, cond_num = cond_num)
+          beta_upd <- update_beta_joint(dat, j = j, ix = ix, ii = ii, cond_num = cond_num)
 
           dat$beta$beta_m[ii] <- beta_upd$m
           dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
@@ -65,22 +66,14 @@ esmr_solve <- function(dat, max_iter, tol){
         dat$beta$beta_m[kl_ix], dat$beta$V[kl_ix, kl_ix,drop=F], 0, prior_cov_mat)
     }
 
-    ## new step, update total effects based on constraints
+    ## update total effects based on constraints
     if(any(dat$beta$fix_beta)){
       which_const <- cbind(dat$beta$beta_k, dat$beta$beta_j)[dat$beta$fix_beta,,drop = FALSE]
       colnames(which_const) <- c("row", "col")
       f <- t(complete_T(t(dat$f$fbar), which_const)$total_effects)
-      ## assumes independent estimates
-      # f2_1 <- t(complete_T(t(dat$f$f2bar), which_const)$total_effects)
-      # f2_2 <- f^2
-      # f2_3 <- t(complete_T(t(dat$f$fbar)^2, which_const)$total_effects)
-      # f2 <- f2_1 + f2_2 - f2_3 ## E[f^2] = g(E[f^2*]) + g(f^2*) - g(E[f*]^2)
-      ###
-      # vf <- f2 - (f^2)
       ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
       dat$beta$beta_m <- f[ix]
-      #dat$beta$beta_s <- sqrt((f2[ix]) - (f[ix])^2)
-      # diag(dat$beta$V) <- dat$beta$beta_s^2
+
       if(dat$is_factors){
         dat$f <- make_f_factors(dat)
       }else{
@@ -102,7 +95,7 @@ esmr_solve <- function(dat, max_iter, tol){
 
     ###
     ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-    # cat("ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
+    cat("ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     obj_new <- obj[length(obj)]
@@ -110,7 +103,7 @@ esmr_solve <- function(dat, max_iter, tol){
     #check <- max(abs(dat$beta$beta_m - beta_old))
     obj_old <- obj_new
     #beta_old <- dat$beta$beta_m
-
+    #cat(check, "\n")
     if(check < -1e-12){
       dat$obj_dec_warn <- TRUE
       warning("Objective decreased, something may be wrong.\n")

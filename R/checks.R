@@ -110,3 +110,17 @@ check_B_template <- function(B, p, restrict_dag = TRUE) {
   return(list(B_dir = B, B_tot = B_tot, which_tot_u = which_tot_u, which_tot_c = which_tot_c ))
 }
 
+check_beta_prior_cov <- function(beta_prior_cov, nb){
+  if(inherits(beta_prior_cov, "matrix")){
+    beta_prior_cov <- check_matrix(beta_prior_cov, nb, nb)
+  }else if(inherits(beta_prior_cov, "numeric")){
+    if(length(beta_prior_cov) == 1){
+      beta_prior_cov <- diag(1, nrow = nb) * beta_prior_cov
+    } else{
+      beta_prior_cov <- check_numeric(beta_prior_cov, nb)
+      beta_prior_cov <- diag(beta_prior_cov, nrow = nb)
+    }
+  }
+
+  return(beta_prior_cov)
+}

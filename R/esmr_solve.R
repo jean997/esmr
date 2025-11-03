@@ -48,9 +48,10 @@ esmr_solve <- function(dat, max_iter, tol){
     }
 
     # Update KL divergence for beta if we have a prior
-    if(!is.null(dat$beta$prior_cov) ){
+    if(!is.null(dat$beta$prior_cov) && length(dat$beta$prior_cov) > 0){
       kl_ix <- !dat$beta$fix_beta
       prior_cov_mat <- dat$beta$prior_cov * diag(sum(kl_ix))
+      # Note: Can pass prior_precision instead to avoid solving a bunch of times
       dat$beta$kl <- - kl_mvn(
         dat$beta$beta_m[kl_ix], dat$beta$V[kl_ix, kl_ix,drop=F], 0, prior_cov_mat)
     }

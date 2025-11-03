@@ -87,7 +87,7 @@ update_beta_joint <- function(dat,
 }
 
 
-update_beta_full_joint <- function(dat){
+update_beta_full_joint <- function(dat, cond_num = 1e10){
 
   p <- dat$p
   n <- dat$n
@@ -133,6 +133,19 @@ update_beta_full_joint <- function(dat){
   }else{
     R <- Rfull
     a <- afull
+  }
+
+  evR <- eigen(R, only.values = TRUE)$values
+  condR <- abs(max(evR)/min(evR))
+  if(any(evR < 0) | condR > cond_num){
+    all_zero_cols_lbar <- apply(zapsmall(dat$l$lbar, digits = 10), 2, function(x){
+      all(x == 0)
+    })
+    if (any(all_zero_cols_lbar)) {
+      stop('lbar has a column of all zeros for column(s): ', which(all_zero_cols_lbar))
+    }
+    warning("Projecting internal R to nearest PD matrix in beta update.\n")
+    R <- Matrix::nearPD(R, posd.tol = 1/cond_num)$mat
   }
   S <- solve(R + T0)
   mu <- S %*% a

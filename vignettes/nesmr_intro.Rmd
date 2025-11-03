@@ -1,0 +1,94 @@
+---
+title: "nesmr_intro"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{nesmr_intro}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(esmr)
+```
+
+
+## Linear Structural Equations Models and Graphs
+
+A linear structural equation model describes the relationships between a set of variables using linear equations. The relationships can be represented graphically as directed acyclic graphs (DAGs), where nodes represent variables and edges represent linear relationships.
+
+
+
+## Simulating Data
+
+We simulate GWAS summary statistics for traits that have a specified network structure using GWASBrewer (TODO: Link).
+
+
+```{r sim_data}
+library(GWASBrewer)
+library(esmr)
+
+G <- matrix(
+  c(0, 0, 0, 0,
+    0.25, 0, 0, 0,
+    0, 0, 0,  0,
+    0, -0.15, 0.2, 0),
+  nrow = 4,
+  byrow = 4
+)
+
+d <- ncol(G)
+
+# Trait heritability
+h2 <- 0.2
+# Total number of SNPs
+J <- 5000
+# Number of samples in each GWAS
+N <- 20000
+# Proportion of SNPs with causal effects on each trait
+pi_J <- 0.1
+# Statistical significance threshold
+alpha <- 5e-8
+
+dat <- sim_mv(
+    G = G,
+    N = N,
+    J = J,
+    h2 = h2,
+    pi = pi_J,
+    sporadic_pleiotropy = TRUE,
+    est_s = TRUE
+)
+```
+
+## Variant selection
+
+We select variants that are significantly associated with at least one trait.
+Since we have simulated data, we can use the true Z-scores to select variants to avoid winner's curse bias.
+We use a significance threshold of $\alpha = 5\times 10^{-8}$ to select variants. The `minp` function computes the minimum p-value across traits for each variant, and we select variants with a minimum p-value below the threshold.
+This means that we include any variant that has at least one trait with a p-value below $5\times 10^{-8}$.
+
+
+```{r select_variants}
+Ztrue <- with(dat, beta_marg/se_beta_hat)
+pval_true <- 2*pnorm(-abs(Ztrue))
+minp <- apply(pval_true, 1, min)
+ix <- which(minp < alpha)
+```
+
+## Fitting the model
+
+NESMR fits a linear structural equation model to the selected variants.
+We control what this model looks like by specifying the graph structure via an adjacency matrix.
+An entry $(i,j)$ in the adjacency matrix `B` specifies that we want to estimate a causal effect of trait $i$ on trait $j$.
+We assume for now that `B` needs to be a directed acyclic graph (DAG), i.e. that there are no cycles in the graph.
+That is, we need to be able to order the traits in a way so that `B` is lower triangular.
+
+Under the NESMR assumptions, if we specify a template `B` that has the true causal relationships as a subgraph, then the model will be identifiable and we can estimate the causal effects.
+

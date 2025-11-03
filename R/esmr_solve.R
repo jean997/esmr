@@ -10,14 +10,13 @@ esmr_solve <- function(dat, max_iter, tol){
   if(is.null(cond_num)) cond_num <- 1e10
 
   nb <- length(dat$beta$beta_j)
-
-  while(i < max_iter & check > tol){
+  while(i < max_iter && check > tol){
     # l update
     dat <- update_l_sequential(dat, seq(dat$k), dat$g_init, dat$fix_g)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
     ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-    obj <- c(obj, ll + dat$l$kl)
+    obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     # beta update
     if(!dat$beta_joint){
@@ -45,7 +44,7 @@ esmr_solve <- function(dat, max_iter, tol){
         }
       }else{
         e_ix <- which(!dat$beta$fix_beta)
-        ub <- update_beta_full_joint(dat, prior_cov = NULL)
+        ub <- update_beta_full_joint(dat)
         dat$beta$beta_m[e_ix] <- ub$m
         dat$beta$V[e_ix,e_ix] <- ub$S
         dat$beta$beta_s[e_ix] <- sqrt(diag(ub$S))
@@ -55,6 +54,15 @@ esmr_solve <- function(dat, max_iter, tol){
           dat$f <- make_f(dat)
         }
       }
+    }
+
+    # Update KL divergence for beta if we have a prior
+    if(!is.null(dat$beta$prior_cov) && length(dat$beta$prior_cov) > 0){
+      kl_ix <- !dat$beta$fix_beta
+      prior_cov_mat <- dat$beta$prior_cov * diag(sum(kl_ix))
+      # Note: Can pass prior_precision instead to avoid solving a bunch of times
+      dat$beta$kl <- - kl_mvn(
+        dat$beta$beta_m[kl_ix], dat$beta$V[kl_ix, kl_ix,drop=F], 0, prior_cov_mat)
     }
 
     ## new step, update total effects based on constraints
@@ -80,10 +88,6 @@ esmr_solve <- function(dat, max_iter, tol){
       }
     }
 
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-    obj <- c(obj, ll + dat$l$kl)
-
-
     ## tau update
     if(!is.null(dat$tau) & !dat$fix_tau){
       min_tau <- dat$tau/10
@@ -92,11 +96,14 @@ esmr_solve <- function(dat, max_iter, tol){
         max_tau <- 10*median(dat$S^2)
       }
       dat <- update_tau(dat,tau_min = min_tau, tau_max = max_tau)
-      ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-      obj <- c(obj, ll + dat$l$kl)
+      #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+      obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
     }
 
     ###
+    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+    # cat("ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
+    obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     obj_new <- obj[length(obj)]
     check <- obj_new - obj_old
@@ -108,7 +115,6 @@ esmr_solve <- function(dat, max_iter, tol){
       dat$obj_dec_warn <- TRUE
       warning("Objective decreased, something may be wrong.\n")
     }
-    check <- abs(check)
     cat(i, ": ", obj_new, " ", dat$beta$beta_m, " ", dat$tau, "\n")
     #cat(i, ": ", check, " ", dat$beta$beta_m, "\n")
 

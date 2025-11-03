@@ -8,7 +8,6 @@
 #'@param R Optional correlation matrix for overlapping samples.
 #'@param ebnm_fn Options prior distribution family. Defaults to point-normal.
 #'@param max_iter Maximum number of iterations
-#'@param sigma_beta Optional prior variance for causal parameters
 #'@param tol Convergence tolerance
 #'@param pval_thresh p-value threshold for estimation
 #'@param variant_ix Instead of using pval_thresh, directly specify the indices of variants used for estimation.
@@ -31,7 +30,6 @@ esmr <- function(beta_hat_X, se_X,
                  g_init = NULL,
                  fix_g = FALSE,
                  max_iter = 100,
-                 sigma_beta = Inf,
                  tol = "default",
                  restrict_dag = TRUE,
                  #####
@@ -40,6 +38,7 @@ esmr <- function(beta_hat_X, se_X,
                  # add ability to fix some effects later
                  # direct_effect_fix = NULL,
                  #fix_beta = FALSE,
+                 beta_prior_cov = NULL,
                  beta_joint = TRUE,
                  augment_G = TRUE,
                  cond_num = 1e10){
@@ -64,6 +63,7 @@ esmr <- function(beta_hat_X, se_X,
   }
 
   dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
+  dat$direct_effect_template <- direct_effect_template
   class(dat) <- c(c("esmr"), class(dat))
 
   dat$is_nesmr <- ! is.null(direct_effect_template)
@@ -93,10 +93,10 @@ esmr <- function(beta_hat_X, se_X,
   dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
                          restrict_dag = restrict_dag)
 
-  dat <- init_beta(dat, restrict_dag = restrict_dag)
+  dat <- init_beta(dat, restrict_dag = restrict_dag, beta_prior_cov = beta_prior_cov)
   dat$beta_joint <- beta_joint
   dat$ebnm_fn <- ebnm_fn
-  dat$sigma_beta <- sigma_beta
+
   dat$R_is_id <- (is.null(R) || all(R == diag(dat$p))) & is.null(RE)
 
   dat$k <- ncol(dat$G)
@@ -136,11 +136,12 @@ esmr <- function(beta_hat_X, se_X,
   o <- match(1:dat$p, dat$traits)
   dat <- reorder_data(dat, o)
 
-  if (!is.null(direct_effect_template) && restrict_dag) {
-    dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
+  if (!is.null(direct_effect_template) && is_dag(direct_effect_template) && !all(direct_effect_template == 0)) {
+    # Multiply by direct effect template to ensure rounding is not an issue
+    dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * direct_effect_template
     delt_pvals <- delta_method_pvals(dat)
-    dat$pvals_dm <- delt_pvals$pmat
-    dat$se_dm <- delt_pvals$semat
+    dat$pvals_dm <- delt_pvals$pmat * dat$direct_effect_template
+    dat$se_dm <- delt_pvals$semat * dat$direct_effect_template
   }
 
   # Reformat beta_hat and beta_se to matrix format
@@ -148,6 +149,7 @@ esmr <- function(beta_hat_X, se_X,
   fix_beta <- matrix(FALSE, nrow = dat$p, ncol = dat$p)
   # Lower triangular format
   beta_ind <- cbind(dat$beta$beta_k, dat$beta$beta_j)
+  # TODO: Fix this!! this is getting the total effects not the direct effects
   beta_hat[beta_ind] <- dat$beta$beta_m
   beta_se[beta_ind] <- dat$beta$beta_s
   fix_beta[beta_ind] <- dat$beta$fix_beta

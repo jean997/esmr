@@ -12,6 +12,7 @@ update_beta_joint <- function(dat,
   k <- dat$k
   n <- dat$n
 
+  prior_precision <- dat$beta$prior_precision
 
   if(is.null(ix)){
     ix <- seq(k)[-j]
@@ -21,7 +22,12 @@ update_beta_joint <- function(dat,
     #ix <- sort(ix)
   }
   m <- length(ix)
-
+  if(is.null(prior_precision)){
+    T0 <- matrix(0, nrow = m, ncol = m)
+  }else{
+    # T0 <- check_matrix(prior_precision, m, m)
+    T0 <- prior_precision[ii,ii]
+  }
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
   if(dat$s_equal){
@@ -71,8 +77,7 @@ update_beta_joint <- function(dat,
     R <- Matrix::nearPD(R, posd.tol = 1/cond_num)$mat
   }
 
-  S <- solve(R)
-
+  S <- solve(R + T0)
   mu <- S %*% a
 
   if(return_W){
@@ -82,7 +87,7 @@ update_beta_joint <- function(dat,
 }
 
 
-update_beta_full_joint <- function(dat, prior_cov = NULL){
+update_beta_full_joint <- function(dat){
 
   p <- dat$p
   n <- dat$n
@@ -92,11 +97,11 @@ update_beta_full_joint <- function(dat, prior_cov = NULL){
   ix <- ix[!dat$beta$fix_beta]
   m <- length(ix)
 
-  if(is.null(prior_cov)){
+  prior_precision <- dat$beta$prior_precision
+  if(is.null(prior_precision)){
     T0 <- matrix(0, nrow = m, ncol = m)
   }else{
-    T0 <- check_matrix(prior_cov, m, m)
-    T0 <- solve(prior_cov)
+    T0 <- prior_precision
   }
 
   Va <- dat$l$a2bar - (dat$l$abar^2)
@@ -129,7 +134,7 @@ update_beta_full_joint <- function(dat, prior_cov = NULL){
     R <- Rfull
     a <- afull
   }
-  S <- solve(R)
+  S <- solve(R + T0)
   mu <- S %*% a
   return(list(m = mu, S = S))
 }

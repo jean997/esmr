@@ -1,0 +1,175 @@
+---
+title: "NESMR Plotting"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{NESMR Plotting}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#͜#>",
+  fig.width = 7,
+  fig.height = 7
+)
+```
+
+# Introduction
+
+In this vignette, we demonstrate how to use the NESMR package for plotting and visualizing network structures inferred from GWAS summary statistics.
+We provide a simulation example, perform network discovery, and illustrate various plotting functions available in the package.
+
+
+## Simulation Example
+
+We simulate GWAS summary statistics for traits that have a specified network structure using [GWASBrewer](https://github.com/jean997/GWASBrewer).
+
+```{r}
+set.seed(13)
+library(esmr)
+library(GWASBrewer)
+G <- matrix(
+  c(0, 0, 0, 0,
+    0.25, 0, 0, 0,
+    0, 0, 0,  0,
+    0, -0.15, 0.2, 0),
+  nrow = 4,
+  byrow = 4
+)
+
+d <- ncol(G)
+
+B_full <- matrix(1, d, d)
+B_lower <- lower.tri(G) + 0
+B_correct <- (G != 0) + 0
+
+h2 <- 0.2
+J <- 5000
+N <- 20000
+pi_J <- 0.1
+alpha <- 5e-8
+
+dat <- sim_mv(
+    G = G,
+    N = N,
+    J = J,
+    h2 = h2,
+    pi = pi_J,
+    sporadic_pleiotropy = TRUE,
+    est_s = TRUE
+)
+```
+
+## Discovery
+
+```{r}
+suppressWarnings(capture.output(mh_results <- mh_graph_explore(dat), file = nullfile()))
+
+kableExtra::kable(
+  head(discovery_summary(mh_results), n = 10),
+  digits = 4)
+```
+
+### Discovery Plots - ELBO
+
+```{r norm-elbo-plots, fig.height = 6}
+library(ggplot2)
+
+plot(mh_results, plot_type = "norm_elbo")
+plot(mh_results, plot_type = "cum_norm_elbo")
+plot(mh_results, plot_type = "both")
+```
+
+## Individual Graph Plots
+
+Individual graph objects extend [tidygraphs](https://tidygraph.data-imaginist.com/) which provide an easy interface that works with [ggraph](https://ggraph.data-imaginist.com/index.html) for plotting.
+
+We can get the best graph from the discovery results.
+
+```{r best-graph}
+best_graph <- top_i_graph(mh_results)
+
+print(best_graph)
+```
+
+### Adjacency Graph
+
+Plot trinary graph (+1,0,-1) for positive and negative effects
+
+```{r best-graph-adj}
+plot_layered_topo(best_graph)
+```
+
+### Weighted Graph
+
+```{r best-graph-beta}
+plot_layered_topo(best_graph, plot_type = "beta", weight = "direct_effect")
+```
+
+### Weighted Graph - Tile
+
+The default plot for the weighted adjacency matrix plots the the tiles in matrix ordering. This can be controlled with the `x_axis_position` argument which accepts `top` or `bottom`.
+The variables are topologically ordered by default in the same order as the `plot_layered_topo` function.
+
+```{r tile-best-graph-beta}
+plot_nesmr_tile(best_graph, x_axis_position = "top", node_order = 4:1)
+```
+
+```{r, tile-best-graph-beta-bottom}
+plot_nesmr_tile(best_graph, x_axis_position = "bottom", node_order = 4:1)
+```
+
+### Edge Inclusion Probabilities - Tile
+
+Edge inclusion probabilities are the approximate posterior inclusion probability, or the sum of all of the normalized ELBOs in which that edge is present in a graph.
+
+```{r eip-tile-plot}
+edge_inclusion_tile_plot(mh_results, node_order = 4:1)
+```
+
+## Graph Differences
+
+We can compare the different graphs returned from NESMR discovery using a few different plotting function.
+
+### Graph Differences - Beta difference
+
+```{r graph-diff-plot, fig.width = 10, fig.height = 5}
+library(gridExtra)
+best_graph <- top_i_graph(mh_results)
+next_graph <- top_i_graph(mh_results, i = 2)
+
+coords <- layered_topo_sort_coords(best_graph)
+p1 <- plot_nesmr_graph(best_graph, coords = coords, plot_type = "beta") + ggtitle("Best Graph")
+p2 <- plot_nesmr_graph(next_graph, coords = coords, plot_type = "beta") + ggtitle("Next Graph")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+We can use the `-` operation on graphs to compute the differences between the graphs.
+This returns a tidygraph object which has edge comparisons for each edge in both graphs.
+These are columns in the tidygraph edges:
+
+  - `adj_diff` Adjacency difference. For a single graph, an edge present is considered a 1 and missing is considered zero. Then `adj_diff` is subtraction from these binary variables resulting in possible values of -1, 0, 1 representing edge in second graph only, edge present or absent in both graphs, or edge present in first graph only
+  - `sign_diff` Differences in the signs of the effects
+    - `-2 = "Sign Flip: - → +"`
+    - `-1 = "Edge Removed"`
+    - `0 = "No Change"`
+    - `1 = "Edge Added"`
+    - `2 = "Sign Flip: + → -"`
+  - `direct_effect` is now the difference of effects
+
+```{r graph-diff}
+print(best_graph - next_graph)
+```
+
+These differences can be plotted in matrix/tile plotting functions
+
+```{r graph-diff-plot-beta}
+plot_graph_differences(best_graph, next_graph, diff_type = "beta", node_order = 4:1)
+```
+
+```{r graph-diff-plot-adj}
+# Adjacency (edge presence) differences
+plot_graph_differences(best_graph, next_graph, diff_type = "adj", node_order = 4:1)
+```

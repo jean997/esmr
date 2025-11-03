@@ -428,3 +428,12 @@ matrix_to_edgelist <- function(
   }
   res
 }
+
+flat_string_to_adj_mat <- function(x) {
+  # First get a vector of the digits of x
+  digits <- as.numeric(unlist(strsplit(as.character(x), "")))
+  # Then turn into a matrix
+  n <- sqrt(length(digits))
+  stopifnot(n == floor(n))
+  matrix(digits, nrow = n, ncol = n)
+}

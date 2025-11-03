@@ -63,17 +63,22 @@
 #'       pch = c(8, 1))
 nesmr_backselect <- function(
     mod_list,
-    beta_hat, se_beta_hat,
-    variant_ix = NULL,
-    method = c("aic", "elbo"),
+    method = c("posterior_prob", "aic", "elbo"),
+    posterior_prob_cutoff = 5e-3,
     aic_cutoff = 2,
     pvalue_cutoff = 0.05,
     alpha = 5e-8,
+    log_graph_prior_pi = 0.5,
     ...) {
   method <- match.arg(method)
   n_params <- sapply(mod_list, function(x) { sum(x$B_template) })
-  d <- ncol(beta_hat)
-  stopifnot(ncol(se_beta_hat) == d)
+
+  if (method == "posterior_prob") {
+    has_prior <- sapply(mod_list, function(x) { "beta_prior_cov" %in% names(x) })
+    stopifnot("All models need a proper prior via `beta_prior_cov` to compute posterior probability" = all(has_prior))
+  }
+
+  d <- ncol(mod_list[[1]]$Y)
 
   if (method == "aic") {
     mod_list <- lapply(mod_list, function(x) {
@@ -82,24 +87,29 @@ nesmr_backselect <- function(
 
       return(x)
     })
+  } else if (method == "posterior_prob") {
+    mod_list <- lapply(mod_list, function(x) {
+      x$params <- sum(x$B_template)
+      x$post_prob_raw <- x$elbo + log_graph_prior(k = x$params, n = d, pi = log_graph_prior_pi)
+      x
+    })
+
+    log_post_prob_denom <- matrixStats::logSumExp(sapply(mod_list, function(x) x$post_prob_raw))
   }
 
   # This is called log_liks but can be either log_lik or elbo
-  mod_obj <- sapply(mod_list, function(x) {
-    if (method == "aic") x$log_lik
-    else if (method == "elbo") x$elbo
+  if (method == "posterior_prob") {
+    mod_obj <- sapply(mod_list, function(x) x$post_prob_raw - log_post_prob_denom)
+  } else {
+    mod_obj <- sapply(mod_list, function(x) {
+      if (method == "aic") x$log_lik
+      else if (method == "elbo") x$elbo
     })
 
-  # Psuedo AIC if we are using ELBO
-  mod_aic <- -2 * mod_obj + 2 * n_params
+    # Psuedo AIC if we are using ELBO
+    mod_aic <- -2 * mod_obj + 2 * n_params
 
-  best_mod_aic <- min(mod_aic)
-
-  if (is.null(variant_ix)) {
-    Z <- beta_hat/se_beta_hat
-    select_pval <- 2*pnorm(-abs(Z))
-    minp <- apply(select_pval, 1, min)
-    variant_ix <- which(minp < alpha)
+    best_mod_aic <- min(mod_aic)
   }
 
   # Use a queue to simulate breadth first search
@@ -155,13 +165,9 @@ nesmr_backselect <- function(
 
       # Fit the new model
       # Currently use the same variants across all models but this could change
-      new_mod <- esmr(
-        beta_hat_X = beta_hat,
-        se_X = se_beta_hat,
-        variant_ix = variant_ix,
-        G = diag(d),
+      new_mod <- esmr_resolve(
+        curr_mod,
         direct_effect_template = B_template,
-        direct_effect_init = B_template * mod$direct_effects,
         ...
       )
 
@@ -171,15 +177,29 @@ nesmr_backselect <- function(
         new_mod$log_lik <- log_py(new_mod)
         new_mod$aic <- -2 * new_mod$log_lik + 2 * new_mod$num_params
         obj_value <- new_mod$aic
-      } else {
+      } else if (method == "elbo") {
         obj_value <- -2 * new_mod$elbo + 2 * new_mod$num_params
+      } else if (method == "posterior_prob") {
+        new_mod$post_prob_raw <- new_mod$elbo + log_graph_prior(k = new_mod$num_params, n = d, pi = log_graph_prior_pi)
+
+        # The idea is that if the change to the denominator (not on the log scale) is small then we can stop
+        obj_value <- exp(matrixStats::logSumExp(c(log_post_prob_denom, new_mod$post_prob_raw)) - log_post_prob_denom)
       }
 
-
+      warning("obj_value - 1: ", obj_value - 1, "log_post_prob_denom", log_post_prob_denom, "new_mod$post_prob_raw", new_mod$post_prob_raw)
+      #browser()
       # TODO: Generalize this to "stopping criterion" function
       # Either aic difference, or posterior probability with different priors
-      if (abs(best_mod_aic - obj_value) <= aic_cutoff) {
-        best_mod_aic <- min(best_mod_aic, obj_value)
+      if ((method %in% c("aic", "elbo") && abs(best_mod_aic - obj_value) <= aic_cutoff) ||
+          (method == "posterior_prob" && (obj_value - 1) >= posterior_prob_cutoff)) {
+
+        if (method == "posterior_prob") {
+          log_post_prob_denom <- matrixStats::logSumExp(c(log_post_prob_denom, new_mod$post_prob_raw))
+        } else {
+          best_mod_aic <- min(best_mod_aic, obj_value)
+        }
+
+
         all_B_strings <- sapply(return_mods, function(x) paste(x$B_template, collapse = ""))
         if (B_template_chr %in% all_B_strings) {
           warning("Duplicate element...")
@@ -201,6 +221,11 @@ nesmr_backselect <- function(
     }
   }
 
+
+  return_mods <- lapply(return_mods, function(x) {
+    x$post_prob <- exp(x$post_prob_raw - log_post_prob_denom)
+    x
+  })
   # TODO: Figure out which condition causes the duplicate
 #  remove_dups <- !duplicated(sapply(return_mods, function(x) x$B_template))
   return(return_mods)

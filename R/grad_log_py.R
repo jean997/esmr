@@ -592,7 +592,8 @@ optimize_lpy2 <- function(fit,
   fit$beta$beta_m <- fbar[myix]
 
   fit$f$fbar <- fbar
-  fit$f$fgbar <- fit$G %*% fbar
+  #fit$f$fgbar <- fit$G %*% fbar
+  fit$f$fgbar <-  fbar %*% fit$G
   if(calc_hess){
     h <- hess_log_py(fit, fbar, ix = ix,
                      max_prob = max_prob,
@@ -610,14 +611,16 @@ optimize_lpy2 <- function(fit,
     #fit$likelihood <- log_py(fit)
   }
 
+  fit <- format_betas(fit)
 
-  o <- match(1:fit$p, fit$traits)
-  fit <- reorder_data(fit, o)
-
-  fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
-  delt_pvals <- delta_method_pvals(fit)
-  fit$pvals_dm <- delt_pvals$pmat
-  fit$se_dm <- delt_pvals$semat
+  if(!fit$is_factors){
+    o <- match(1:fit$p, fit$traits)
+    fit <- reorder_data(fit, o)
+    fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
+    delt_pvals <- delta_method_pvals(fit)
+    fit$pvals_dm <- delt_pvals$pmat
+    fit$se_dm <- delt_pvals$semat
+  }
 
 
   return(fit)

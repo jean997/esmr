@@ -168,7 +168,8 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
 
 
 set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
-                             beta_hat_Z, se_Z, factors_matrix,
+                             beta_hat_Z, se_Z,
+                             factors_matrix, factors_residual_sd,
                              R, ld_scores, RE, tau_init){
 
   beta_hat_Z <- check_matrix(beta_hat_Z)
@@ -178,6 +179,17 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
 
   se_Z <- check_matrix(se_Z, n, p-1)
   se_X <- check_numeric(se_X, n)
+
+
+  ## check factors
+  factors_matrix <- check_matrix(factors_matrix, p-2 ) # F should be p-2 by k
+  factors_residual_sd <- check_numeric(factors_residual_sd, p-2)
+  k <- ncol(factor_matrix)
+  dat$factors_matrix <- factors_matrix
+  dat$nfactors <- k
+  dat$k <- k + 2
+
+  se_Z <- t(t(se_Z)*factors_residual_sd)
 
   beta_hat_X <- cbind(beta_hat_X, beta_hat_Z)
   se_X <- cbind(se_X, se_Z)
@@ -198,12 +210,6 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
   dat$traits <- 1:p
 
-  ## check factors
-  factors_matrix <- check_matrix(factors_matrix, p-2 ) # F should be
-  k <- ncol(factors_matrix)
-  dat$factors_matrix <- factors_matrix
-  dat$nfactors <- k
-  dat$k <- k + 2
 
 
   if(is.null(RE)){

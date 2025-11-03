@@ -19,7 +19,8 @@
 esmr_factors <- function(beta_hat_X, se_X,
                  beta_hat_Y=NULL, se_Y = NULL,
                  beta_hat_Z=NULL, se_Z = NULL,
-                 factor_matrix = NULL,
+                 factors_matrix = NULL,
+                 factors_residual_sd = NULL,
                  R = NULL,
                  pval_thresh = NULL,
                  variant_ix = NULL,
@@ -55,7 +56,7 @@ esmr_factors <- function(beta_hat_X, se_X,
   }
 
   dat <- set_data_factors(beta_hat_Y, se_Y, beta_hat_X, se_X,
-                  beta_hat_Z, se_Z, factor_matrix,
+                  beta_hat_Z, se_Z, factors_matrix, factos_residual_sd,
                   R, ld_scores, RE, tau_init)
 
   dat$G <- diag(dat$k )

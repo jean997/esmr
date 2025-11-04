@@ -32,8 +32,8 @@ snp_beta_rb <- function(
   lambda = qnorm(1 - alpha / 2),
   est_se_beta = TRUE
   ) {
-    a_term_plus <- - beta / (se_beta * eta) + lambda / eta
-    a_term_neg <- - beta / (se_beta * eta) - lambda / eta
+    a_term_plus <- - beta / (se_beta * eta) + (lambda / eta)
+    a_term_neg <- - beta / (se_beta * eta) - (lambda / eta)
     num <- dnorm(a_term_plus) - dnorm(a_term_neg)
     denom <- 1 - pnorm(a_term_plus) + pnorm(a_term_neg)
     ratio_term <- (num / denom)
@@ -49,5 +49,60 @@ snp_beta_rb <- function(
 
       return(list(beta_rb = beta_rb, se_rb = sqrt(rb_var)))
     }
+}
+
+#'@export
+ma_selection <- function(beta_hat, se_beta_hat, eta, alpha){
+  stopifnot(inherits(beta_hat, "numeric"))
+  stopifnot(inherits(se_beta_hat, "numeric"))
+  n <- length(beta_hat)
+  stopifnot(length(se_beta_hat) == n)
+  Z <- rnorm(n = n, mean = 0, sd = eta)
+  Zsel <- beta_hat/se_beta_hat + Z
+  lambda <- qnorm(1-alpha/2)
+  ix <- which(abs(Zsel) > lambda)
+
+  beta_adj <- snp_beta_rb(beta_hat[ix], se_beta_hat[ix],
+                          eta = eta, alpha = alpha,
+                          est_se_beta = TRUE)
+  selected_beta <- selected_se <- rep(NA, n)
+  selected_beta[ix] <- beta_adj$beta_rb
+  selected_se[ix] <- beta_adj$se_rb
+  return(list(selected_beta = selected_beta,
+              selected_se = selected_se))
+}
+
+#'@export
+ma_selection_multi <- function(beta_hat, se_beta_hat, eta, alpha){
+  stopifnot(inherits(beta_hat, "matrix"))
+  stopifnot(inherits(se_beta_hat, "matrix"))
+  n <- nrow(beta_hat)
+  p <- ncol(beta_hat)
+  stopifnot(nrow(se_beta_hat) == n)
+  stopifnot(ncol(se_beta_hat) == p)
+
+  beta_adj <- map(1:p, function(pp){
+    ma_selection(beta_hat[,pp], se_beta_hat[,pp], eta = eta, alpha = alpha)
+  })
+
+
+  selected_beta <- map(beta_adj, function(b){b$selected_beta})  %>% do.call(cbind, .)
+  selected_se <- map(beta_adj, function(b){b$selected_se})  %>% do.call(cbind, .)
+
+  ix <- apply(selected_beta, 1, function(x){!all(is.na(x))}) %>% which()
+
+  B <- beta_hat[ix,]
+  S <- se_beta_hat[ix,]
+  SB <- selected_beta[ix,]
+  SS <- selected_se[ix,]
+  SB[is.na(SB)] <- B[is.na(SB)]
+  SS[is.na(SS)] <- S[is.na(SS)]
+
+  selected_beta[ix,] <- SB
+  selected_se[ix,] <- SS
+
+  return(list(selected_beta = selected_beta,
+              selected_se = selected_se,
+              ix = ix))
 }
 

@@ -32,6 +32,7 @@ moment_propagation <- function(dat, nsamps = 1000){
 
     dat$f <- make_f(dat)
   }
+  return(dat)
 }
 
 

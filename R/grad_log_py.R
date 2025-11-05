@@ -532,8 +532,9 @@ optimize_lpy2 <- function(fit,
                          sub_size = fit$n){
 
 
-  fit <- order_upper_tri(fit, fit$B_template)
-
+  if(fit$is_nesmr){
+    fit <- order_upper_tri(fit, fit$B_template)
+  }
 
   i <- 1
   bj <- fit$beta$beta_j[fit$beta$fix_beta == FALSE]

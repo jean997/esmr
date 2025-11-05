@@ -152,6 +152,8 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
 
   if(is.null(RE)){
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
+    # Pre-compute log(det(omega))
+    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
     return(dat)
   }
 
@@ -162,6 +164,8 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
   dat$tau <- tau_init
   dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
+  # Pre-compute log(det(omega))
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
   dat$s_equal <- FALSE
   return(dat)
 }
@@ -212,6 +216,8 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
 
   if(is.null(RE)){
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
+    # Pre-compute log(det(omega))
+    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
     return(dat)
   }
 
@@ -222,6 +228,8 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
   dat$tau <- tau_init
   dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
+  # Pre-compute log(det(omega))
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
   dat$s_equal <- FALSE
 
 
@@ -231,15 +239,14 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
 
 
 
-order_upper_tri <- function(
-    dat, direct_effect_template = NULL, direct_effect_init= NULL,
-    restrict_dag = TRUE){
-  if(!is.null(direct_effect_template)){
-    B <- direct_effect_template
-  }else{
-    B <- matrix(0, nrow = dat$p, ncol = dat$p)
-    B[2:dat$p, 1] <- 1
-  }
+order_upper_tri <- function(dat,
+                            direct_effect_template,
+                            direct_effect_init= NULL,
+                            restrict_dag = TRUE){
+
+
+  B <- direct_effect_template
+
   # Check if we have lower triangular
   if (any(B[upper.tri(B)] != 0) && restrict_dag) {
       # Direct effect template is not an lower triangular matrix
@@ -250,9 +257,6 @@ order_upper_tri <- function(
         stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
       })
       dat <- reorder_data(dat, topo_order)
-      # beta_hat_X <- beta_hat_X[, topo_order]
-      # se_X <- se_X[, topo_order]
-      # R <- R[topo_order, topo_order]
       B <- B[topo_order, topo_order]
   }
 
@@ -280,8 +284,8 @@ reorder_data <- function(
   if(!is.null(dat$l)){
     dat$l$lbar <- dat$l$lbar[,cols,drop=F]
     dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
-    dat$l$abar <- dat$l$abar[,cols,drop=F]
-    dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
+    #dat$l$abar <- dat$l$abar[,cols,drop=F]
+    #dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
     dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
     dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
   }
@@ -299,7 +303,7 @@ reorder_data <- function(
     }
   }
   if(!is.null(dat$G)){
-    dat$G <- dat$G[cols,cols]
+    dat$G <- dat$G[cols,]
   }
   if(!is.null(dat$B_template)){
     dat$B_template <- dat$B_template[cols, cols]

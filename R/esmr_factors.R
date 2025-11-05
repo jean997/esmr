@@ -16,7 +16,7 @@
 #'@param g_type Method to estimate G. Suggest "gfa"
 #'@param augment_G Augment estimated G
 #'@export
-esmr_factors <- function(beta_hat_X, se_X,
+esmr_factors_depricated <- function(beta_hat_X, se_X,
                  beta_hat_Y=NULL, se_Y = NULL,
                  beta_hat_Z=NULL, se_Z = NULL,
                  factors_matrix = NULL,

@@ -38,6 +38,8 @@ esmr(
 
 \item{ld_scores}{List of ld_scores. If missing, no additional variance term will be added.}
 
+\item{RE}{RE}
+
 \item{max_iter}{Maximum number of iterations.}
 
 \item{params}{Additional parameters. See mvmr_default_params() for more information. Generally these can be left at their defaults.}

@@ -4,8 +4,6 @@
 .Ruserdata
 .DS_Store
 no_commit/
-*.rds
-*.Rd
 inst/doc
 docs
 /doc/

@@ -143,8 +143,8 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     # Multiply by direct effect template to ensure rounding is not an issue
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * dat$B_template
     delt_pvals <- delta_method_pvals(dat)
-    dat$pvals_dm <- delt_pvals$pmat * dat$direct_effect_template
-    dat$se_dm <- delt_pvals$semat * dat$direct_effect_template
+    dat$pvals_dm <- delt_pvals$pmat * dat$B_template
+    dat$se_dm <- delt_pvals$semat * dat$B_template
   }
   dat <- format_betas(dat)
   dat$elbo <- tail(dat$obj, n = 1)

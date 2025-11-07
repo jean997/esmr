@@ -77,7 +77,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     class(dat) <- c(c("nesmr"), class(dat))
   }
 
-  if(!is.null(G) & !dat$is_nesmr & !dat$is_factors){
+  if(is.null(G) & !dat$is_nesmr & !dat$is_factors){
     if(dat$p == 2){
       G <- diag(dat$p)
     } else{
@@ -107,6 +107,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat$beta$prior_cov <- check_beta_prior_cov(beta_prior_cov, nb)
     dat$beta$prior_precision <- solve(beta_prior_cov)
   }
+
 
   if(dat$is_factors){
     dat$f <- make_f_factors(dat)

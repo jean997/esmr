@@ -13,7 +13,7 @@ log_py <- function(fit, g_hat = NULL, fbar = NULL, max_prob = 1, nmax = Inf){
 
   if(max_prob < 1 | nmax < Inf){
     message("Identifying likelihood components.\n")
-    lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$p, byrow = T)
+    lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$k, byrow = T)
     top_combs <- get_top_combinations(x = lpi_mat, max_logsumexp = log(max_prob), nmax = nmax)
     m <- nrow(top_combs$combs)
 
@@ -22,12 +22,12 @@ log_py <- function(fit, g_hat = NULL, fbar = NULL, max_prob = 1, nmax = Inf){
     lpi <- top_combs$values
     total_prob <- sum(exp(lpi))
 
-    s_mat <- unlist(s) %>% matrix(nrow = fit$p, byrow = T)
+    s_mat <- unlist(s) %>% matrix(nrow = fit$k, byrow = T)
     V <- apply(top_combs$combs, 1, function(c){
-      ss <- s_mat[cbind(1:fit$p, c)]
-      return(crossprod(t(fgbar)*ss, t(fgbar)*ss))
+      ss <- s_mat[cbind(1:fit$k, c)]
+      return(crossprod(t(fgbar)*ss, t(fgbar)*ss)) #fgbar is p x k
       #fgbar %*% diag(ss^2) %*% t(fgbar)
-    }, simplify = F)
+    }, simplify = F) # V is p x p
   }else{
     LPi <- expand.grid(lpi)
     lpi <- apply(LPi, 1, sum)

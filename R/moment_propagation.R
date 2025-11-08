@@ -1,6 +1,6 @@
 moment_propagation <- function(dat, nsamps = 1000){
 
-  dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g, return_sampler = TRUE)
+  dat <- update_l_sequential(dat, seq(dat$k), dat$g_init, dat$fix_g, return_sampler = TRUE)
 
   asamps <- lapply(seq(dat$k), function(i){
     dat$l$sampler[[i]](nsamps)

@@ -87,15 +87,15 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                       type = g_type,
                       augment = augment_G)
     }
-    dat$k <- ncol(dat$G)
   }else if(dat$is_nesmr){
     G <- diag(1, dat$p)
   }else if(dat$is_factors){
     G <- diag(1, dat$k )
+  }else{
+    dat$G <- check_matrix(G, n = dat$p)
   }
-  dat$G <- check_matrix(G, n = dat$p)
-  dat$k <- ncol(dat$G)
-
+  dat$k <- ncol(G)
+    
   if(dat$is_nesmr){
     dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
                          restrict_dag = restrict_dag)

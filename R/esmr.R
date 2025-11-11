@@ -95,7 +95,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat$G <- check_matrix(G, n = dat$p)
   }
   dat$k <- ncol(G)
-    
+
   if(dat$is_nesmr){
     dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
                          restrict_dag = restrict_dag)
@@ -111,10 +111,11 @@ esmr_workhorse <- function(beta_hat_X, se_X,
 
   if(dat$is_factors){
     dat$f <- make_f_factors(dat)
+    dat$l <- init_l(dat$n, dat$k, dat$k)
   }else{
     dat$f <- make_f(dat)
+    dat$l <- init_l(dat$n, dat$p, dat$k)
   }
-  dat$l <- init_l(dat$n, dat$p, dat$k)
 
   # subset variants
   if(!is.null(variant_ix)){

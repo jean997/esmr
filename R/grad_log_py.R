@@ -140,7 +140,8 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
   b_j <- fit$beta$beta_j[!fit$beta$fix_beta]
   b_k <- fit$beta$beta_k[!fit$beta$fix_beta]
   nvars <- length(b_j)
-  E <- matrix(0, nrow = fit$p, ncol = fit$p)
+  #E <- matrix(0, nrow = fit$p, ncol = fit$p)
+  E <- matrix(0, nrow = nrow(fbar), ncol = ncol(fbar))
   dV <- lapply(seq(nvars), function(i){
     myE <- E
     myE[b_j[i], b_k[i]] <- 1
@@ -334,7 +335,8 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
   b_k <- fit$beta$beta_k[!fit$beta$fix_beta]
   nvars <- length(b_j)
 
-  E <- matrix(0, nrow = fit$p, ncol = fit$p)
+  #E <- matrix(0, nrow = fit$p, ncol = fit$p)
+  E <- matrix(0, nrow = nrow(fbar), ncol = ncol(fbar))
   dV <- lapply(seq(nvars), function(i){
     myE <- E
     myE[b_j[i], b_k[i]] <- 1

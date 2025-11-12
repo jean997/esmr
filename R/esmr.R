@@ -79,22 +79,22 @@ esmr_workhorse <- function(beta_hat_X, se_X,
 
   if(is.null(G) & !dat$is_nesmr & !dat$is_factors){
     if(dat$p == 2){
-      G <- diag(dat$p)
+      dat$G <- diag(dat$p)
     } else{
-      G <- estimate_G(beta_hat_X = dat$Y[,-1,drop =F],
+      dat$G <- estimate_G(beta_hat_X = dat$Y[,-1,drop =F],
                       se_X = dat$S[,-1, drop = F],
                       R = R[-1, -1, drop = FALSE],
                       type = g_type,
                       augment = augment_G)
     }
   }else if(dat$is_nesmr){
-    G <- diag(1, dat$p)
+    dat$G <- diag(1, dat$p)
   }else if(dat$is_factors){
-    dat$G <- G <- diag(1, dat$k)
+    dat$G <- diag(1, dat$k)
   }else{
     dat$G <- check_matrix(G, n = dat$p)
   }
-  dat$k <- ncol(G)
+  dat$k <- ncol(dat$G)
 
   if(dat$is_nesmr){
     dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,

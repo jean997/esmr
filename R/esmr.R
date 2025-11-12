@@ -90,7 +90,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   }else if(dat$is_nesmr){
     G <- diag(1, dat$p)
   }else if(dat$is_factors){
-    dat$G <- diag(1, dat$k)
+    dat$G <- G <- diag(1, dat$k)
   }else{
     dat$G <- check_matrix(G, n = dat$p)
   }

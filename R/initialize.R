@@ -22,8 +22,6 @@ init_beta <- function(dat){
     which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1), drop=FALSE] ## transpose
     dat$beta$fix_beta <- c(rep(FALSE, nrow(B$which_tot_u)), rep(TRUE, nrow(B$which_tot_c)))
   }else if(dat$is_factors){
-    print(dat$k)
-    rep(1,  dat$k - 1)
     which_beta <- cbind(c(rep(1,  dat$k - 1),
                           rep(2, dat$k-2)), c(2:dat$k , 3:dat$k))
     dat$beta$fix_beta <- rep(FALSE, 2*dat$k-3)

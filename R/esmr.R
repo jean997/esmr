@@ -29,6 +29,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                  #fix_beta = FALSE,
                  beta_prior_cov = NULL,
                  beta_joint = TRUE,
+                 total_to_direct_bootstrap_samples = 10000,
                  augment_G = TRUE,
                  cond_num = 1e10){
 
@@ -145,8 +146,28 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     # Multiply by direct effect template to ensure rounding is not an issue
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * dat$B_template
     delt_pvals <- delta_method_pvals(dat)
-    dat$pvals_dm <- delt_pvals$pmat * dat$B_template
-    dat$se_dm <- delt_pvals$semat * dat$B_template
+    dat$direct_effects_se <- delt_pvals$semat * dat$B_template
+    dat$direct_effects_log_pval <- delt_pvals$pmat * dat$B_template
+    dat$standard_error_method <- "delta_method"
+  } else if (dat$is_nesmr && !is_dag(dat$B_template)) {
+    dat$total_effects <- t(dat$f$fbar) - diag(dat$p)
+    dat$direct_effects <- total_to_direct(dat$total_effects, restrict_dag = FALSE) * dat$B_template
+
+    bootstrap_ix <- cbind(
+      dat$beta$beta_k,
+      dat$beta$beta_j
+    )
+    pbstrap <- total_to_direct_parameteric_bootstrap(
+      beta = dat$beta$beta_m,
+      beta_cov = dat$beta$V,
+      beta_ix = beta_ix,
+      d = ncol(dat$total_effects),
+      bootstrap_samples = 1000
+    )
+
+    dat$direct_effect_se <- pbstrap$direct_effects_se
+    dat$direct_effects_bootstrap <- pbstrap$direct_effects_bootstrap
+    dat$standard_error_method <- "parametric_bootstrap"
   }
   dat <- format_betas(dat)
   dat$elbo <- tail(dat$obj, n = 1)

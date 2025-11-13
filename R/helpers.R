@@ -290,7 +290,7 @@ reorder_data <- function(
     dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
   }
 
-  if(!is.null(dat$beta)){
+  if(!is.null(dat[["beta"]])) {
     dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
     dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
     dat$f <- make_f(dat)

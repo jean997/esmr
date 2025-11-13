@@ -290,8 +290,7 @@ reorder_data <- function(
     dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
   }
 
-  # Note: Needed to replace dat$beta since there is a value dat$beta_joint that is TRUE which dat$beta shortcuts to. Dumbest R "feature!!"
-  if(!is.null(dat[["beta"]])){
+  if(!is.null(dat[["beta"]])) {
     dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
     dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
     dat$f <- make_f(dat)

@@ -105,7 +105,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   if (!is.null(beta_prior_cov)) {
     nb <- sum(! dat$beta$fix_beta)
     dat$beta$prior_cov <- check_beta_prior_cov(beta_prior_cov, nb)
-    dat$beta$prior_precision <- solve(beta_prior_cov)
+    dat$beta$prior_precision <- solve(dat$beta$prior_cov)
   }
 
 

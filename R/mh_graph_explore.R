@@ -264,7 +264,7 @@ mh_graph_explore <- function(
             visited_graphs[[curr_B_str]]$elbo_without_prior <- init_mod$elbo
             visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo + log_graph_prior(n_edges, d, pi_0 = graph_edge_prior)
             visited_graphs[[curr_B_str]]$beta_hat <- init_mod$direct_effects
-            visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$se_dm
+            visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$direct_effects_se
             visited_graphs[[curr_B_str]]$proposed <- (visited_graphs[[curr_B_str]]$proposed %||% 0) + 1
             if (debug) visited_graphs[[curr_B_str]]$model <- init_mod
 

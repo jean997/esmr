@@ -27,7 +27,7 @@ log_py <- function(fit, g_hat = NULL, fbar = NULL, max_prob = 1, nmax = Inf){
       ss <- s_mat[cbind(1:fit$k, c)]
       return(crossprod(t(fgbar)*ss, t(fgbar)*ss)) #fgbar is p x k
       #fgbar %*% diag(ss^2) %*% t(fgbar)
-    }, simplify = F) 
+    }, simplify = F)
   }else{
     LPi <- expand.grid(lpi)
     lpi <- apply(LPi, 1, sum)
@@ -606,8 +606,8 @@ optimize_lpy2 <- function(fit,
     fit$beta$beta_s <- sqrt(diag(fit$beta$V))
     fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
     delt_pvals <- delta_method_pvals(fit)
-    fit$pvals_dm <- delt_pvals$pmat
-    fit$se_dm <- delt_pvals$semat
+    fit$direct_effects_log_pval <- delt_pvals$pmat
+    fit$direct_effects_se <- delt_pvals$semat
     fit$likelihood <- h$log_py
   }else{
     fit$beta$V <- solve(g$In)/fit$n
@@ -622,8 +622,8 @@ optimize_lpy2 <- function(fit,
     fit <- reorder_data(fit, o)
     fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
     delt_pvals <- delta_method_pvals(fit)
-    fit$pvals_dm <- delt_pvals$pmat
-    fit$se_dm <- delt_pvals$semat
+    fit$direct_effects_log_pval <- delt_pvals$pmat
+    fit$direct_effects_se <- delt_pvals$semat
   }
 
 

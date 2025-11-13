@@ -109,7 +109,6 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat$beta$prior_precision <- solve(dat$beta$prior_cov)
   }
 
-
   if(dat$is_factors){
     dat$f <- make_f_factors(dat)
     dat$l <- init_l(dat$n, dat$k, dat$k)

@@ -151,7 +151,7 @@ mh_graph_explore <- function(
     if (is.null(n_mvmr_res)) {
         capture.output(
             {
-                n_mvmr_res <- esmr::nesmr_complete_mvmr(
+                n_mvmr_res <- nesmr_complete_mvmr(
                     beta_hat = dat$beta_hat,
                     se_beta_hat = dat$s_estimate,
                     pval_select = pval_select,
@@ -242,19 +242,19 @@ mh_graph_explore <- function(
             start_time <- Sys.time()
             capture.output(
                 {
-                    init_mod <- esmr::esmr(
+                    init_mod <- nesmr(
                         beta_hat_X = dat$beta_hat,
                         se_X = dat$s_estimate,
                         variant_ix = ix,
-                        G = diag(d),
                         direct_effect_template = curr_B,
                         max_iter = 300,
-                        restrict_dag = T,
-                        beta_prior_cov = 1,
-                        R = R
+                        R = R,
+                        params = list(
+                           beta_prior_cov = 1
+                        )
                     )
                 },
-                file = nullfile()
+                file = if (verbose) stdout() else nullfile()
             )
             end_time <- Sys.time()
             init_fit_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
@@ -412,22 +412,22 @@ mh_graph_explore <- function(
                 # TODO: Probably want to just re-fit from initial/previous chain
                 capture.output(
                     {
-                        new_mod <- esmr::esmr(
+                        new_mod <- nesmr(
                             beta_hat_X = dat$beta_hat,
                             se_X = dat$s_estimate,
                             variant_ix = ix,
-                            G = diag(d),
                             direct_effect_template = prop_B,
                             max_iter = 300,
-                            restrict_dag = T,
-                            beta_prior_cov = 1,
-                            R = R
+                            R = R,
+                            params = list(
+                                 beta_prior_cov = 1
+                            )
                         )
                         if (debug) visited_graphs[[curr_B_str]]$model <- new_mod
                         nesmr_fits <- nesmr_fits + 1
                         elbo_denom <- matrixStats::logSumExp(c(elbo_denom, new_mod$elbo), na.rm = TRUE)
                     },
-                    file = nullfile() # if (verbose) stdout() else nullfile()
+                    file = if (verbose) stdout() else nullfile()
                 )
                 n_edges <- sum(prop_B)
                 visited_graphs[[prop_B_str]]$elbo_without_prior <- new_mod$elbo

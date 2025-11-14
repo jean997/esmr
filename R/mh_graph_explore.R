@@ -163,6 +163,7 @@ mh_graph_explore <- function(
     }
 
     full_graph_zscores <- n_mvmr_res$beta_hat / n_mvmr_res$se_beta_hat
+    full_graph_zscores[is.na(full_graph_zscores) | is.infinite(full_graph_zscores) | is.nan(full_graph_zscores)] <- 0
     stopifnot(ncol(n_mvmr_res$beta_hat) == d)
     non_diag_i <- -seq(1, d^2, by = d + 1)
     diag(full_graph_zscores) <- 0
@@ -433,7 +434,7 @@ mh_graph_explore <- function(
                 visited_graphs[[prop_B_str]]$elbo_without_prior <- new_mod$elbo
                 visited_graphs[[prop_B_str]]$elbo <- new_mod$elbo + log_graph_prior(n_edges, d, pi_0 = graph_edge_prior)
                 visited_graphs[[prop_B_str]]$beta_hat <- new_mod$direct_effects
-                visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$se_dm
+                visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$direct_effects_se
                 proposal_graph_info <- visited_graphs[[prop_B_str]]
             }
 

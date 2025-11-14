@@ -1,6 +1,7 @@
 #' @importFrom tidygraph as_tbl_graph tbl_graph
 #' @export
 as.matrix.nesmr_tbl_graph <- function(x, value = c("direct_effect", "total_effect"), ...) {
+  value <- match.arg(value)
   graph_names <- activate(x, nodes) |> pull(name)
 
   edgelist <- x |>

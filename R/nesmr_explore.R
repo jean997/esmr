@@ -1,7 +1,7 @@
 nesmr_explore <- function(
   beta_hat, se_beta_hat, pval_select = NULL,
   zscore_filter = qnorm(0.975), chains = 5, elbo_threshold = 0.05,
-  graph_prior_pi = 0.5,
+  graph_prior_pi = NULL,
   alpha = 5e-8,
   R = NULL) {
     d <- ncol(beta_hat)
@@ -117,7 +117,12 @@ nesmr_explore <- function(
                 )
           }, file = nullfile())
             k <- sum(curr_B != 0)
-            new_elbo <- new_mod$elbo + log_graph_prior(k, d, pi_0 = graph_prior_pi)
+            if (!is.null(graph_prior_pi)) {
+                log_graph_prior_k <- log_graph_prior(k, d, pi_0 = graph_prior_pi)
+            } else {
+                log_graph_prior_k <- 0
+            }
+            new_elbo <- new_mod$elbo + log_graph_prior_k
             visited_graphs[[curr_B_str]] <- list(
                 elbo = new_elbo,
                 beta_hat = new_mod$beta_mat$beta_hat,

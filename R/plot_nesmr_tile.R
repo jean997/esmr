@@ -117,7 +117,7 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
     low = "white",
     high = "orange",
     name = "Edge Inclusion",
-    limits = c(0, 1)
+    limits = c(0, 1.0001)
   )
 
   # Use common tile plot function

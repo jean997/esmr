@@ -28,7 +28,6 @@ nesmr_complete_mvmr <- function(
                     beta_hat_X = beta_hat[,-i],
                     se_X = se_beta_hat[,-i],
                     variant_ix = mvmr_ix,
-                    beta_joint = TRUE,
                     ...)
       }, error = function(e) {
         warning(e)

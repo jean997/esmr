@@ -20,8 +20,12 @@ moment_propagation <- function(dat, nsamps = 1000){
       dat$beta$beta_m[ii] <- beta_upd$m
       dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
       dat$beta$V[ii,ii] <- beta_upd$S
+      if(dat$is_factors){
+        dat$f <- make_f_factors(dat)
+      }else{
+        dat$f <- make_f(dat)
+      }
 
-      dat$f <- make_f(dat)
     }
   }else{
     e_ix <- which(!dat$beta$fix_beta)
@@ -29,8 +33,12 @@ moment_propagation <- function(dat, nsamps = 1000){
     dat$beta$beta_m[e_ix] <- ub$m
     dat$beta$V[e_ix,e_ix] <- ub$S
     dat$beta$beta_s[e_ix] <- sqrt(diag(ub$S))
+    if(dat$is_factors){
+      dat$f <- make_f_factors(dat)
+    }else{
+      dat$f <- make_f(dat)
+    }
 
-    dat$f <- make_f(dat)
   }
   return(dat)
 }

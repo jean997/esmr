@@ -195,9 +195,9 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   factors_residual_sd <- check_numeric(factors_residual_sd, p-2)
   k <- ncol(factors_matrix)
 
-
-  se_Z <- t(t(se_Z)*factors_residual_sd)
-
+  if(!is.null(factors_residual_sd)){
+    se_Z <- t(t(se_Z)*factors_residual_sd)
+  }
   beta_hat_X <- cbind(beta_hat_X, beta_hat_Z)
   beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)
   se_X <- cbind(se_X, se_Z)

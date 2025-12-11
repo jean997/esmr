@@ -98,6 +98,8 @@ mh_graph_explore <- function(
     random_starts = 0,
     max_iter = 1000,
     max_nesmr_fits = 100,
+    kill_no_improve = FALSE,
+    kill_no_improve_iters = Inf,
     visited_graphs = list(),
     checkpoint_file = NULL,
     checkpoint_every = 0,
@@ -231,6 +233,8 @@ mh_graph_explore <- function(
 
     for (i in seq_along(mh_chain_init)) {
         accept_count <- 0
+        last_best_iter <- 0
+        best_elbo_so_far <- -Inf
         curr_adj_mat <- mh_chain_init[[i]]
         curr_B <- (curr_adj_mat != 0) + 0
         curr_B_str <- paste0(curr_B, collapse = "")
@@ -496,6 +500,11 @@ mh_graph_explore <- function(
                 curr_B_str <- prop_B_str
                 ig <- tmp_ig
                 visited_graphs[[prop_B_str]]$visited_count <- (visited_graphs[[prop_B_str]]$visited_count %||% 0) + 1
+                # Track best elbo seen in this chain
+                if (proposal_graph_info$elbo > best_elbo_so_far) {
+                    best_elbo_so_far <- proposal_graph_info$elbo
+                    last_best_iter <- iter
+                }
             } else {
                 visited_graphs[[curr_B_str]]$visited_count <- (visited_graphs[[curr_B_str]]$visited_count %||% 0) + 1
             }
@@ -504,6 +513,13 @@ mh_graph_explore <- function(
             accept_ratio <- accept_count / iter
 
             log_msg(sprintf("\tAccept/Reject ratio: %.2f", accept_ratio))
+            # Early-stop chain if no improvement after specified iterations
+            if (isTRUE(kill_no_improve) && is.finite(kill_no_improve_iters)) {
+                if ((iter - last_best_iter) >= kill_no_improve_iters) {
+                    log_msg(sprintf("No new best graph in %d iterations; terminating chain %s.", kill_no_improve_iters, chain_name))
+                    break
+                }
+            }
             iter <- iter + 1
             if (!is.null(checkpoint_file) && nesmr_fits %% checkpoint_every == 0) {
                 saveRDS(

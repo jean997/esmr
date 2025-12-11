@@ -106,7 +106,10 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   if (!is.null(beta_prior_cov)) {
     nb <- sum(! dat$beta$fix_beta)
     dat$beta$prior_cov <- check_beta_prior_cov(beta_prior_cov, nb)
-    dat$beta$prior_precision <- solve(dat$beta$prior_cov)
+    if (length(dat$beta$prior_cov) > 0) {
+        dat$beta$prior_precision <- solve(dat$beta$prior_cov)
+    }
+
   }
 
   if(dat$is_factors){
@@ -141,7 +144,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat <- reorder_data(dat, o)
   }
 
-  if (dat$is_nesmr && is_dag(dat$B_template)) {
+  if (dat$is_nesmr && is_dag(dat$B_template) && !all(direct_effect_template == 0)) {
     # Multiply by direct effect template to ensure rounding is not an issue
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * dat$B_template
     delt_pvals <- delta_method_pvals(dat)

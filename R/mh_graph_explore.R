@@ -98,8 +98,8 @@ mh_graph_explore <- function(
     random_starts = 0,
     max_iter = 1000,
     max_nesmr_fits = 100,
-    kill_no_improve = FALSE,
     kill_no_improve_iters = Inf,
+    kill_no_improve_models = Inf,
     visited_graphs = list(),
     checkpoint_file = NULL,
     checkpoint_every = 0,
@@ -115,6 +115,8 @@ mh_graph_explore <- function(
             message("mh_graph_explore: ", ...)
         }
     }
+
+    kill_no_improve <- is.finite(kill_no_improve_iters) || is.finite(kill_no_improve_models)
 
     if (!length(logistic_scale) %in% c(1, 2)) {
         stop("logistic_scale must be a numeric vector of length 1 or 2")
@@ -230,11 +232,12 @@ mh_graph_explore <- function(
 
     mh_chain_info <- lapply(seq_along(mh_chain_init), function(x) vector("list", length = max_iter))
     elbo_denom <- -Inf
+    best_elbo_so_far <- -Inf
+    models_since_improve <- 0
 
     for (i in seq_along(mh_chain_init)) {
         accept_count <- 0
         last_best_iter <- 0
-        best_elbo_so_far <- -Inf
         curr_adj_mat <- mh_chain_init[[i]]
         curr_B <- (curr_adj_mat != 0) + 0
         curr_B_str <- paste0(curr_B, collapse = "")
@@ -430,6 +433,8 @@ mh_graph_explore <- function(
                         )
                         if (debug) visited_graphs[[curr_B_str]]$model <- new_mod
                         nesmr_fits <- nesmr_fits + 1
+                        # Not sure if this is the best place: Will force
+                        models_since_improve <- models_since_improve + 1
                         elbo_denom <- matrixStats::logSumExp(c(elbo_denom, new_mod$elbo), na.rm = TRUE)
                     },
                     file = if (verbose) stdout() else nullfile()
@@ -504,6 +509,7 @@ mh_graph_explore <- function(
                 if (proposal_graph_info$elbo > best_elbo_so_far) {
                     best_elbo_so_far <- proposal_graph_info$elbo
                     last_best_iter <- iter
+                    models_since_improve <- 0
                 }
             } else {
                 visited_graphs[[curr_B_str]]$visited_count <- (visited_graphs[[curr_B_str]]$visited_count %||% 0) + 1
@@ -514,9 +520,12 @@ mh_graph_explore <- function(
 
             log_msg(sprintf("\tAccept/Reject ratio: %.2f", accept_ratio))
             # Early-stop chain if no improvement after specified iterations
-            if (isTRUE(kill_no_improve) && is.finite(kill_no_improve_iters)) {
-                if ((iter - last_best_iter) >= kill_no_improve_iters) {
-                    log_msg(sprintf("No new best graph in %d iterations; terminating chain %s.", kill_no_improve_iters, chain_name))
+            if (isTRUE(kill_no_improve) && (is.finite(kill_no_improve_iters) || is.finite(kill_no_improve_models))) {
+                if (
+                    (is.finite(kill_no_improve_iters) && (iter - last_best_iter) >= kill_no_improve_iters) ||
+                    (is.finite(kill_no_improve_models) && models_since_improve >= kill_no_improve_models)
+                    ) {
+                    log_msg(sprintf("No new best graph in %d iterations; and %d models; terminating chain %s.", kill_no_improve_iters, kill_no_improve_models, chain_name))
                     break
                 }
             }

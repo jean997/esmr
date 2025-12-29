@@ -1,10 +1,6 @@
-update_l_sequential <- function(dat, jj, g_init, fix_g){
-  #l_update <- list()
-  # abar <- dat$l$abar
-  # a2bar <- dat$l$a2bar
+update_l_sequential <- function(dat, jj, g_init, fix_g,
+                                return_sampler = FALSE){
 
-  # lfsr <- dat$l$lfsr
-  # g_hat <- dat$l$g_hat
   kl <- c()
   if(!missing(jj)){
     coords <- jj
@@ -24,15 +20,21 @@ update_l_sequential <- function(dat, jj, g_init, fix_g){
     fix_g <- rep(FALSE, length(coords))
   }
 
-
+  if(return_sampler){
+    dat$l$sampler <- list()
+  }
   for(j in coords){
-    lu <- update_lj(dat, j, g_init = g_init[[j]], fix_g = fix_g[j])
+    lu <- update_lj(dat, j,
+                    g_init = g_init[[j]],
+                    fix_g = fix_g[j],
+                    return_post = return_sampler)
 
     dat$l$abar[lu$posterior$index,j] <- lu$posterior$mean
     dat$l$a2bar[lu$posterior$index,j] <- lu$posterior$second_moment
 
     #lfsr[lu$posterior$index,j] <- lu$posterior$lfsr
     dat$l$g_hat[[j]] <- lu$fitted_g
+    dat$l$sampler[[j]] <- lu$posterior_sampler
     #l_update[[j]] <- lu
     kl <- c(kl, lu$KL)
   }
@@ -51,8 +53,10 @@ update_l_sequential <- function(dat, jj, g_init, fix_g){
 
 #'@export
 update_lj <- function(dat, j,
-                      g_init = NULL, fix_g = FALSE,
-                      return_post = FALSE, return_x_s = FALSE){
+                      g_init = NULL,
+                      fix_g = FALSE,
+                      return_post = FALSE,
+                      return_x_s = FALSE){
 
   R_j <- dat$Y - (dat$l$abar[,-j,drop=FALSE] %*% t(dat$f$fgbar[,-j,drop=FALSE]))
   fgbar_j <- with(dat$f, fgbar[,j])

@@ -22,6 +22,41 @@ make_f <- function(dat){
               fbar = fbar))#,f2bar = f2bar))
 }
 
+make_f_factors <- function(dat){
+
+  fbar <- matrix(0, nrow = dat$p, ncol = dat$k )
+  fbar[1,1] <- fbar[2,2] <- 1
+  fbar[3:dat$p, 3:(dat$k )] <- dat$factors_matrix
+
+  nb <- length(dat$beta$beta_j)
+  ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+
+  fbar[ix] <- dat$beta$beta_m
+  fgbar <- fbar
+
+  return(list(fgbar = fgbar, #fg2bar = fg2bar,
+              fbar = fbar))#,f2bar = f2bar))
+}
+
+format_betas <- function(dat){
+  # Reformat beta_hat and beta_se to matrix format
+  beta_hat <- beta_se <- matrix(0, nrow = dat$p, ncol = dat$k)
+  fix_beta <- matrix(FALSE, nrow = dat$p, ncol = dat$k)
+  # Lower triangular format
+  beta_ind <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+  beta_hat[beta_ind] <- dat$beta$beta_m
+  beta_se[beta_ind] <- dat$beta$beta_s
+  fix_beta[beta_ind] <- dat$beta$fix_beta
+
+  dat$beta$beta_hat <- beta_hat
+  dat$beta$beta_se <- beta_se
+  dat$beta$beta_fixed <- fix_beta
+  return(dat)
+}
+
+
+
+
 get_omega <- function(R, S, s_equal, any_missing){
 
   p <- ncol(S)
@@ -117,6 +152,8 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
 
   if(is.null(RE)){
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
+    # Pre-compute log(det(omega))
+    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
     return(dat)
   }
 
@@ -127,19 +164,89 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
   dat$tau <- tau_init
   dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
+  # Pre-compute log(det(omega))
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
   dat$s_equal <- FALSE
   return(dat)
 }
 
-order_upper_tri <- function(
-    dat, direct_effect_template = NULL, direct_effect_init= NULL,
-    restrict_dag = TRUE){
-  if(!is.null(direct_effect_template)){
-    B <- direct_effect_template
-  }else{
-    B <- matrix(0, nrow = dat$p, ncol = dat$p)
-    B[2:dat$p, 1] <- 1
+
+set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
+                             beta_hat_Z, se_Z,
+                             factors_matrix, factors_residual_sd,
+                             R, ld_scores, RE, tau_init){
+
+  if(is.null(beta_hat_Y)){
+    stop("beta_hat_Y must be supplied for esmr_factors.\n")
   }
+  beta_hat_Z <- check_matrix(beta_hat_Z)
+  n <- nrow(beta_hat_Z)
+  beta_hat_Y <- check_numeric(beta_hat_Y, n)
+  beta_hat_X <- check_numeric(beta_hat_X, n)
+  p <- ncol(beta_hat_Z) + 2
+
+  se_Z <- check_matrix(se_Z, n, p-2)
+  se_X <- check_numeric(se_X, n)
+  se_Y <- check_numeric(se_Y, n)
+
+
+  ## check factors
+  factors_matrix <- check_matrix(factors_matrix, p-2 ) # F should be p-2 by k
+  factors_residual_sd <- check_numeric(factors_residual_sd, p-2)
+  k <- ncol(factors_matrix)
+
+  if(!is.null(factors_residual_sd)){
+    se_Z <- t(t(se_Z)*factors_residual_sd)
+  }
+  beta_hat_X <- cbind(beta_hat_X, beta_hat_Z)
+  beta_hat_X <- cbind(beta_hat_Y, beta_hat_X)
+  se_X <- cbind(se_X, se_Z)
+  se_X <- cbind(se_Y, se_X)
+
+
+  R <- check_matrix(R, p, p)
+  R <- check_R(R)
+
+  dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
+  dat$traits <- 1:p
+  dat$factors_matrix <- factors_matrix
+  dat$nfactors <- k
+  dat$k <- k + 2
+
+
+  if(is.null(RE)){
+    dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
+    # Pre-compute log(det(omega))
+    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+    return(dat)
+  }
+
+  RE <- check_matrix(RE, p, p)
+  dat$RE <- check_R(RE)
+  dat$ld_scores <- check_numeric(ld_scores, n)
+
+  dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
+  dat$tau <- tau_init
+  dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
+  # Pre-compute log(det(omega))
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+  dat$s_equal <- FALSE
+
+
+  return(dat)
+}
+
+
+
+
+order_upper_tri <- function(dat,
+                            direct_effect_template,
+                            direct_effect_init= NULL,
+                            restrict_dag = TRUE){
+
+
+  B <- direct_effect_template
+
   # Check if we have lower triangular
   if (any(B[upper.tri(B)] != 0) && restrict_dag) {
       # Direct effect template is not an lower triangular matrix
@@ -150,9 +257,6 @@ order_upper_tri <- function(
         stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
       })
       dat <- reorder_data(dat, topo_order)
-      # beta_hat_X <- beta_hat_X[, topo_order]
-      # se_X <- se_X[, topo_order]
-      # R <- R[topo_order, topo_order]
       B <- B[topo_order, topo_order]
   }
 
@@ -180,13 +284,13 @@ reorder_data <- function(
   if(!is.null(dat$l)){
     dat$l$lbar <- dat$l$lbar[,cols,drop=F]
     dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
-    dat$l$abar <- dat$l$abar[,cols,drop=F]
-    dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
+    #dat$l$abar <- dat$l$abar[,cols,drop=F]
+    #dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
     dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
     dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
   }
 
-  if(!is.null(dat$beta)){
+  if(!is.null(dat[["beta"]])) {
     dat$beta$beta_j <- match(dat$beta$beta_j, table = cols)
     dat$beta$beta_k <- match(dat$beta$beta_k, table = cols)
     dat$f <- make_f(dat)
@@ -199,7 +303,7 @@ reorder_data <- function(
     }
   }
   if(!is.null(dat$G)){
-    dat$G <- dat$G[cols,cols]
+    dat$G <- dat$G[cols,]
   }
   if(!is.null(dat$B_template)){
     dat$B_template <- dat$B_template[cols, cols]
@@ -331,4 +435,13 @@ matrix_to_edgelist <- function(
     res <- res[res$from != res$to, ]
   }
   res
+}
+
+flat_string_to_adj_mat <- function(x) {
+  # First get a vector of the digits of x
+  digits <- as.numeric(unlist(strsplit(as.character(x), "")))
+  # Then turn into a matrix
+  n <- sqrt(length(digits))
+  stopifnot(n == floor(n))
+  matrix(digits, nrow = n, ncol = n)
 }

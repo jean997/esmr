@@ -1,4 +1,6 @@
-
+## This code goes with grad_log_py, created in an attempt to make
+## gradient computation more efficient by only considering the top combinations.
+## However, it is still quite slow.
 get_top_combinations <- function(x, max_logsumexp, nmax = Inf){
   c <- apply(x, 1, which.max)
 

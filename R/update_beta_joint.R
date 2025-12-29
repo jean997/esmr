@@ -1,22 +1,33 @@
 
 #'@export
-update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = FALSE){
+update_beta_joint <- function(dat,
+                              j=1,
+                              ix = NULL,
+                              ii = NULL,
+                              return_W = FALSE,
+                              cond_num = 1e10){
+
+  # j is the row of F that we will update. F is p rows by k columns
+  # for factors version, abar and lbar are both n by k, lbar and abar are the same
 
   p <- dat$p
+  k <- dat$k
   n <- dat$n
+
+  prior_precision <- dat$beta$prior_precision
+
   if(is.null(ix)){
-    ix <- seq(p)[-j]
+    ix <- seq(k)[-j]
   }else{
-    stopifnot(all(ix %in% seq(p)))
+    stopifnot(all(ix %in% seq(k)))
     stopifnot(!any(duplicated(ix)))
     #ix <- sort(ix)
   }
   m <- length(ix)
-  if(is.null(prior_cov)){
+  if(is.null(prior_precision)){
     T0 <- matrix(0, nrow = m, ncol = m)
   }else{
-    T0 <- check_matrix(prior_cov, m, m)
-    T0 <- solve(prior_cov)
+    T0 <- prior_precision[ii,ii]
   }
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
@@ -24,9 +35,10 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
     Astar <- dat$G %*% A %*% t(dat$G)
 
-    Rfull <- dat$omega[j,j]*Astar  # W in the manuscript
-    a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j])))
+    Rfull <- dat$omega[j,j]*Astar  # W in the manuscript k by k
+    a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j]))) # length k
     a20 <- lapply(seq(p)[-j], function(jj){
+      # (k by k ) %*% (k by 1)*(p by 1)
       Astar%*% t(dat$f$fbar[jj,,drop = FALSE])*dat$omega[j,jj]
     }) %>% Reduce(`+`, .)
     afull <- matrix(a10 - a20, nrow = p)
@@ -53,31 +65,48 @@ update_beta_joint <- function(dat, j=1, ix = NULL, prior_cov = NULL, return_W = 
     a <- afull
   }
 
+  remove_suggest <- NULL
   evR <- eigen(R, only.values = TRUE)$values
   condR <- abs(max(evR)/min(evR))
-  if(any(evR < 0) | condR > 1e15){
-    all_zero_cols_lbar <- apply(zapsmall(dat$l$lbar, digits = 10), 2, function(x){
-      all(x == 0)
-    })
-    if (any(all_zero_cols_lbar)) {
-      stop('lbar has a column of all zeros for column(s): ', which(all_zero_cols_lbar))
+  if(any(evR < 0) | condR > cond_num){
+    info_abar <- colSums(dat$l$abar^2)
+    if(dat$is_nesmr){
+      worst_abar <- which.min(info_abar)
+      remove_suggest <- which.max(abs(dat$G[,worst_abar]))
+      warning("There is not enough independent genetic information to estimate all trait effects.
+              This will result in some very large standard errors.  I recommend removing trait ", remove_suggest, ".\n")
+    }else if(dat$is_factors){ ## Factors case
+      worst_abar <- which.min(info_abar[-1]) + 1
+      remove_suggest <- which.max(abs(dat$G[,worst_abar]))
+      if(remove_suggest == 2){
+        warning("There may not be enough independent genetic information about your primary exposure. This could happen if there are
+                very few or very weak instruments for X. This will result in very large standard errors.")
+      }else{
+        warning("There is not enough independent genetic information to estimate all factor effects.
+              I am going to remove factor ", remove_suggest-2, ".\n")
+      }
+    }else{ # MVMR case
+      worst_abar <- which.min(info_abar[-1]) + 1 ## do not check Y
+      remove_suggest <- which.max(abs(dat$G[,worst_abar]))
+      warning("There is not enough independent genetic information to estimate all trait effects.
+              This will result in some very large standard errors.  I recommend removing exposure trait ", remove_suggest-1, ".\n")
+
     }
     warning("Projecting internal R to nearest PD matrix in beta update.\n")
-    R <- Matrix::nearPD(R)$mat
+    R <- Matrix::nearPD(R, posd.tol = 1/cond_num)$mat
   }
 
-  S <- solve(R)
-
+  S <- solve(R + T0)
   mu <- S %*% a
 
   if(return_W){
-    return(list(m = mu, S = S, W = R, b = a))
+    return(list(m = mu, S = S, W = R, b = a, remove_suggest = remove_suggest))
   }
-  return(list(m = mu, S = S))
+  return(list(m = mu, S = S, remove_suggest = remove_suggest))
 }
 
-
-update_beta_full_joint <- function(dat, prior_cov = NULL){
+## This only gets used for nesmr and factor problems
+update_beta_full_joint <- function(dat, cond_num = 1e10){
 
   p <- dat$p
   n <- dat$n
@@ -87,11 +116,11 @@ update_beta_full_joint <- function(dat, prior_cov = NULL){
   ix <- ix[!dat$beta$fix_beta]
   m <- length(ix)
 
-  if(is.null(prior_cov)){
+  prior_precision <- dat$beta$prior_precision
+  if(is.null(prior_precision)){
     T0 <- matrix(0, nrow = m, ncol = m)
   }else{
-    T0 <- check_matrix(prior_cov, m, m)
-    T0 <- solve(prior_cov)
+    T0 <- prior_precision
   }
 
   Va <- dat$l$a2bar - (dat$l$abar^2)
@@ -124,7 +153,41 @@ update_beta_full_joint <- function(dat, prior_cov = NULL){
     R <- Rfull
     a <- afull
   }
-  S <- solve(R)
+
+  remove_suggest <- NULL
+  evR <- eigen(R, only.values = TRUE)$values
+  condR <- abs(max(evR)/min(evR))
+  if(any(evR < 0) | condR > cond_num){
+    info_abar <- colSums(dat$l$abar^2)
+
+
+    if(dat$is_nesmr){
+      worst_abar <- which.min(info_abar)
+      remove_suggest <- which.max(abs(dat$G[,worst_abar]))
+      warning("There is not enough independent genetic information to estimate all trait effects.
+              This will result in some very large standard errors.  I recommend removing trait ", remove_suggest, ".\n")
+    }else if(dat$is_factors){ ## Factors case
+      worst_abar <- which.min(info_abar[-1]) + 1
+      remove_suggest <- which.max(abs(dat$G[,worst_abar]))
+      if(remove_suggest == 2){
+        warning("There may not be enough independent genetic information about your primary exposure. This could happen if there are
+                very few or very weak instruments for X. This will result in very large standard errors.")
+      }else{
+        warning("There is not enough independent genetic information to estimate all factor effects.
+              I am going to remove factor ", remove_suggest-2, ".\n")
+      }
+    }else{ # MVMR case
+      worst_abar <- which.min(info_abar[-1]) + 1 ## do not check Y
+      remove_suggest <- which.max(abs(dat$G[,worst_abar]))
+      warning("There is not enough independent genetic information to estimate all trait effects.
+              This will result in some very large standard errors.  I recommend removing exposure trait ", remove_suggest-1, ".\n")
+
+    }
+
+    warning("Projecting internal R to nearest PD matrix in beta update.\n")
+    R <- Matrix::nearPD(R, posd.tol = 1/cond_num)$mat
+  }
+  S <- solve(R + T0)
   mu <- S %*% a
-  return(list(m = mu, S = S))
+  return(list(m = mu, S = S, remove_suggest = remove_suggest))
 }

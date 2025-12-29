@@ -13,7 +13,7 @@ log_py <- function(fit, g_hat = NULL, fbar = NULL, max_prob = 1, nmax = Inf){
 
   if(max_prob < 1 | nmax < Inf){
     message("Identifying likelihood components.\n")
-    lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$p, byrow = T)
+    lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$k, byrow = T)
     top_combs <- get_top_combinations(x = lpi_mat, max_logsumexp = log(max_prob), nmax = nmax)
     m <- nrow(top_combs$combs)
 
@@ -22,12 +22,12 @@ log_py <- function(fit, g_hat = NULL, fbar = NULL, max_prob = 1, nmax = Inf){
     lpi <- top_combs$values
     total_prob <- sum(exp(lpi))
 
-    s_mat <- unlist(s) %>% matrix(nrow = fit$p, byrow = T)
+    s_mat <- unlist(s) %>% matrix(nrow = fit$k, byrow = T)
     V <- apply(top_combs$combs, 1, function(c){
-      ss <- s_mat[cbind(1:fit$p, c)]
-      return(crossprod(t(fgbar)*ss, t(fgbar)*ss))
+      ss <- s_mat[cbind(1:fit$k, c)]
+      return(crossprod(t(fgbar)*ss, t(fgbar)*ss)) #fgbar is p x k
       #fgbar %*% diag(ss^2) %*% t(fgbar)
-    }, simplify = F)
+    }, simplify = F) 
   }else{
     LPi <- expand.grid(lpi)
     lpi <- apply(LPi, 1, sum)
@@ -99,7 +99,7 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
 
   if(max_prob < 1 | nmax < Inf){
     message("Identifying likelihood components.\n")
-    lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$p, byrow = T)
+    lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$k, byrow = T)
     top_combs <- get_top_combinations(x = lpi_mat, max_logsumexp = log(max_prob), nmax = nmax)
     m <- nrow(top_combs$combs)
     mmax <- sapply(lpi, length) %>% Reduce(`*`, .)
@@ -107,14 +107,14 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
     lpi <- top_combs$values
     total_prob <- sum(exp(lpi))
 
-    s_mat <- unlist(s) %>% matrix(nrow = fit$p, byrow = T)
+    s_mat <- unlist(s) %>% matrix(nrow = fit$k, byrow = T)
     V <- apply(top_combs$combs, 1, function(c){
-      s <- s_mat[cbind(1:fit$p, c)]
+      s <- s_mat[cbind(1:fit$k, c)]
       crossprod(t(fgbar)*s, t(fgbar)*s)
       #fgbar %*% diag(s^2) %*% t(fgbar)
     }, simplify = FALSE)
     B <- apply(top_combs$combs, 1, function(c){
-      s <- s_mat[cbind(1:fit$p, c)]
+      s <- s_mat[cbind(1:fit$k, c)]
       crossprod(t(fit$G)*s, t(fit$G)*s)
     }, simplify = F)
   }else{
@@ -124,10 +124,11 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
     V <- apply(S, 1, function(s){
       crossprod(t(fgbar)*s, t(fgbar)*s)
       #fgbar %*% diag(s^2) %*% t(fgbar)
-    }, simplify = F)
+    }, simplify = F) #fgbar is p by k so V is p x p
     B <- apply(S, 1, function(s){
       crossprod(t(fit$G)*s, t(fit$G)*s)
-    }, simplify = F)
+      #G %*% diag(s^2) %*% t(G)
+    }, simplify = F) # G is p x k so B is p x p
     m <- mmax <- length(V)
     total_prob <- 1
   }
@@ -139,7 +140,8 @@ grad_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){ #Y, gha
   b_j <- fit$beta$beta_j[!fit$beta$fix_beta]
   b_k <- fit$beta$beta_k[!fit$beta$fix_beta]
   nvars <- length(b_j)
-  E <- matrix(0, nrow = fit$p, ncol = fit$k)
+  #E <- matrix(0, nrow = fit$p, ncol = fit$p)
+  E <- matrix(0, nrow = nrow(fbar), ncol = ncol(fbar))
   dV <- lapply(seq(nvars), function(i){
     myE <- E
     myE[b_j[i], b_k[i]] <- 1
@@ -295,7 +297,7 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
 
   if(max_prob < 1 | nmax < Inf){
     message("Identifying likelihood components.\n")
-    lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$p, byrow = T)
+    lpi_mat <- unlist(lpi) %>% matrix(nrow = fit$k, byrow = T)
     top_combs <- get_top_combinations(x = lpi_mat, max_logsumexp = log(max_prob), nmax = nmax)
     m <- nrow(top_combs$combs)
     mmax <- sapply(lpi, length) %>% Reduce(`*`, .)
@@ -303,14 +305,14 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
     lpi <- top_combs$values
     total_prob <- sum(exp(lpi))
 
-    s_mat <- unlist(s) %>% matrix(nrow = fit$p, byrow = T)
+    s_mat <- unlist(s) %>% matrix(nrow = fit$k, byrow = T)
     V <- apply(top_combs$combs, 1, function(c){
-      s <- s_mat[cbind(1:fit$p, c)]
+      s <- s_mat[cbind(1:fit$k, c)]
       crossprod(t(fgbar)*s, t(fgbar)*s)
       #fgbar %*% diag(s^2) %*% t(fgbar)
     }, simplify = FALSE)
     B <- apply(top_combs$combs, 1, function(c){
-      s <- s_mat[cbind(1:fit$p, c)]
+      s <- s_mat[cbind(1:fit$k, c)]
       crossprod(t(fit$G)*s, t(fit$G)*s)
     }, simplify = F)
   }else{
@@ -333,7 +335,8 @@ hess_log_py <- function(fit, fbar, ix = NULL, max_prob = 1, nmax = Inf){
   b_k <- fit$beta$beta_k[!fit$beta$fix_beta]
   nvars <- length(b_j)
 
-  E <- matrix(0, nrow = fit$p, ncol = fit$k)
+  #E <- matrix(0, nrow = fit$p, ncol = fit$p)
+  E <- matrix(0, nrow = nrow(fbar), ncol = ncol(fbar))
   dV <- lapply(seq(nvars), function(i){
     myE <- E
     myE[b_j[i], b_k[i]] <- 1
@@ -532,8 +535,9 @@ optimize_lpy2 <- function(fit,
                          sub_size = fit$n){
 
 
-  fit <- order_upper_tri(fit, fit$B_template)
-
+  if(fit$is_nesmr){
+    fit <- order_upper_tri(fit, fit$B_template)
+  }
 
   i <- 1
   bj <- fit$beta$beta_j[fit$beta$fix_beta == FALSE]
@@ -592,7 +596,8 @@ optimize_lpy2 <- function(fit,
   fit$beta$beta_m <- fbar[myix]
 
   fit$f$fbar <- fbar
-  fit$f$fgbar <- fit$G %*% fbar
+  #fit$f$fgbar <- fit$G %*% fbar
+  fit$f$fgbar <-  fbar %*% fit$G
   if(calc_hess){
     h <- hess_log_py(fit, fbar, ix = ix,
                      max_prob = max_prob,
@@ -610,14 +615,16 @@ optimize_lpy2 <- function(fit,
     #fit$likelihood <- log_py(fit)
   }
 
+  #fit <- format_betas(fit)
 
-  o <- match(1:fit$p, fit$traits)
-  fit <- reorder_data(fit, o)
-
-  fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
-  delt_pvals <- delta_method_pvals(fit)
-  fit$pvals_dm <- delt_pvals$pmat
-  fit$se_dm <- delt_pvals$semat
+  if(fit$is_nesmr){
+    o <- match(1:fit$p, fit$traits)
+    fit <- reorder_data(fit, o)
+    fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
+    delt_pvals <- delta_method_pvals(fit)
+    fit$pvals_dm <- delt_pvals$pmat
+    fit$se_dm <- delt_pvals$semat
+  }
 
 
   return(fit)

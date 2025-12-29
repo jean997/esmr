@@ -1,23 +1,11 @@
 
-#'@title Empirical Shrinkage Multivariable MR
-#'@param beta_hat_Y Vector of SNP-outcome associations (length p)
-#'@param se_Y Standard errors of beta_hat_Y
-#'@param beta_hat_X Matrix of SNP-exposure associations (p by K)
-#'@param se_X matrix of standard errors of beta_hat_X
-#'@param G G matrix. If NULL, G will be estimated using the method given in g_type.
-#'@param R Optional correlation matrix for overlapping samples.
-#'@param ebnm_fn Options prior distribution family. Defaults to point-normal.
-#'@param max_iter Maximum number of iterations
-#'@param sigma_beta Optional prior variance for causal parameters
-#'@param tol Convergence tolerance
-#'@param pval_thresh p-value threshold for estimation
-#'@param variant_ix Instead of using pval_thresh, directly specify the indices of variants used for estimation.
-#'@param beta_joint Use joint updates for beta (suggest TRUE)
-#'@param g_type Method to estimate G. Suggest "gfa"
-#'@param augment_G Augment estimated G
+#'@title ESMR Workhorse Called from wrapper functions esmr, nesmr, and esmr_factors
 #'@export
-esmr <- function(beta_hat_X, se_X,
+esmr_workhorse <- function(beta_hat_X, se_X,
                  beta_hat_Y=NULL, se_Y = NULL,
+                 beta_hat_Z=NULL, se_Z = NULL,
+                 factors_matrix = NULL,
+                 factors_residual_sd = NULL,
                  G = NULL,
                  R = NULL,
                  pval_thresh = NULL,
@@ -31,7 +19,6 @@ esmr <- function(beta_hat_X, se_X,
                  g_init = NULL,
                  fix_g = FALSE,
                  max_iter = 100,
-                 sigma_beta = Inf,
                  tol = "default",
                  restrict_dag = TRUE,
                  #####
@@ -40,8 +27,10 @@ esmr <- function(beta_hat_X, se_X,
                  # add ability to fix some effects later
                  # direct_effect_fix = NULL,
                  #fix_beta = FALSE,
+                 beta_prior_cov = NULL,
                  beta_joint = TRUE,
-                 augment_G = TRUE){
+                 augment_G = TRUE,
+                 cond_num = 1e10){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
@@ -52,7 +41,6 @@ esmr <- function(beta_hat_X, se_X,
     stop("Please specify only one of pval_thresh or variant_ix.")
   }
 
-  is_nesmr <- !is.null(direct_effect_template)
   if(!is.null(ld_scores) | !is.null(RE)){
     if(is.null(ld_scores) | is.null(RE)){
       stop("Please specify both ld_scores and RE to include correction for GWAS confounding.")
@@ -62,50 +50,72 @@ esmr <- function(beta_hat_X, se_X,
     }
   }
 
-  dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
+  if(!is.null(beta_hat_Z)){
+    dat <- set_data_factors(beta_hat_Y, se_Y, beta_hat_X, se_X,
+                            beta_hat_Z, se_Z, factors_matrix, factors_residual_sd,
+                            R, ld_scores, RE, tau_init)
+    dat$is_factors <- TRUE
+  }else{
+    dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
+    dat$is_factors <- FALSE
+  }
 
   class(dat) <- c(c("esmr"), class(dat))
-  dat$is_nesmr <- ! is.null(direct_effect_template)
+
+  dat$is_nesmr <- !is.null(direct_effect_template)
+  dat$R_is_id <- (is.null(R) || all(R == diag(dat$p))) & is.null(RE)
+  dat$cond_num <- cond_num
+  dat$beta_joint <- beta_joint
+  dat$ebnm_fn <- ebnm_fn
+  dat$g_init <- g_init
+  dat$fix_g <- fix_g
+  dat$fix_tau <- fix_tau
+  dat$restrict_dag <- restrict_dag
+
+
   if (dat$is_nesmr) {
     class(dat) <- c(c("nesmr"), class(dat))
   }
 
-  if(is.null(G)){
+  if(is.null(G) & !dat$is_nesmr & !dat$is_factors){
     if(dat$p == 2){
-      G <- diag(dat$p)
-    } else if (dat$is_nesmr) {
-      warning("Cannot estimate G for network problem yet.\n")
-      G <- diag(dat$p)
+      dat$G <- diag(dat$p)
     } else{
-      G <- estimate_G(beta_hat_X = dat$Y[,-1,drop =F],
+      dat$G <- estimate_G(beta_hat_X = dat$Y[,-1,drop =F],
                       se_X = dat$S[,-1, drop = F],
                       R = R[-1, -1, drop = FALSE],
                       type = g_type,
                       augment = augment_G)
     }
+  }else if(dat$is_nesmr){
+    dat$G <- diag(1, dat$p)
+  }else if(dat$is_factors){
+    dat$G <- diag(1, dat$k)
+  }else{
+    dat$G <- check_matrix(G, n = dat$p)
   }
-  dat$G <- check_matrix(G, n = dat$p)
-
-  dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
-                         restrict_dag = restrict_dag)
-
-  dat <- init_beta(dat, restrict_dag = restrict_dag)
-  dat$beta_joint <- beta_joint
-  dat$ebnm_fn <- ebnm_fn
-  dat$sigma_beta <- sigma_beta
-  dat$R_is_id <- (is.null(R) || all(R == diag(dat$p))) & is.null(RE)
-
   dat$k <- ncol(dat$G)
 
-  dat$f <- make_f(dat)
+  if(dat$is_nesmr){
+    dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
+                         restrict_dag = restrict_dag)
+  }
 
-  dat$l <- init_l(dat$n, dat$p, dat$k)
+  dat <- init_beta(dat)
+  if (!is.null(beta_prior_cov)) {
+    nb <- sum(! dat$beta$fix_beta)
+    dat$beta$prior_cov <- check_beta_prior_cov(beta_prior_cov, nb)
+    dat$beta$prior_precision <- solve(dat$beta$prior_cov)
+  }
 
-  dat$g_init <- g_init
-  dat$fix_g <- fix_g
 
-  dat$fix_tau <- fix_tau
-  dat$restrict_dag <- restrict_dag
+  if(dat$is_factors){
+    dat$f <- make_f_factors(dat)
+    dat$l <- init_l(dat$n, dat$k, dat$k)
+  }else{
+    dat$f <- make_f(dat)
+    dat$l <- init_l(dat$n, dat$p, dat$k)
+  }
 
   # subset variants
   if(!is.null(variant_ix)){
@@ -114,7 +124,7 @@ esmr <- function(beta_hat_X, se_X,
     dat <- get_ix1_ix0(
       dat,
       paste0("pval-", pval_thresh),
-      remove_empty_B_cols = is_nesmr)
+      remove_empty_B_cols = dat$is_nesmr)
 
     dat <- subset_data(dat, dat$ix1)
   }
@@ -122,37 +132,23 @@ esmr <- function(beta_hat_X, se_X,
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))
   }
 
-  # Pre-compute log(det(omega))
-  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
-
   ## solve esmr problem
   dat <- esmr_solve(dat, max_iter, tol)
 
   ## post-processing
-  o <- match(1:dat$p, dat$traits)
-  dat <- reorder_data(dat, o)
-
-  if (!is.null(direct_effect_template) && restrict_dag) {
-    dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p))
-    delt_pvals <- delta_method_pvals(dat)
-    dat$pvals_dm <- delt_pvals$pmat
-    dat$se_dm <- delt_pvals$semat
+  if(dat$is_nesmr){
+    o <- match(1:dat$p, dat$traits)
+    dat <- reorder_data(dat, o)
   }
 
-  # Reformat beta_hat and beta_se to matrix format
-  beta_hat <- beta_se <- matrix(0, nrow = dat$p, ncol = dat$p)
-  fix_beta <- matrix(FALSE, nrow = dat$p, ncol = dat$p)
-  # Lower triangular format
-  beta_ind <- cbind(dat$beta$beta_k, dat$beta$beta_j)
-  beta_hat[beta_ind] <- dat$beta$beta_m
-  beta_se[beta_ind] <- dat$beta$beta_s
-  fix_beta[beta_ind] <- dat$beta$fix_beta
-
-  dat$beta_mat <- list(
-    beta_hat = beta_hat,
-    beta_se = beta_se
-  )
-
+  if (dat$is_nesmr && is_dag(dat$B_template)) {
+    # Multiply by direct effect template to ensure rounding is not an issue
+    dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * dat$B_template
+    delt_pvals <- delta_method_pvals(dat)
+    dat$pvals_dm <- delt_pvals$pmat * dat$B_template
+    dat$se_dm <- delt_pvals$semat * dat$B_template
+  }
+  dat <- format_betas(dat)
   dat$elbo <- tail(dat$obj, n = 1)
 
   return(dat)

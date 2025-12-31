@@ -152,17 +152,17 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat$direct_effects_log_pval <- delt_pvals$pmat * dat$B_template
     dat$standard_error_method <- "delta_method"
   } else if (dat$is_nesmr && !is_dag(dat$B_template)) {
-    dat$total_effects <- t(dat$f$fbar) - diag(dat$p)
-    dat$direct_effects <- total_to_direct(dat$total_effects, restrict_dag = FALSE) * dat$B_template
+    dat$total_effects <- t(dat$f$fbar)
+    dat$direct_effects <- total_to_direct(dat$total_effects - diag(dat$p), restrict_dag = FALSE) * dat$B_template
 
     bootstrap_ix <- cbind(
       dat$beta$beta_k,
       dat$beta$beta_j
     )
     pbstrap <- total_to_direct_parameteric_bootstrap(
-      beta = dat$beta$beta_m,
+      x = dat$beta$beta_m,
       beta_cov = dat$beta$V,
-      beta_ix = beta_ix,
+      beta_ix = bootstrap_ix,
       d = ncol(dat$total_effects),
       bootstrap_samples = 1000
     )

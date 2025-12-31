@@ -251,10 +251,13 @@ order_upper_tri <- function(dat,
   if (any(B[upper.tri(B)] != 0) && restrict_dag) {
       # Direct effect template is not an lower triangular matrix
       # Attempt to re-order with topo-sort
-      topo_order <- tryCatch({
+      topo_order <- rlang::try_fetch({
         topo_sort_mat(B)
-      }, error = function(e){
-        stop("Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n")
+      }, error = function(cnd){
+        rlang::abort(
+          message = "Failed to find a lower triangular representation of the direct effect template. Check that supplied template corresponds to a valid DAG.\n",
+          parent = cnd,
+          call = rlang::call2("order_upper_tri"))
       })
       dat <- reorder_data(dat, topo_order)
       B <- B[topo_order, topo_order]
@@ -265,7 +268,7 @@ order_upper_tri <- function(dat,
     o <- match(dat$traits, 1:dat$p)
     dat$B_init <- check_matrix(direct_effect_init, dat$p, dat$p)[o, o]
     if(any((dat$B_init != 0) & (dat$B_template == 0))) {
-      stop("Initialization pattern does not match template.\n")
+      rlang::abort("Initialization pattern does not match template.\n")
     }
   }else{
     dat$B_init <- matrix(0, nrow = dat$p, ncol = dat$p)

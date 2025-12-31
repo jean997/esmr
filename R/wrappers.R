@@ -34,7 +34,7 @@ esmr <- function(beta_hat_X, se_X,
     if(! n %in% names(default_params)) stop("Unknown parameter ", n, " provided.")
   }
   args <- c(args, params)
-  do.call(esmr_workhorse, args)
+  call_esmr_workhorse(args)
 }
 
 #'@title Network Empirical Shrinkage MR
@@ -69,7 +69,7 @@ nesmr <- function(beta_hat_X, se_X,
     if(! n %in% names(default_params)) stop("Unknown parameter ", n, " provided.")
   }
   args <- c(args, params)
-  do.call(esmr_workhorse, args)
+  call_esmr_workhorse(args)
 }
 
 #'@title Empirical Shrinkage Multivariable MR with Factors
@@ -112,5 +112,22 @@ esmr_factors <- function(beta_hat_X, se_X,
     if(! n %in% names(default_params)) stop("Unknown parameter ", n, " provided.")
   }
   args <- c(args, params)
-  do.call(esmr_workhorse, args)
+  call_esmr_workhorse(args)
+}
+
+call_esmr_workhorse <- function(args) {
+  rlang::try_fetch(
+    rlang::inject(esmr_workhorse(!!!args)),
+    error = function(cnd) {
+      rlang::abort(
+        message = "",#conditionMessage(cnd),
+        # This points the error specifically to the workhorse call
+        call = rlang::call2("esmr_workhorse", !!!args),
+        # Chaining allows rlang::last_trace() to see the relationship
+        parent = cnd,
+        # This hides the 'call_esmr_workhorse' internal plumbing
+        arg = "args"
+      )
+    }
+  )
 }

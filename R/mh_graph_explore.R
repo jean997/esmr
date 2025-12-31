@@ -525,7 +525,7 @@ mh_graph_explore <- function(
                     (is.finite(kill_no_improve_iters) && (iter - last_best_iter) >= kill_no_improve_iters) ||
                     (is.finite(kill_no_improve_models) && models_since_improve >= kill_no_improve_models)
                     ) {
-                    log_msg(sprintf("No new best graph in %d iterations; and %d models; terminating chain %s.", kill_no_improve_iters, kill_no_improve_models, chain_name))
+                    log_msg(sprintf("No new best graph in %d iterations; and %d models; terminating chain %s.", last_best_iter, models_since_improve, chain_name))
                     break
                 }
             }

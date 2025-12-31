@@ -31,14 +31,11 @@ solve_diag_psd_diag <- function(X, s, check_psd = FALSE) {
   }
 }
 
-# solve_diag_psd_diag2 <- function(X, s) {
-#   Xs <- solve(X)
-#   t(t(1/s * Xs) * 1/s)
-# }
-#
-# solve_diag_psd_diag3 <- function(cholX, s) {
-#   Xs <- chol2inv(cholX)
-#   t(t(1/s * Xs) * 1/s)
-# }
-
-
+#' Computes the spectral radius of a matrix
+#'
+#' @param A A square matrix
+#' @return The spectral radius of A (i.e., the largest absolute eigenvalue)
+#' @export
+spectral_radius <- function(A) {
+  max(abs(eigen(A)$values))
+}

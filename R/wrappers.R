@@ -21,6 +21,8 @@ esmr <- function(beta_hat_X, se_X,
                  ld_scores = NULL,
                  RE = NULL,
                  max_iter = 100,
+                 weights = NULL,
+                 selection_prob = NULL,
                  params = mvmr_default_params()){
 
   args <- as.list(environment())
@@ -34,6 +36,7 @@ esmr <- function(beta_hat_X, se_X,
     if(! n %in% names(default_params)) stop("Unknown parameter ", n, " provided.")
   }
   args <- c(args, params)
+
   do.call(esmr_workhorse, args)
 }
 

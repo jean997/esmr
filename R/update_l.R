@@ -94,11 +94,21 @@ update_lj <- function(dat, j,
   }
 
 
-  ebnm_res <- dat$ebnm_fn( x= as.numeric(x), s = s, g_init = g_init, fix_g= fix_g, output = ebnm::ebnm_output_all())
-  ebnm_res$KL <-  (ebnm_res$log_likelihood
-                   - flashier:::normal.means.loglik(x,s,
-                                                    ebnm_res$posterior$mean,
-                                                    ebnm_res$posterior$second_moment))
+  if(is.null(dat[["w"]])){
+    ebnm_res <- dat$ebnm_fn( x= as.numeric(x), s = s, g_init = g_init, fix_g= fix_g, output = ebnm::ebnm_output_all())
+    ebnm_res$KL <-  (ebnm_res$log_likelihood
+                     - sum(normal.means.loglik(x,s,
+                                               ebnm_res$posterior$mean,
+                                               ebnm_res$posterior$second_moment)))
+  }else{
+    ebnm_res <- dat$ebnm_fn( x= as.numeric(x), s = s, w = dat[["w"]],
+                             g_init = g_init, fix_g= fix_g, output = ebnm::ebnm_output_all())
+    ebnm_res$KL <-  (ebnm_res$log_likelihood
+                     - sum(dat[["w"]]*normal.means.loglik(x,s,
+                                               ebnm_res$posterior$mean,
+                                               ebnm_res$posterior$second_moment)))
+  }
+
   ebnm_res$posterior$index <- ixnmiss
   # This is only for point normal
   if(return_post){
@@ -113,6 +123,16 @@ update_lj <- function(dat, j,
 }
 
 
+## Borrowed from flashier, modified to return components
+normal.means.loglik <- function(x, s, Et, Et2) {
+  idx <- is.finite(s) & s > 0
+  x   <- x[idx]
+  s   <- s[idx]
+  Et  <- Et[idx]
+  Et2 <- Et2[idx]
+
+  return(-0.5 * (log(2 * pi * s^2) + (1 / s^2) * (Et2 - 2 * x * Et + x^2)))
+}
 
 # ebnm_res$KL  is computed as log p(x | g) - E_{p(theta | g)}[p(x | theta)] = E_{p(theta | g)}(log p(theta) - log(p(theta | x)))
 # = -KL(p(theta | x) || p(theta))

@@ -31,14 +31,20 @@ update_beta_joint <- function(dat,
   }
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
+
+  w <- dat[["w"]]
+  if(is.null(w)){
+    w <- rep(1, n)
+  }
+
   if(dat$s_equal){
-    A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
+    A <- t(w*dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
     Astar <- dat$G %*% A %*% t(dat$G)
 
     Rfull <- dat$omega[j,j]*Astar  # W in the manuscript k by k
-    a10 <- colSums(dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j]))) # length k
+    a10 <- colSums(w*dat$l$lbar *rowSums(t(t(dat$Y)*dat$omega[,j]))) # length k
     a20 <- lapply(seq(p)[-j], function(jj){
-      # (k by k ) %*% (k by 1)*(p by 1)
+      # (p by p ) %*% (p by 1)*(p by 1)
       Astar%*% t(dat$f$fbar[jj,,drop = FALSE])*dat$omega[j,jj]
     }) %>% Reduce(`+`, .)
     afull <- matrix(a10 - a20, nrow = p)
@@ -46,11 +52,11 @@ update_beta_joint <- function(dat,
     Oj <- map(dat$omega, function(o){o[j,]}) %>% unlist() %>%
       matrix(nrow = n, byrow = TRUE)
     Astar <- lapply(seq(p), function(jj){ # this is a list of W^{(a,j)}
-      A <- t(dat$l$abar * Oj[,jj]) %*% dat$l$abar + diag(colSums(Va * Oj[,jj]))
+      A <- t(w*dat$l$abar * Oj[,jj]) %*% dat$l$abar + diag(colSums(w*Va * Oj[,jj]))
       dat$G %*% A %*% t(dat$G)
     })
     Rfull <- Astar[[j]]
-    a10 <- colSums(dat$l$lbar *rowSums(dat$Y*Oj))
+    a10 <- colSums(w*dat$l$lbar *rowSums(dat$Y*Oj))
     a20 <- lapply(seq(p)[-j], function(jj){
       Astar[[jj]]%*% t(dat$f$fbar[jj,,drop = FALSE])
     }) %>% Reduce(`+`, .)
@@ -124,24 +130,28 @@ update_beta_full_joint <- function(dat, cond_num = 1e10){
   }
 
   Va <- dat$l$a2bar - (dat$l$abar^2)
+  w <- dat[["w"]]
+  if(is.null(w)){
+    w <- rep(1, n)
+  }
 
   if(dat$s_equal){
-    A <- t(dat$l$abar) %*% dat$l$abar + diag(colSums(Va))
+    A <- t(w*dat$l$abar) %*% dat$l$abar + diag(colSums(w*Va))
     Astar <- dat$G %*% A %*% t(dat$G)
     Rfull <- kronecker(Astar, dat$omega)
 
     OYt <- dat$omega %*% t(dat$Y)
     afull <- lapply(seq(n), function(i){
-      kronecker( matrix(dat$l$lbar[i,], nrow = k), matrix(OYt[,i], nrow = p))
+      w[i]*kronecker( matrix(dat$l$lbar[i,], nrow = k), matrix(OYt[,i], nrow = p))
     }) %>% Reduce(`+`, .)
   }else{
     Rfull <- lapply(seq(n), function(i){
       l <- dat$l$abar[i,]
       a <- outer(l, l) + diag(Va[i,], nrow = k)
-      kronecker(tcrossprod(dat$G, tcrossprod(dat$G, a)), dat$omega[[i]]) ## kronecker(G %*% a %*% t(G), O)
+      w[i]*kronecker(tcrossprod(dat$G, tcrossprod(dat$G, a)), dat$omega[[i]]) ## kronecker(G %*% a %*% t(G), O)
     }) %>% Reduce(`+`, .)
     afull <- lapply(seq(n), function(i){
-      kronecker(dat$l$lbar[i,], dat$omega[[i]] %*% matrix(dat$Y[i,], nrow = p))
+      w[i]*kronecker(dat$l$lbar[i,], dat$omega[[i]] %*% matrix(dat$Y[i,], nrow = p))
     }) %>% Reduce(`+`, .)
   }
   if(length(ix) < p*k){

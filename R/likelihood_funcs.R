@@ -4,7 +4,7 @@
 ## E[ sum (Y, - y_j)^T Omega (Y_j - y_j)]
 ## This version treats all betas as independent
 #'@export
-calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, omega_logdet, s_equal){
+calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, omega_logdet, s_equal, w){
   n <- nrow(Y)
   p <- ncol(Y)
   k <- ncol(fgbar)
@@ -17,22 +17,34 @@ calc_ell2 <- function(Y, abar, a2bar, fgbar, omega, omega_logdet, s_equal){
   R <- Y - ybar
   varabar <- a2bar - (abar^2)
 
+  if(is.null(w)){
+    w <- rep(1, n)
+  }
+
   if(s_equal){
-    part_a <- sum(tcrossprod(R, omega) * R) #quad.tdiag(omega, R) %>% sum()
+    part_a <- sum(w*tcrossprod(R, omega) * R) #quad.tdiag(omega, R) %>% sum()
+    #part_a <- sum(tcrossprod(R, omega) * R) #quad.tdiag(omega, R) %>% sum()
     diagA <- colSums(crossprod(omega,fgbar) * fgbar)
-    part_b <- t(t(varabar)*diagA) %>% sum()
+    part_b <- (w*t(t(varabar)*diagA)) %>% sum()
+    #part_b <- (t(t(varabar)*diagA)) %>% sum()
     ell <- -0.5*(part_a + part_b - omega_logdet)
   }else{
-    part_a <- map_dbl(seq(n), function(i){
+    part_a <- (w*map_dbl(seq(n), function(i){
       r <- R[i,,drop = FALSE]
       tcrossprod(r, tcrossprod(r, omega[[i]]))
-    }) %>% sum()
+    })) %>% sum()
+
+    # part_a <- map_dbl(seq(n), function(i){
+    #   r <- R[i,,drop = FALSE]
+    #   tcrossprod(r, tcrossprod(r, omega[[i]]))
+    # }) %>% sum()
 
     diagA <- map(seq(n), function(i){
       colSums(crossprod(omega[[i]],fgbar) * fgbar)
     }) %>% unlist() %>% matrix(ncol = k, byrow = T)
 
-    part_b <- sum(varabar*diagA)
+    part_b <- sum(w*varabar*diagA)
+    #part_b <- sum(varabar*diagA)
 
     ell <- -0.5*(part_a + part_b  - omega_logdet)
   }

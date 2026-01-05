@@ -10,10 +10,12 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                  R = NULL,
                  pval_thresh = NULL,
                  variant_ix = NULL,
+                 selection_prob = NULL,
                  ld_scores = NULL,
                  RE = NULL,
                  tau_init = NULL,
                  fix_tau = FALSE,
+                 weights = NULL,
                  ###
                  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
                  g_init = NULL,
@@ -53,12 +55,13 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   if(!is.null(beta_hat_Z)){
     dat <- set_data_factors(beta_hat_Y, se_Y, beta_hat_X, se_X,
                             beta_hat_Z, se_Z, factors_matrix, factors_residual_sd,
-                            R, ld_scores, RE, tau_init)
+                            R, ld_scores, RE, tau_init, weights)
     dat$is_factors <- TRUE
   }else{
-    dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
+    dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init, weights)
     dat$is_factors <- FALSE
   }
+
 
   class(dat) <- c(c("esmr"), class(dat))
 
@@ -127,6 +130,14 @@ esmr_workhorse <- function(beta_hat_X, se_X,
       remove_empty_B_cols = dat$is_nesmr)
 
     dat <- subset_data(dat, dat$ix1)
+  }else if(!is.null(selection_prob)){
+    selection_prob <- check_numeric(selection_prob, dat[["n"]])
+    dat[["w"]] <- dat[["w"]]*mean(selection_prob)/selection_prob
+    stopifnot(all(selection_prob > 0) & all(selection_prob <= 1))
+    sel <- rbinom(n = dat[["n"]], size = 1, prob = selection_prob)
+    variant_ix <- which(sel == 1)
+    message(paste0("Selecting ", length(variant_ix), " variants."))
+    dat <- subset_data(dat, variant_ix)
   }
   if(tol == "default"){
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))

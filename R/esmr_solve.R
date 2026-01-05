@@ -18,8 +18,21 @@ esmr_solve <- function(dat, max_iter, tol){
     dat <- update_l_sequential(dat, seq(dat$k), dat$g_init, dat$fix_g)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+    ll <- calc_ell2(dat[["Y"]], dat[["l"]]$abar, dat[["l"]]$a2bar,
+                    dat[["f"]]$fgbar, dat[["omega"]],
+                    dat[["omega_logdet"]], dat[["s_equal"]],
+                    dat[["w"]])
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
+
+
+    obj_new1 <- obj[length(obj)]
+    check1 <- obj_new1 - obj_old
+    #obj_old <- obj_new
+    if(check1 < -1e-12){
+      dat$obj_dec_warn <- TRUE
+      warning("Objective decreased after l update, something may be wrong.\n")
+    }
+
 
     # beta update
     if(!dat$beta_joint){
@@ -100,22 +113,23 @@ esmr_solve <- function(dat, max_iter, tol){
     }
 
     ###
-    ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+    #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal, w))
     #cat("ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
+    ll <- calc_ell2(dat[["Y"]], dat[["l"]]$abar, dat[["l"]]$a2bar,
+                    dat[["f"]]$fgbar, dat[["omega"]],
+                    dat[["omega_logdet"]], dat[["s_equal"]],
+                    dat[["w"]])
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
-    obj_new <- obj[length(obj)]
-    check <- obj_new - obj_old
-    #check <- max(abs(dat$beta$beta_m - beta_old))
-    obj_old <- obj_new
-    #beta_old <- dat$beta$beta_m
-    #cat(check, "\n")
-    if(check < -1e-12){
+    obj_new2 <- obj[length(obj)]
+    check2 <- obj_new2 - obj_new1
+    check <- obj_new2 - obj_old
+    obj_old <- obj_new2
+    if(check2 < -1e-12){
       dat$obj_dec_warn <- TRUE
-      warning("Objective decreased, something may be wrong.\n")
+      warning("Objective decreased after beta/tau update, something may be wrong.\n")
     }
-    cat(i, ": ", obj_new, " ", dat$beta$beta_m, " ", dat$tau, "\n")
-    #cat(i, ": ", check, " ", dat$beta$beta_m, "\n")
+    cat(i, ": ", obj_new2, " ", dat$beta$beta_m, " ", dat$tau, "\n")
 
     i <- i + 1
 

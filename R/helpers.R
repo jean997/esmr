@@ -117,21 +117,26 @@ get_omega <- function(R, S, s_equal, any_missing){
   return(omega)
 }
 
-get_omega_logdet <- function(omega, s_equal, n) {
+get_omega_logdet <- function(omega, s_equal, w) {
   if(s_equal){
     # Log(det(omega))
-    as.numeric(determinant(omega, logarithm = T)$modulus) * n
+    as.numeric(determinant(omega, logarithm = T)$modulus) * sum(w)
   }else{
     sum(
-      sapply(omega, function(o) {
+      w*(sapply(omega, function(o) {
         as.numeric(determinant(o, logarithm = T)$modulus)
-      })
+      }))
     )
+    # sum(
+    #   sapply(omega, function(o) {
+    #     as.numeric(determinant(o, logarithm = T)$modulus)
+    #   })
+    # )
   }
 }
 
 set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
-                     ld_scores, RE, tau_init){
+                     ld_scores, RE, tau_init, w){
 
   beta_hat_X <- check_matrix(beta_hat_X)
   n <- nrow(beta_hat_X)
@@ -149,11 +154,18 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
 
   dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
   dat$traits <- 1:p
+  dat$w <- check_numeric(w, dat$n)
+
+  if(is.null(w)){
+    w <- rep(1, dat[["n"]])
+  }else{
+    w <- dat$w
+  }
 
   if(is.null(RE)){
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
     # Pre-compute log(det(omega))
-    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
     return(dat)
   }
 
@@ -165,7 +177,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   dat$tau <- tau_init
   dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
   # Pre-compute log(det(omega))
-  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
   dat$s_equal <- FALSE
   return(dat)
 }
@@ -174,7 +186,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
 set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
                              beta_hat_Z, se_Z,
                              factors_matrix, factors_residual_sd,
-                             R, ld_scores, RE, tau_init){
+                             R, ld_scores, RE, tau_init, w){
 
   if(is.null(beta_hat_Y)){
     stop("beta_hat_Y must be supplied for esmr_factors.\n")
@@ -213,11 +225,18 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$nfactors <- k
   dat$k <- k + 2
 
+  dat$w <- check_numeric(w, dat$n)
+
+  if(is.null(w)){
+    w <- rep(1, dat[["n"]])
+  }else{
+    w <- dat$w
+  }
 
   if(is.null(RE)){
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
     # Pre-compute log(det(omega))
-    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
     return(dat)
   }
 
@@ -229,7 +248,7 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$tau <- tau_init
   dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
   # Pre-compute log(det(omega))
-  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
   dat$s_equal <- FALSE
 
 
@@ -327,6 +346,9 @@ subset_data <- function(dat, ix){
   dat$l$lfsr <- dat$l$lfsr[ix,,drop=F]
   if(!dat$s_equal){
     dat$omega <- dat$omega[ix]
+  }
+  if(!is.null(dat[["w"]])){
+    dat[["w"]] <- dat[["w"]][ix]
   }
   return(dat)
 }

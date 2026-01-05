@@ -132,7 +132,12 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat <- subset_data(dat, dat$ix1)
   }else if(!is.null(selection_prob)){
     selection_prob <- check_numeric(selection_prob, dat[["n"]])
-    dat[["w"]] <- dat[["w"]]*mean(selection_prob)/selection_prob
+    sel_wts <- mean(selection_prob)/selection_prob
+    if(is.null(dat[["w"]])){
+      dat[["w"]] <- sel_wts
+    }else{
+      dat[["w"]] <- dat[["w"]]*sel_wts
+    }
     stopifnot(all(selection_prob > 0) & all(selection_prob <= 1))
     sel <- rbinom(n = dat[["n"]], size = 1, prob = selection_prob)
     variant_ix <- which(sel == 1)
@@ -141,6 +146,13 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   }
   if(tol == "default"){
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))
+  }
+
+  ## move omega log det step to after subsetting
+  if(!is.null(dat[["w"]])){
+    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = dat[["w"]])
+  }else{
+    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = rep(1, dat[["n"]]))
   }
 
   ## solve esmr problem

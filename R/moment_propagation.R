@@ -68,16 +68,20 @@ update_beta_joint_mp <- function(dat, asamps,
     T0 <- prior_precision[ii,ii]
   }
 
+  w <- dat[["w"]]
+  if(is.null(w)){
+    w <- rep(1, n)
+  }
 
   if(dat$s_equal){
     samps <- lapply(seq(ns), function(i){
       asamp <- map(asamps, function(a){a[i,]}) %>% do.call(cbind, .)
       lsamp <- asamp %*% t(dat$G)
-      A <- t(asamp) %*% asamp
+      A <- t(w*asamp) %*% asamp
       Astar <- dat$G %*% A %*% t(dat$G)
 
       Rfull <- dat$omega[j,j]*Astar  # W in the manuscript
-      a10 <- colSums(lsamp *rowSums(t(t(dat$Y)*dat$omega[,j])))
+      a10 <- colSums(w*lsamp *rowSums(t(t(dat$Y)*dat$omega[,j])))
       a20 <- lapply(seq(p)[-j], function(jj){
         Astar%*% t(dat$f$fbar[jj,,drop = FALSE])*dat$omega[j,jj]
       }) %>% Reduce(`+`, .)
@@ -102,11 +106,11 @@ update_beta_joint_mp <- function(dat, asamps,
       asamp <- map(asamps, function(a){a[i,]}) %>% do.call(cbind, .)
       lsamp <- asamp %*% t(dat$G)
       Astar <- lapply(seq(p), function(jj){ # this is a list of W^{(a,j)}
-        A <- t(asamp * Oj[,jj]) %*% asamp
+        A <- t(w*asamp * Oj[,jj]) %*% asamp
         dat$G %*% A %*% t(dat$G)
       })
       Rfull <- Astar[[j]]
-      a10 <- colSums(lsamp *rowSums(dat$Y*Oj))
+      a10 <- colSums(w*lsamp *rowSums(dat$Y*Oj))
       a20 <- lapply(seq(p)[-j], function(jj){
         Astar[[jj]]%*% t(dat$f$fbar[jj,,drop = FALSE])
       }) %>% Reduce(`+`, .)
@@ -154,17 +158,21 @@ update_beta_full_joint_mp <- function(dat, asamps){
     T0 <- prior_precision
   }
 
+  w <- dat[["w"]]
+  if(is.null(w)){
+    w <- rep(1, n)
+  }
   if(dat$s_equal){
     OYt <- dat$omega %*% t(dat$Y)
     samps <- lapplay(seq(ns), function(r){
       asamp <- map(asamps, function(a){a[r,]}) %>% do.call(cbind, .)
       lsamp <- asamp %*% t(dat$G)
-      A <- t(asamp) %*% asamp
+      A <- t(w*asamp) %*% asamp
       Astar <- dat$G %*% A %*% t(dat$G)
       Rfull <- kronecker(Astar, dat$omega)
 
       afull <- lapply(seq(n), function(i){
-        kronecker( matrix(lsamp[i,], nrow = k), matrix(OYt[,i], nrow = p))
+        w[i]*kronecker( matrix(lsamp[i,], nrow = k), matrix(OYt[,i], nrow = p))
       }) %>% Reduce(`+`, .)
       if(length(ix) < p*k){
         R <- Rfull[ix,ix]
@@ -190,10 +198,10 @@ update_beta_full_joint_mp <- function(dat, asamps){
       Rfull <- lapply(seq(n), function(i){
         l <- asamp[i,]
         a <- outer(l, l)
-        kronecker(tcrossprod(dat$G, tcrossprod(dat$G, a)), dat$omega[[i]]) ## kronecker(G %*% a %*% t(G), O)
+        w[i]*kronecker(tcrossprod(dat$G, tcrossprod(dat$G, a)), dat$omega[[i]]) ## kronecker(G %*% a %*% t(G), O)
       }) %>% Reduce(`+`, .)
       afull <- lapply(seq(n), function(i){
-        kronecker(lsamp[i,], OY[[i]])
+        w[i]*kronecker(lsamp[i,], OY[[i]])
       }) %>% Reduce(`+`, .)
       if(length(ix) < p*k){
         R <- Rfull[ix,ix]

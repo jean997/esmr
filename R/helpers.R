@@ -156,16 +156,16 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   dat$traits <- 1:p
   dat$w <- check_numeric(w, dat$n)
 
-  if(is.null(w)){
-    w <- rep(1, dat[["n"]])
-  }else{
-    w <- dat$w
-  }
+  # if(is.null(w)){
+  #   w <- rep(1, dat[["n"]])
+  # }else{
+  #   w <- dat$w
+  # }
 
   if(is.null(RE)){
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
     # Pre-compute log(det(omega))
-    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
+    #dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
     return(dat)
   }
 
@@ -177,7 +177,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   dat$tau <- tau_init
   dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
   # Pre-compute log(det(omega))
-  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
+  #dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
   dat$s_equal <- FALSE
   return(dat)
 }
@@ -227,16 +227,16 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
 
   dat$w <- check_numeric(w, dat$n)
 
-  if(is.null(w)){
-    w <- rep(1, dat[["n"]])
-  }else{
-    w <- dat$w
-  }
+  # if(is.null(w)){
+  #   w <- rep(1, dat[["n"]])
+  # }else{
+  #   w <- dat$w
+  # }
 
   if(is.null(RE)){
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
     # Pre-compute log(det(omega))
-    dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
+    #dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
     return(dat)
   }
 
@@ -248,7 +248,7 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$tau <- tau_init
   dat$omega <- get_omega_tau(dat$sigma, dat$tau, dat$ld_scores, dat$RE)
   # Pre-compute log(det(omega))
-  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
+  #dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, w = w)
   dat$s_equal <- FALSE
 
 

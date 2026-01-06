@@ -167,6 +167,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   # Pre-compute log(det(omega))
   dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
   dat$s_equal <- FALSE
+  dat <- structure(dat, class = "esmr")
   return(dat)
 }
 
@@ -232,11 +233,16 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
   dat$s_equal <- FALSE
 
-
+  dat <- structure(dat, class = c("esmr", "farmr"))
   return(dat)
 }
 
-
+`$.esmr` <- function(x, name) {
+  if (!name %in% names(x)) {
+    stop("Element '", name, "' not found.", call. = FALSE)
+  }
+  x[[name]]
+}
 
 
 order_upper_tri <- function(dat,
@@ -348,7 +354,7 @@ get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
     }
 
     if(type == "pval"){
-      pval <- with(dat, 2*pnorm(-abs(Y/S)))
+      pval <- 2*pnorm(-abs(dat$Y/dat$S))
       vals <- apply(pval[,out_ix,drop = FALSE], 1, min)
       dat$ix1 <- which(vals < thresh)
     }else{

@@ -6,6 +6,7 @@ nesmr_complete_mvmr <- function(
     pval_select = NULL,
     alpha = 5e-8,
     lower_tri = FALSE,
+    R = NULL,
     ...
   ) {
   stopifnot(all(dim(beta_hat) == dim(se_beta_hat)))
@@ -25,6 +26,12 @@ nesmr_complete_mvmr <- function(
       seq_len(d)[-i]
     }
 
+    if (! is.null(R)) {
+      R_sub <- R[c(i, x_idx), c(i, x_idx), drop = FALSE]
+    } else {
+      R_sub <- NULL
+    }
+
     mvmr_minp <- apply(pval_select[,x_idx, drop = FALSE], 1, min)
     mvmr_ix <- which(mvmr_minp < alpha)
 
@@ -35,6 +42,7 @@ nesmr_complete_mvmr <- function(
                     beta_hat_X = beta_hat[,x_idx],
                     se_X = se_beta_hat[,x_idx],
                     variant_ix = mvmr_ix,
+                    R = R_sub,
                     ...)
       }, error = function(e) {
         warning(e)
@@ -92,6 +100,7 @@ nesmr_complete <- function(
     beta_hat, se_beta_hat,
     pval_select = NULL,
     alpha = 5e-8,
+    R = NULL,
     ...
 ) {
   stopifnot(all(dim(beta_hat) == dim(se_beta_hat)))
@@ -109,13 +118,13 @@ nesmr_complete <- function(
 
   B_full <- matrix(1, ncol = d, nrow = d) - diag(d)
 
-  nesmr_full <- esmr(
+  nesmr_full <- nesmr(
     beta_hat_X = beta_hat,
     se_X = se_beta_hat,
     variant_ix = ix,
-    G = diag(d), # required for network problem
     direct_effect_template = B_full,
     restrict_dag = FALSE,
+    R = R,
     ...)
 
   return(list(

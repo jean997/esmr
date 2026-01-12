@@ -1,7 +1,7 @@
 Package: esmr
 Type: Package
 Title: Empirical Shrinkage Mendelian Randomization
-Version: 0.2.2.0398
+Version: 0.2.2.0399
 Author: Jean Morrison
 Maintainer: Jean Morrison <jvmorr@umich.edu>
 Description: Perform univariable or multivariable MR with empirical shrinkage priors.
@@ -11,8 +11,11 @@ LazyData: true
 RoxygenNote: 7.3.3
 Suggests:
     knitr,
-    rmarkdown
+    rmarkdown,
+    testthat (>= 3.0.0),
+    GWASBrewer
 VignetteBuilder: knitr
+Config/testthat/edition: 3
 Imports:
     dplyr,
     ebnm (>= 1.0.55),

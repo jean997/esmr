@@ -50,7 +50,8 @@ nesmr_complete_mvmr <- function(
 
     # Estimate G at each step for fair comparison
     tryCatch({
-        mod_res <- esmr(beta_hat_Y = beta_hat[,i],
+        capture.output({
+          mod_res <- esmr(beta_hat_Y = beta_hat[,i],
                       se_Y = se_beta_hat[,i],
                       beta_hat_X = beta_hat[,x_idx],
                       se_X = se_beta_hat[,x_idx],
@@ -60,6 +61,7 @@ nesmr_complete_mvmr <- function(
                         strict_mode = FALSE
                       ),
                       ...)
+          }, file = nullfile())
         rs <- mod_res$remove_suggest
         low_info_flag <- !is.null(rs)
         while(low_info_flag) { # Note: This will be caught if no traits remain
@@ -68,16 +70,18 @@ nesmr_complete_mvmr <- function(
           if (length(x_idx) == 0) {
             stop("All traits were suggested for removal due to low information.")
           }
-          mod_res <- esmr(beta_hat_Y = beta_hat[,i],
-                        se_Y = se_beta_hat[,i],
-                        beta_hat_X = beta_hat[,x_idx],
-                        se_X = se_beta_hat[,x_idx],
-                        variant_ix = mvmr_ix,
-                        R = R_sub,
-                        params = list(
-                          strict_mode = FALSE
-                        ),
-                        ...)
+          capture.output({
+            mod_res <- esmr(beta_hat_Y = beta_hat[,i],
+                          se_Y = se_beta_hat[,i],
+                          beta_hat_X = beta_hat[,x_idx],
+                          se_X = se_beta_hat[,x_idx],
+                          variant_ix = mvmr_ix,
+                          R = R_sub,
+                          params = list(
+                            strict_mode = FALSE
+                          ),
+                          ...)
+          }, file = nullfile())
           rs <- mod_res$remove_suggest
           low_info_flag <- !is.null(rs)
         }
@@ -101,12 +105,6 @@ nesmr_complete_mvmr <- function(
     'rbind.data.frame',
     lapply(seq_along(MVMR_models), function(i) {
       x <- MVMR_models[[i]]
-
-      x_idx <- if (lower_tri) {
-        intersect(which(seq_len(d) > i), valid_idx)
-      } else {
-        intersect(seq_len(d)[-i], valid_idx)
-      }
 
       res <- x$beta[c('beta_m', 'beta_s')]
       beta_to <- as.numeric(x$beta$beta_j)

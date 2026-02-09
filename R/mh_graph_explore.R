@@ -576,38 +576,33 @@ mh_graph_explore <- function(
 draw_graph <- function(g, x) {
     add_candidates <- x$add_candidates
     add_edge_prob <- x$add_edge_prob
-    total_add_prob <- x$total_add_prob
-    total_remove_prob <- x$total_remove_prob
+    total_add_prob <- sum(add_edge_prob)
+    total_remove_prob <- sum(x$remove_edge_prob)
     remove_candidates <- x$remove_candidates
     remove_edge_prob <- x$remove_edge_prob
-
-    total_prob <- total_add_prob + total_remove_prob
-
-    insert_edge <- runif(1) < total_add_prob / total_prob
+    insert_edge <- runif(1) < total_add_prob
     if (insert_edge) {
-        # Draw from the add candidates
         cond_prob <- add_edge_prob / total_add_prob
         add_candidate_ix <- sample(seq_along(cond_prob), 1, prob = cond_prob)
-        new_graph <- igraph::add_edges(g, add_candidates[add_candidate_ix, ])
-        prob <- cond_prob[add_candidate_ix] / total_prob
-        mod_edge <- paste0(add_candidates[add_candidate_ix, ], collapse = "|")
-    } else {
-        # Draw from the remove edges
-        cond_prob <- remove_edge_prob / total_remove_prob
-        remove_edge_ix <- sample(seq_along(remove_edge_prob), 1, prob = cond_prob)
-        mod_edge <- paste0(remove_candidates[remove_edge_ix, ], collapse = "|")
-        new_graph <- igraph::delete_edges(g, mod_edge)
-        prob <- cond_prob[remove_edge_ix] / total_prob
+        new_graph <- igraph::add_edges(g, add_candidates[add_candidate_ix,
+            ])
+        prob <- add_edge_prob[add_candidate_ix]
+        mod_edge <- paste0(add_candidates[add_candidate_ix, ],
+            collapse = "|")
     }
-
+    else {
+        cond_prob <- remove_edge_prob / total_remove_prob
+        remove_edge_ix <- sample(seq_along(remove_edge_prob),
+            1, prob = cond_prob)
+        mod_edge <- paste0(remove_candidates[remove_edge_ix,
+            ], collapse = "|")
+        new_graph <- igraph::delete_edges(g, mod_edge)
+        prob <- remove_edge_prob[remove_edge_ix]
+    }
     mod_edge_ix <- strsplit(mod_edge, "\\|")
-
-    return(
-        list(
-            g = new_graph, prob = prob, mod_edge = mod_edge, insert_edge = insert_edge,
-            from = mod_edge_ix[[1]][1], to = mod_edge_ix[[1]][2]
-        )
-    )
+    return(list(g = new_graph, prob = prob, mod_edge = mod_edge,
+        insert_edge = insert_edge, from = mod_edge_ix[[1]][1],
+        to = mod_edge_ix[[1]][2]))
 }
 
 # If missing location, then use the maximum value in the current adjacency matrix

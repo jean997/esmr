@@ -1,5 +1,13 @@
-#' Initial NESMR graph estimate using n MVMR estimates
+#' Perform leave-one-out MVMR, treating each trait as the outcome in turn and all other traits as exposures.
 #'
+#' This can be used to get an initial estimate of the graph structure for NESMR, or as a standalone method for performing network MR with a large number of traits.
+#'
+#' @param beta_hat Matrix of SNP-trait associations (n by p)
+#' @param se_beta_hat Matrix of standard errors of beta_hat
+#' @param pval_select Matrix of p-values for variant selection. If NULL, p-values will be calculated from beta_hat and se_beta_hat.
+#' @param alpha P-value threshold for variant selection.
+#' @param lower_tri If TRUE, only use traits with higher index as exposures for each outcome. This will only estimate the lower triangular part of the matrix representing the graph structure.
+#' @param R Nuisance correlation matrix if there is sample overlap (optional).
 #' @export
 nesmr_complete_mvmr <- function(
     beta_hat, se_beta_hat,
@@ -19,11 +27,16 @@ nesmr_complete_mvmr <- function(
     pval_select <- pval_cursed
   }
 
-  MVMR_models <- lapply(seq_len(d - 1), function(i) {
+  ivs <- pval_select < alpha
+  n_ivs <- colSums(ivs)
+
+  valid_idx <- which(n_ivs > 0)
+
+  MVMR_models <- lapply(seq_len(d), function(i) {
     x_idx <- if (lower_tri) {
-      which(seq_len(d) > i)
+      intersect(which(seq_len(d) > i), valid_idx)
     } else {
-      seq_len(d)[-i]
+      intersect(seq_len(d)[-i], valid_idx)
     }
 
     if (! is.null(R)) {
@@ -37,13 +50,40 @@ nesmr_complete_mvmr <- function(
 
     # Estimate G at each step for fair comparison
     tryCatch({
-      esmr(beta_hat_Y = beta_hat[,i],
-                    se_Y = se_beta_hat[,i],
-                    beta_hat_X = beta_hat[,x_idx],
-                    se_X = se_beta_hat[,x_idx],
-                    variant_ix = mvmr_ix,
-                    R = R_sub,
-                    ...)
+        mod_res <- esmr(beta_hat_Y = beta_hat[,i],
+                      se_Y = se_beta_hat[,i],
+                      beta_hat_X = beta_hat[,x_idx],
+                      se_X = se_beta_hat[,x_idx],
+                      variant_ix = mvmr_ix,
+                      R = R_sub,
+                      params = list(
+                        strict_mode = FALSE
+                      ),
+                      ...)
+        rs <- mod_res$remove_suggest
+        low_info_flag <- !is.null(rs)
+        while(low_info_flag) { # Note: This will be caught if no traits remain
+          x_idx <- x_idx[- (rs - 1)]
+          # x_idx <- setdiff(x_idx, mod_res$remove_suggest)
+          if (length(x_idx) == 0) {
+            stop("All traits were suggested for removal due to low information.")
+          }
+          mod_res <- esmr(beta_hat_Y = beta_hat[,i],
+                        se_Y = se_beta_hat[,i],
+                        beta_hat_X = beta_hat[,x_idx],
+                        se_X = se_beta_hat[,x_idx],
+                        variant_ix = mvmr_ix,
+                        R = R_sub,
+                        params = list(
+                          strict_mode = FALSE
+                        ),
+                        ...)
+          rs <- mod_res$remove_suggest
+          low_info_flag <- !is.null(rs)
+        }
+        # Update the indices in the final output to reflect any removed traits
+        mod_res$beta$beta_k <- x_idx
+        list(beta = mod_res$beta) # Only return the beta component to save memory
       }, error = function(e) {
         warning(e)
         list(beta = data.frame(
@@ -63,16 +103,16 @@ nesmr_complete_mvmr <- function(
       x <- MVMR_models[[i]]
 
       x_idx <- if (lower_tri) {
-        which(seq_len(d) > i)
+        intersect(which(seq_len(d) > i), valid_idx)
       } else {
-        seq_len(d)[-i]
+        intersect(seq_len(d)[-i], valid_idx)
       }
 
       res <- x$beta[c('beta_m', 'beta_s')]
       beta_to <- as.numeric(x$beta$beta_j)
       beta_from <- as.numeric(x$beta$beta_k)
       res$to <- rep(i, length(beta_to))
-      res$from <- c(i, x_idx)[beta_from]
+      res$from <- beta_from
       res
     })
   )

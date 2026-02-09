@@ -9,7 +9,8 @@ mvmr_default_params <- function(){
     beta_prior_cov = NULL,
     beta_joint = TRUE,
     augment_G = TRUE,
-    cond_num = 1e10
+    cond_num = 1e10,
+    strict_mode = TRUE
   )
 }
 
@@ -26,7 +27,8 @@ nesmr_default_params <- function(){
     tol = "default",
     beta_prior_cov = NULL,
     beta_joint = TRUE,
-    cond_num = 1e10
+    cond_num = 1e10,
+    strict_mode = TRUE
   )
 }
 

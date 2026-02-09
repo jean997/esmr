@@ -10,8 +10,8 @@ esmr_solve <- function(dat, max_iter, tol){
   if(is.null(cond_num)) cond_num <- 1e10
 
   nb <- length(dat$beta$beta_j)
-
-  while(i < max_iter && check > tol){
+  low_info_flag <- FALSE
+  while(i < max_iter && check > tol && !low_info_flag){
     low_info_flag <- FALSE
 
     # l update
@@ -22,6 +22,7 @@ esmr_solve <- function(dat, max_iter, tol){
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     # beta update
+    remove_suggest <- NULL
     if(!dat$beta_joint){
       dat <- update_beta_sequential(dat)
       dat$beta$V <- diag(dat$beta$beta_s^2)
@@ -44,7 +45,10 @@ esmr_solve <- function(dat, max_iter, tol){
           }else{
             dat$f <- make_f(dat)
           }
-          if(!is.null(beta_upd$remove_suggest)) low_info_flag <- TRUE
+          if(!is.null(beta_upd$remove_suggest)) {
+            low_info_flag <- TRUE
+            remove_suggest <- beta_upd$remove_suggest
+          }
         }
       }else{
         e_ix <- which(!dat$beta$fix_beta)
@@ -57,7 +61,10 @@ esmr_solve <- function(dat, max_iter, tol){
         }else{
           dat$f <- make_f(dat)
         }
-        if(!is.null(ub$remove_suggest)) low_info_flag <- TRUE
+        if(!is.null(ub$remove_suggest)) {
+          low_info_flag <- TRUE
+          remove_suggest <- ub$remove_suggest
+        }
       }
     }
 
@@ -119,8 +126,10 @@ esmr_solve <- function(dat, max_iter, tol){
 
     i <- i + 1
 
-    if(dat$is_factors & low_info_flag){
+    if(dat$is_factors && low_info_flag){
       dat <- remove_worst_factor(dat)
+    } else if (low_info_flag) {
+      dat$remove_suggest <- remove_suggest
     }
   }
 

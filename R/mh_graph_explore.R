@@ -108,6 +108,7 @@ mh_graph_explore <- function(
     max_heat = 5,
     verbose = FALSE,
     debug = FALSE,
+    beta_prior_cov = 1,
     graph_edge_prior = 0.5) {
     # Create a logging function based on verbose parameter
     log_msg <- function(...) {
@@ -258,7 +259,7 @@ mh_graph_explore <- function(
                         max_iter = 300,
                         R = R,
                         params = list(
-                           beta_prior_cov = 1
+                           beta_prior_cov = beta_prior_cov
                         )
                     )
                 },
@@ -334,7 +335,8 @@ mh_graph_explore <- function(
             } else {
                 visited_graphs[[curr_B_str]]$adj_graph_info <- esmr:::get_adjacent_graphs(
                     ig, MVMR_abs_Z_scores,
-                    logistic_scale = logistic_scale
+                    logistic_scale = logistic_scale,
+                    logistic_location = logistic_location
                 )
                 adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
             }
@@ -428,7 +430,7 @@ mh_graph_explore <- function(
                             max_iter = 300,
                             R = R,
                             params = list(
-                                 beta_prior_cov = 1
+                                 beta_prior_cov = beta_prior_cov
                             )
                         )
                         if (debug) visited_graphs[[curr_B_str]]$model <- new_mod

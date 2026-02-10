@@ -226,6 +226,6 @@ test_that("mh_graph_explore function works", {
   best_graph <- top_i_graph(nesmr_discovery) %>%
     as.matrix(value = "direct_effect") %>% unname()
 
-  expect_equal(best_graph, G, tol = 0.1)
+  expect_equal(best_graph, G, tolerance = 0.1)
   expect_equal((best_graph != 0) + 0, B_correct)
 })

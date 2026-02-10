@@ -577,29 +577,27 @@ mh_graph_explore <- function(
 
 draw_graph <- function(g, x) {
     add_candidates <- x$add_candidates
-    add_edge_prob <- x$add_edge_prob
-    total_add_prob <- sum(add_edge_prob)
+    total_add_prob <- sum(x$add_edge_prob)
     total_remove_prob <- sum(x$remove_edge_prob)
-    remove_candidates <- x$remove_candidates
-    remove_edge_prob <- x$remove_edge_prob
+    stopifnot((total_add_prob + total_remove_prob) - 1 < 1e-8)
     insert_edge <- runif(1) < total_add_prob
     if (insert_edge) {
-        cond_prob <- add_edge_prob / total_add_prob
+        cond_prob <- x$add_edge_prob / total_add_prob
+        stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
         add_candidate_ix <- sample(seq_along(cond_prob), 1, prob = cond_prob)
-        new_graph <- igraph::add_edges(g, add_candidates[add_candidate_ix,
-            ])
-        prob <- add_edge_prob[add_candidate_ix]
-        mod_edge <- paste0(add_candidates[add_candidate_ix, ],
+        new_graph <- igraph::add_edges(g, x$add_candidates[add_candidate_ix, ])
+        prob <- x$add_edge_prob[add_candidate_ix]
+        mod_edge <- paste0(x$add_candidates[add_candidate_ix, ],
             collapse = "|")
     }
     else {
-        cond_prob <- remove_edge_prob / total_remove_prob
-        remove_edge_ix <- sample(seq_along(remove_edge_prob),
+        cond_prob <- x$remove_edge_prob / total_remove_prob
+        stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
+        remove_edge_ix <- sample(seq_along(cond_prob),
             1, prob = cond_prob)
-        mod_edge <- paste0(remove_candidates[remove_edge_ix,
-            ], collapse = "|")
+        mod_edge <- paste0(x$remove_candidates[remove_edge_ix, ], collapse = "|")
         new_graph <- igraph::delete_edges(g, mod_edge)
-        prob <- remove_edge_prob[remove_edge_ix]
+        prob <- x$remove_edge_prob[remove_edge_ix]
     }
     mod_edge_ix <- strsplit(mod_edge, "\\|")
     return(list(g = new_graph, prob = prob, mod_edge = mod_edge,
@@ -612,6 +610,10 @@ draw_graph <- function(g, x) {
 get_adjacent_graphs <- function(
     g, weight_mat, logistic_scale = 1,
     logistic_location = 5) {
+    # Validate that weight matrix dimensions match graph vertices
+    n_vertices <- igraph::vcount(g)
+    stopifnot(`"weight_mat must be a square matrix with dimensions matching the number of vertices in the graph"` = nrow(weight_mat) == n_vertices && ncol(weight_mat) == n_vertices)
+
     g_comp <- igraph::complementer(g, loops = FALSE)
 
     #    # TODO: Is it from here that we ned
@@ -675,8 +677,6 @@ get_adjacent_graphs <- function(
     list(
         add_candidates = add_candidates,
         add_edge_prob = add_edge_prob,
-        total_add_prob = total_add_prob,
-        total_remove_prob = total_remove_prob,
         remove_candidates = remove_candidates,
         remove_edge_prob = remove_edge_prob,
         logistic_scale = logistic_scale,

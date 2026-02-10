@@ -259,7 +259,8 @@ mh_graph_explore <- function(
                         max_iter = 300,
                         R = R,
                         params = list(
-                           beta_prior_cov = beta_prior_cov
+                           beta_prior_cov = beta_prior_cov,
+                           strict_mode = FALSE # Note: Not sure if this makes the most sense, or to just fail.
                         )
                     )
                 },
@@ -430,7 +431,8 @@ mh_graph_explore <- function(
                             max_iter = 300,
                             R = R,
                             params = list(
-                                 beta_prior_cov = beta_prior_cov
+                                 beta_prior_cov = beta_prior_cov,
+                                 strict_mode = FALSE # Note: Not sure if this makes the most sense, or to just fail.
                             )
                         )
                         if (debug) visited_graphs[[curr_B_str]]$model <- new_mod

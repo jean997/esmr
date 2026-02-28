@@ -135,11 +135,28 @@ update_beta_full_joint <- function(dat, cond_num = 1e10){
       kronecker( matrix(dat$l$lbar[i,], nrow = k), matrix(OYt[,i], nrow = p))
     }) %>% Reduce(`+`, .)
   }else{
-    Rfull <- lapply(seq(n), function(i){
+    # Rfull <- lapply(seq(n), function(i){
+    #   l <- dat$l$abar[i,]
+    #   a <- outer(l, l) + diag(Va[i,], nrow = k)
+    #   kronecker(tcrossprod(dat$G, tcrossprod(dat$G, a)), dat$omega[[i]]) ## kronecker(G %*% a %*% t(G), O)
+    # }) %>% Reduce(`+`, .)
+    Gt <- t(dat$G)
+    nG <- nrow(dat$G)
+    nO <- nrow(dat$omega[[1]])
+    Rfull <- matrix(0, nG * nO, nG * nO)
+    for (i in seq(n)) {
       l <- dat$l$abar[i,]
-      a <- outer(l, l) + diag(Va[i,], nrow = k)
-      kronecker(tcrossprod(dat$G, tcrossprod(dat$G, a)), dat$omega[[i]]) ## kronecker(G %*% a %*% t(G), O)
-    }) %>% Reduce(`+`, .)
+      a <- tcrossprod(l) + diag(Va[i,], nrow = k)
+      A <- dat$G %*% tcrossprod(a, Gt)
+      O <- dat$omega[[i]]
+      for (r in seq_len(nG)) {
+        ri <- ((r-1)*nO + 1):(r*nO)
+        for (s in seq_len(nG)) {
+          si <- ((s-1)*nO + 1):(s*nO)
+          Rfull[ri, si] <- Rfull[ri, si] + A[r, s] * O
+        }
+      }
+    }
     afull <- lapply(seq(n), function(i){
       kronecker(dat$l$lbar[i,], dat$omega[[i]] %*% matrix(dat$Y[i,], nrow = p))
     }) %>% Reduce(`+`, .)

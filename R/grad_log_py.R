@@ -27,7 +27,7 @@ log_py <- function(fit, g_hat = NULL, fbar = NULL, max_prob = 1, nmax = Inf){
       ss <- s_mat[cbind(1:fit$k, c)]
       return(crossprod(t(fgbar)*ss, t(fgbar)*ss)) #fgbar is p x k
       #fgbar %*% diag(ss^2) %*% t(fgbar)
-    }, simplify = F) 
+    }, simplify = F)
   }else{
     LPi <- expand.grid(lpi)
     lpi <- apply(LPi, 1, sum)
@@ -624,6 +624,14 @@ optimize_lpy2 <- function(fit,
     delt_pvals <- delta_method_pvals(fit)
     fit$pvals_dm <- delt_pvals$pmat
     fit$se_dm <- delt_pvals$semat
+  }
+
+  if(fit$is_factors){
+    fbar <- fit$f$fbar
+    nfactor <- fit$k - 2
+    total_effect_matrix <- cbind(t(fbar[1:2, , drop = FALSE]),
+                                 rbind(matrix(0, nrow = 2, ncol = nfactor), diag(nfactor)))
+    fit$direct_effects <- t(total_to_direct(total_effect_matrix - diag(fit$k)))
   }
 
 

@@ -139,6 +139,7 @@ nesmr_complete <- function(
     pval_select = NULL,
     alpha = 5e-8,
     R = NULL,
+    return_full_model = FALSE,
     ...
 ) {
   stopifnot(all(dim(beta_hat) == dim(se_beta_hat)))
@@ -161,12 +162,22 @@ nesmr_complete <- function(
     se_X = se_beta_hat,
     variant_ix = ix,
     direct_effect_template = B_full,
-    restrict_dag = FALSE,
+    params = list(
+      restrict_dag = FALSE
+    ),
     R = R,
     ...)
 
-  return(list(
-    beta_hat = nesmr_full$beta_mat$beta_hat,
-    se_beta_hat = nesmr_full$beta_mat$beta_se
-  ))
+  if (return_full_model) {
+    return(nesmr_full)
+  } else {
+    return(list(
+      beta_hat = nesmr_full$direct_effects,
+      se_beta_hat = nesmr_full$direct_effect_se
+    ))
+  }
+  # return(list(
+  #   beta_hat = nesmr_full$beta_mat$beta_hat,
+  #   se_beta_hat = nesmr_full$beta_mat$beta_se
+  # ))
 }

@@ -198,6 +198,16 @@ mh_graph_explore <- function(
         sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
     }
 
+    if (sum(mh_chain_init$best_approx != 0) == 0) {
+        warning("best_approx initialization is empty; falling back to the strongest single-edge graph")
+        mh_chain_init$best_approx <- {
+            mat_init <- matrix(0, nrow = d, ncol = d)
+            strongest_edge_ix <- non_diag_i[which.max(abs(full_graph_zscores[non_diag_i]))]
+            mat_init[strongest_edge_ix] <- full_graph_zscores[strongest_edge_ix]
+            sqrt(esmr:::maximal_acyclic_subgraph((mat_init)^2)) * sign(mat_init)
+        }
+    }
+
     if (sparse_chain) {
         mh_chain_init$min_graph <- {
             mat_init <- matrix(0, nrow = d, ncol = d)
@@ -393,6 +403,7 @@ mh_graph_explore <- function(
             }
 
             if (is.null(proposal_graph_info$elbo)) {
+                heat_param <- if (temperature && iter <= burnin) heat_param_func(iter) else 1
                 # If we have zero edges; continue
                 # Eventually esmr should support having zero edges
                 if (sum(prop_B) == 0) {

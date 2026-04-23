@@ -133,18 +133,39 @@ top_i_graph <- function(x, i = 1) {
     graph_str <- x_summary$graph[graph_idx]
     top_graph <- x$visited_graphs[[graph_str]]
 
+    if (is.null(top_graph$beta_hat)) {
+        d <- NULL
+        if (!is.null(x$mvmr_all) && !is.null(x$mvmr_all$beta_hat) && length(dim(x$mvmr_all$beta_hat)) == 2) {
+            d <- ncol(x$mvmr_all$beta_hat)
+        }
+        if (is.null(d) && !is.null(graph_str)) {
+            d <- as.integer(sqrt(nchar(graph_str)))
+        }
+        if (is.null(d) || is.na(d) || d <= 0) {
+            stop("Could not determine graph dimension in top_i_graph")
+        }
+        top_graph$beta_hat <- matrix(0, nrow = d, ncol = d)
+        top_graph$se_beta_hat <- matrix(0, nrow = d, ncol = d)
+    }
+
     # TODO: Remove this check if we make the graph a tidygraph
     if (!inherits(top_graph, "tidygraph")) {
         edgelist <- which(top_graph$beta_hat != 0, arr.ind = TRUE)
 
+        if (is.null(dim(edgelist))) {
+            edgelist <- matrix(integer(0), ncol = 2)
+        }
+
         # edgelist <- which(x$direct_effect != 0, arr.ind = T)
-        edgelist <- data.frame(from = edgelist[, 1],
-                            to = edgelist[, 2],
-                            direct_effect = top_graph$beta_hat[edgelist],
-                            direct_effect_se = top_graph$se_beta_hat[edgelist])
+        edgelist <- data.frame(
+            from = edgelist[, 1],
+            to = edgelist[, 2],
+            direct_effect = top_graph$beta_hat[edgelist],
+            direct_effect_se = top_graph$se_beta_hat[edgelist]
+        )
 
         # TODO: Add node names from the object
-        nodes <- data.frame(name = 1:ncol(top_graph$beta_hat))
+        nodes <- data.frame(name = seq_len(ncol(top_graph$beta_hat)))
 
         tg <- tidygraph::tbl_graph(nodes = nodes, edges = edgelist)
         tg$elbo <- top_graph$elbo

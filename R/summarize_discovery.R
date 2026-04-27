@@ -1,5 +1,5 @@
 #' @export
-discovery_summary <- function(x) {
+discovery_summary <- function(x, max_iter = Inf) {
     # Want:
     # Table of graphs with number of edges, elbo, norm_elbo, and visited count
     n <- length(x$visited_graphs)
@@ -16,8 +16,11 @@ discovery_summary <- function(x) {
         num_edges = sapply(stringr::str_split(flat_graphs, ""), function(s) sum(as.numeric(s)))
     )
 
+    mh_chain_info <- x$mh_chain_info %>%
+        filter(iter <= max_iter)
+
     # Total times visited
-    visit_count <- x$mh_chain_info %>%
+    visit_count <- mh_chain_info %>%
         group_by(curr_graph) %>%
         summarize(
             visit_count = n()
@@ -27,7 +30,7 @@ discovery_summary <- function(x) {
         )
 
     # Proposed count
-    prop_count <- x$mh_chain_info %>%
+    prop_count <- mh_chain_info %>%
         group_by(prop_graph) %>%
         summarize(
             prop_count = n()

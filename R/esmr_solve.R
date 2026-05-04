@@ -73,19 +73,19 @@ esmr_solve <- function(dat, max_iter, tol){
     }
 
     ## update total effects based on constraints
-    if(any(dat$beta$fix_beta)){
-      which_const <- cbind(dat$beta$beta_k, dat$beta$beta_j)[dat$beta$fix_beta,,drop = FALSE]
-      colnames(which_const) <- c("row", "col")
-      f <- t(complete_T(t(dat$f$fbar), which_const)$total_effects)
-      ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
-      dat$beta$beta_m <- f[ix]
-
-      if(dat$is_factors){
-        dat$f <- make_f_factors(dat)
-      }else{
-        dat$f <- make_f(dat)
-      }
-    }
+    # if(any(dat$beta$fix_beta)){
+    #   which_const <- cbind(dat$beta$beta_k, dat$beta$beta_j)[dat$beta$fix_beta,,drop = FALSE]
+    #   colnames(which_const) <- c("row", "col")
+    #   f <- t(complete_T(t(dat$f$fbar), which_const)$total_effects)
+    #   ix <- cbind(dat$beta$beta_j, dat$beta$beta_k)
+    #   dat$beta$beta_m <- f[ix]
+    #
+    #   if(dat$is_factors){
+    #     dat$f <- make_f_factors(dat)
+    #   }else{
+    #     dat$f <- make_f(dat)
+    #   }
+    # }
 
     ## tau update
     if(!is.null(dat$tau) & !dat$fix_tau){

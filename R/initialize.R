@@ -13,7 +13,7 @@ init_l <- function(n, p, m){
 
 
 
-init_beta <- function(dat){
+init_beta <- function(dat, init_beta_X_Y = NULL){
 
   dat$beta <- list()
 
@@ -39,6 +39,11 @@ init_beta <- function(dat){
     dat$beta$beta_m <- dat$B_init[which_beta]
   }else{
     dat$beta$beta_m <- rep(0, nb)
+  }
+  if (dat$is_factors && !is.null(init_beta_X_Y)) {
+    i_xy <- which(which_beta[, 1] == 1 & which_beta[, 2] == 2)
+    dat$beta$beta_m[i_xy] <- init_beta_X_Y
+    dat$beta$fix_beta[i_xy] <- TRUE
   }
   dat$beta$beta_s <- rep(0, nb)
   dat$beta$V <- matrix(0, nrow = nb, ncol = nb)

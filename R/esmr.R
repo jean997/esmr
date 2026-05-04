@@ -6,6 +6,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                  beta_hat_Z=NULL, se_Z = NULL,
                  factors_matrix = NULL,
                  factors_residual_sd = NULL,
+                 init_beta_X_Y = NULL,
                  G = NULL,
                  R = NULL,
                  pval_thresh = NULL,
@@ -101,7 +102,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                          restrict_dag = restrict_dag)
   }
 
-  dat <- init_beta(dat)
+  dat <- init_beta(dat, init_beta_X_Y = init_beta_X_Y)
   if (!is.null(beta_prior_cov)) {
     nb <- sum(! dat$beta$fix_beta)
     dat$beta$prior_cov <- check_beta_prior_cov(beta_prior_cov, nb)

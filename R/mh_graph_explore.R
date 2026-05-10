@@ -380,26 +380,33 @@ mh_graph_explore <- function(
             }
 
             # Get h(G|G') - Reverse direction
-            # If we added the edge: Check the prob for removing the edge
-            # If we removed the edge: Check the prob for adding the edge
-            if (candidate_draw$insert_edge) {
-                # We added the edge
+            if (identical(candidate_draw$move_type, "add")) {
+                # We added edge a->b, so reverse move removes a->b.
                 remove_candidates <- proposal_graph_info$adj_graph_info$remove_candidates
                 remove_edge_prob <- proposal_graph_info$adj_graph_info$remove_edge_prob
                 remove_edge_ix <- which(apply(remove_candidates, 1, function(x) {
                     paste0(x, collapse = "|")
                 }) == candidate_draw$mod_edge)
-                # Numerator: h(G|G')
                 prop_num <- remove_edge_prob[remove_edge_ix]
-            } else {
-                # We removed the edge
+            } else if (identical(candidate_draw$move_type, "remove")) {
+                # We removed edge a->b, so reverse move adds a->b.
                 add_candidates <- proposal_graph_info$adj_graph_info$add_candidates
                 add_edge_prob <- proposal_graph_info$adj_graph_info$add_edge_prob
                 add_candidate_ix <- which(apply(add_candidates, 1, function(x) {
                     paste0(x, collapse = "|")
                 }) == candidate_draw$mod_edge)
-                # Numerator: h(G|G')
                 prop_num <- add_edge_prob[add_candidate_ix]
+            } else if (identical(candidate_draw$move_type, "flip")) {
+                # We flipped a->b to b->a, so reverse move flips b->a back to a->b.
+                flip_candidates <- proposal_graph_info$adj_graph_info$flip_candidates
+                flip_edge_prob <- proposal_graph_info$adj_graph_info$flip_edge_prob
+                reverse_flip_edge <- paste0(candidate_draw$to, "|", candidate_draw$from)
+                flip_edge_ix <- which(apply(flip_candidates, 1, function(x) {
+                    paste0(x, collapse = "|")
+                }) == reverse_flip_edge)
+                prop_num <- flip_edge_prob[flip_edge_ix]
+            } else {
+                stop("Unknown candidate_draw$move_type. Expected one of 'add', 'remove', 'flip'.")
             }
 
             if (is.null(proposal_graph_info$elbo)) {
@@ -415,6 +422,7 @@ mh_graph_explore <- function(
                         curr_graph = curr_B_str,
                         prop_graph = prop_B_str,
                         accepted = 0,
+                        move_type = candidate_draw$move_type,
                         curr_elbo = visited_graphs[[curr_B_str]]$elbo,
                         prop_elbo = -Inf,
                         elbo_diff = -Inf,
@@ -501,6 +509,7 @@ mh_graph_explore <- function(
                 curr_graph = curr_B_str,
                 prop_graph = prop_B_str,
                 accepted = accepted,
+                move_type = candidate_draw$move_type,
                 curr_elbo = visited_graphs[[curr_B_str]]$elbo,
                 prop_elbo = proposal_graph_info$elbo,
                 elbo_diff = elbo_diff,
@@ -588,11 +597,25 @@ mh_graph_explore <- function(
 
 draw_graph <- function(g, x) {
     add_candidates <- x$add_candidates
+    # Backward-compatible typo support for callers that pass flip_canidates.
+    flip_candidates <- x$flip_candidates
+    if (is.null(flip_candidates)) {
+        flip_candidates <- x$flip_canidates
+    }
+
     total_add_prob <- sum(x$add_edge_prob)
     total_remove_prob <- sum(x$remove_edge_prob)
-    stopifnot((total_add_prob + total_remove_prob) - 1 < 1e-8)
-    insert_edge <- runif(1) < total_add_prob
-    if (insert_edge) {
+    total_flip_prob <- sum(x$flip_edge_prob)
+
+    stopifnot(abs(total_add_prob + total_remove_prob + total_flip_prob - 1) < 1e-8)
+
+    move_type <- sample(
+        c("add", "remove", "flip"),
+        size = 1,
+        prob = c(total_add_prob, total_remove_prob, total_flip_prob)
+    )
+
+    if (identical(move_type, "add")) {
         cond_prob <- x$add_edge_prob / total_add_prob
         stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
         add_candidate_ix <- sample(seq_along(cond_prob), 1, prob = cond_prob)
@@ -600,8 +623,7 @@ draw_graph <- function(g, x) {
         prob <- x$add_edge_prob[add_candidate_ix]
         mod_edge <- paste0(x$add_candidates[add_candidate_ix, ],
             collapse = "|")
-    }
-    else {
+    } else if (identical(move_type, "remove")) {
         cond_prob <- x$remove_edge_prob / total_remove_prob
         stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
         remove_edge_ix <- sample(seq_along(cond_prob),
@@ -609,10 +631,25 @@ draw_graph <- function(g, x) {
         mod_edge <- paste0(x$remove_candidates[remove_edge_ix, ], collapse = "|")
         new_graph <- igraph::delete_edges(g, mod_edge)
         prob <- x$remove_edge_prob[remove_edge_ix]
+    } else {
+        cond_prob <- x$flip_edge_prob / total_flip_prob
+        stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
+        flip_edge_ix <- sample(seq_along(cond_prob),
+            1, prob = cond_prob)
+        mod_edge <- paste0(flip_candidates[flip_edge_ix, ], collapse = "|")
+        mod_edge_ix <- strsplit(mod_edge, "\\|")[[1]]
+        from <- as.numeric(mod_edge_ix[1])
+        to <- as.numeric(mod_edge_ix[2])
+        g_deleted <- igraph::delete_edges(g, igraph::E(g, P = c(from, to)))
+        new_graph <- igraph::add_edges(g_deleted, c(to, from))
+        prob <- x$flip_edge_prob[flip_edge_ix]
     }
+
     mod_edge_ix <- strsplit(mod_edge, "\\|")
     return(list(g = new_graph, prob = prob, mod_edge = mod_edge,
-        insert_edge = insert_edge, from = mod_edge_ix[[1]][1],
+        insert_edge = identical(move_type, "add"),
+        move_type = move_type,
+        from = mod_edge_ix[[1]][1],
         to = mod_edge_ix[[1]][2]))
 }
 
@@ -620,7 +657,8 @@ draw_graph <- function(g, x) {
 # TODO: May be an issue for the proposal distribution for the inverse?
 get_adjacent_graphs <- function(
     g, weight_mat, logistic_scale = 1,
-    logistic_location = 5) {
+    logistic_location = 5,
+    flip_logistic_scale = 3) {
     # Validate that weight matrix dimensions match graph vertices
     n_vertices <- igraph::vcount(g)
     stopifnot(`"weight_mat must be a square matrix with dimensions matching the number of vertices in the graph"` = nrow(weight_mat) == n_vertices && ncol(weight_mat) == n_vertices)
@@ -657,6 +695,31 @@ get_adjacent_graphs <- function(
     remove_candidates <- igraph::as_edgelist(g, names = FALSE)
     remove_edge_weight <- weight_mat[remove_candidates]
 
+    # Flip candidates: check each remove edge, and see if flipping it would still be a DAG
+    flip_candidate_g <- apply(remove_candidates, 1, function(x) {
+        from <- x[1]
+        to <- x[2]
+#        g_test <- g
+        g_test <- igraph::delete.edges(g, igraph::E(g, P = c(from, to)))
+        # Try adding the edge
+        g_test <- igraph::add_edges(g_test, c(to, from))
+        is_dag_test <- igraph::is_dag(g_test)
+        if (is_dag_test) {
+            return(g_test)
+        } else {
+            return(NULL)
+        }
+    })
+    flip_keep <- sapply(flip_candidate_g, Negate(is.null))
+    flip_candidates <- remove_candidates[flip_keep, , drop = FALSE]
+    if (nrow(flip_candidates) > 0) {
+        flip_candidates_weights <- abs(weight_mat[flip_candidates[, 2:1, drop = FALSE]]) - abs(weight_mat[flip_candidates])
+    } else {
+        flip_candidates_weights <- numeric(0)
+    }
+
+    flip_edge_prob <- plogis(flip_candidates_weights, location = 0, scale = flip_logistic_scale)
+
     # if (is.null(location)) {
     #     if (length(add_edge_weight) > 0) {
     #         location <- max(add_edge_weight, na.rm = TRUE)
@@ -673,11 +736,15 @@ get_adjacent_graphs <- function(
 
     total_add_prob <- sum(add_edge_prob)
     total_remove_prob <- sum(remove_edge_prob)
+    total_flip_prob <- sum(flip_edge_prob)
 
-    total_prob <- total_add_prob + total_remove_prob
+    total_prob <- total_add_prob + total_remove_prob + total_flip_prob
     # Normalize both the probabilities
     add_edge_prob <- add_edge_prob / total_prob
     remove_edge_prob <- remove_edge_prob / total_prob
+    flip_edge_prob <- flip_edge_prob / total_prob
+
+    ## TODO: Flip probs
 
     # First draw: Add w prob total_add_prob / (total_add_prob + total_remove_prob)
     # Second if add: Draw from one of the add candidates w weights in add_edge_prob
@@ -690,8 +757,11 @@ get_adjacent_graphs <- function(
         add_edge_prob = add_edge_prob,
         remove_candidates = remove_candidates,
         remove_edge_prob = remove_edge_prob,
+        flip_candidates = flip_candidates,
+        flip_edge_prob = flip_edge_prob,
         logistic_scale = logistic_scale,
-        logistic_location = logistic_location
+        logistic_location = logistic_location,
+        flip_logistic_scale = flip_logistic_scale
     )
 }
 

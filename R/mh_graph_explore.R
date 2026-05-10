@@ -25,6 +25,7 @@
 #' @param checkpoint_file Optional. File path to save checkpoints. Default is NULL.
 #' @param checkpoint_every Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).
 #' @param verbose Logical. Print progress and debug information. Default is FALSE.
+#' @param starting_graph Optional. A starting graph in the form of an adjacency matrix. If provided, will override the "best_approx" initialization and start the first chain from this graph.
 #'
 #' @return An object of class `nesmr_mh_graph_explore`, a list containing:
 #'   - visited_graphs: List of all visited graphs and their ELBOs
@@ -109,7 +110,8 @@ mh_graph_explore <- function(
     verbose = FALSE,
     debug = FALSE,
     beta_prior_cov = 1,
-    graph_edge_prior = 0.5) {
+    graph_edge_prior = 0.5,
+    starting_graph = NULL) {
     # Create a logging function based on verbose parameter
     log_msg <- function(...) {
         if (verbose) {
@@ -191,11 +193,19 @@ mh_graph_explore <- function(
         stop("Unknown init_prob_method")
     }
 
-    mh_chain_init$best_approx <- {
+     mh_chain_init$best_approx <- if (!is.null(starting_graph)) {
+        log_msg("Initializing best_approx from provided starting_graph")
+        starting_graph
+    } else if (is.null(visited_graphs) || length(visited_graphs) == 0) {
         mat_init <- matrix(0, nrow = d, ncol = d)
         mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
         init_filter_zscore <- mat_init * init_filter_matrix
         sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
+    } else {
+        log_msg("Initializing best_approx from visited_graphs")
+        best_visited_elbo <- sapply(visited_graphs, function(x) x$elbo)
+        best_visited_graph <- names(visited_graphs)[[which.max(best_visited_elbo)]]
+        esmr:::flat_string_to_adj_mat(best_visited_graph)
     }
 
     if (sum(mh_chain_init$best_approx != 0) == 0) {

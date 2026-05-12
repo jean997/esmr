@@ -342,9 +342,11 @@ get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
     ix1 <- stringr::str_split(ix1, "-", n = 2)[[1]]
     type <- ix1[1]
     thresh <- as.numeric(ix1[2])
-    if (remove_empty_B_cols) {
+    if (dat$is_nesmr && remove_empty_B_cols) {
       out_order <- rowSums(dat$B_template != 0)
       out_ix <- which(out_order > 0)
+    } else if (dat$is_nesmr && !remove_empty_B_cols) {
+      out_ix <- 1:dat$p
     } else {
       # Remove first column for esmr
       out_ix <- -1
@@ -352,8 +354,13 @@ get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
 
     if(type == "pval"){
       pval <- with(dat, 2*pnorm(-abs(Y/S)))
-      vals <- apply(pval[,out_ix,drop = FALSE], 1, min)
-      dat$ix1 <- which(vals < thresh)
+      # When out_ix is empty (e.g., template is all zeros), keep all variants
+      if (length(out_ix) == 0) {
+        dat$ix1 <- 1:dat$n
+      } else {
+        vals <- apply(pval[,out_ix,drop = FALSE], 1, min)
+        dat$ix1 <- which(vals < thresh)
+      }
     }else{
       stop("Unknown option to ix1\n")
     }

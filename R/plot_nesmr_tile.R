@@ -126,7 +126,7 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
     fill_var = "inclusion_prob",
     scale_type = "gradient",
     scale_params = scale_params,
-    title = "Edge Inclusion Probability",
+    title = "Normalized Edge Weights",
     x_axis_position = x_axis_position,
     node_order = node_order,
     text_format = "%.2f"

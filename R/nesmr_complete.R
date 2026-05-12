@@ -70,6 +70,7 @@ nesmr_complete_mvmr <- function(
           if (length(x_idx) == 0) {
             stop("All traits were suggested for removal due to low information.")
           }
+          R_sub <- R[c(i, x_idx), c(i, x_idx), drop = FALSE]
           capture.output({
             mod_res <- esmr(beta_hat_Y = beta_hat[,i],
                           se_Y = se_beta_hat[,i],

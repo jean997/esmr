@@ -9,6 +9,8 @@ esmr_solve <- function(dat, max_iter, tol){
   cond_num <- dat$cond_num
   if(is.null(cond_num)) cond_num <- 1e10
 
+  no_effects_to_estimate <- length(dat$beta$beta_m) == 0
+
   nb <- length(dat$beta$beta_j)
   low_info_flag <- FALSE
   while(i < max_iter && check > tol && !low_info_flag){
@@ -23,7 +25,9 @@ esmr_solve <- function(dat, max_iter, tol){
 
     # beta update
     remove_suggest <- NULL
-    if(!dat$beta_joint){
+    if (no_effects_to_estimate) {
+      # Skip this steps
+    }else if(!dat$beta_joint){
       dat <- update_beta_sequential(dat)
       dat$beta$V <- diag(dat$beta$beta_s^2)
     }else{

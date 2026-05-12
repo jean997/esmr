@@ -128,7 +128,7 @@ eip_weighted_graph.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 0)
 }
 
 #' @export
-top_i_graph <- function(x, i = 1) {
+top_i_graph <- function(x, i = 1, include_total_effect = FALSE) {
     x_summary <- discovery_summary(x)
 
     # Get the min index of the graph
@@ -151,21 +151,36 @@ top_i_graph <- function(x, i = 1) {
         top_graph$se_beta_hat <- matrix(0, nrow = d, ncol = d)
     }
 
+    # Get the total effects
+    if (include_total_effect) {
+        top_graph$total_effect <- direct_to_total(top_graph$beta_hat)# * (direct_to_total_adj(top_graph$beta_hat != 0))
+    }
+
     # TODO: Remove this check if we make the graph a tidygraph
     if (!inherits(top_graph, "tidygraph")) {
-        edgelist <- which(top_graph$beta_hat != 0, arr.ind = TRUE)
+        if (!include_total_effect) {
+            edgelist <- which(top_graph$beta_hat != 0, arr.ind = TRUE)
+        } else if (include_total_effect) {
+            stopifnot(!is.null(top_graph$total_effect))
+            edgelist <- which(top_graph$total_effect != 0, arr.ind = TRUE)
+        } else {
+            edgelist <- which(top_graph$beta_hat != 0, arr.ind = TRUE)
+        }
 
         if (is.null(dim(edgelist))) {
             edgelist <- matrix(integer(0), ncol = 2)
         }
 
-        # edgelist <- which(x$direct_effect != 0, arr.ind = T)
         edgelist <- data.frame(
             from = edgelist[, 1],
             to = edgelist[, 2],
             direct_effect = top_graph$beta_hat[edgelist],
             direct_effect_se = top_graph$se_beta_hat[edgelist]
         )
+
+        if (include_total_effect) {
+            edgelist$total_effect <- top_graph$total_effect[as.matrix(edgelist[, c("from", "to")])]
+        }
 
         # TODO: Add node names from the object
         nodes <- data.frame(name = seq_len(ncol(top_graph$beta_hat)))

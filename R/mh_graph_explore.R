@@ -639,8 +639,18 @@ draw_graph <- function(g, x) {
         remove_edge_ix <- sample(seq_along(cond_prob),
             1, prob = cond_prob)
         mod_edge <- paste0(x$remove_candidates[remove_edge_ix, ], collapse = "|")
-        new_graph <- igraph::delete_edges(g, mod_edge)
-        prob <- x$remove_edge_prob[remove_edge_ix]
+        mod_edge_ix <- strsplit(mod_edge, "\\|")[[1]]
+        from <- as.numeric(mod_edge_ix[1])
+        to <- as.numeric(mod_edge_ix[2])
+        nvert <- igraph::vcount(g)
+        if (any(is.na(c(from, to))) || from < 1 || to < 1 || from > nvert || to > nvert) {
+            warning("draw_graph: invalid vertex ids for remove: ", mod_edge)
+            new_graph <- g
+            prob <- 0
+        } else {
+            new_graph <- igraph::delete_edges(g, igraph::E(g, P = c(from, to)))
+            prob <- x$remove_edge_prob[remove_edge_ix]
+        }
     } else {
         cond_prob <- x$flip_edge_prob / total_flip_prob
         stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
@@ -650,17 +660,24 @@ draw_graph <- function(g, x) {
         mod_edge_ix <- strsplit(mod_edge, "\\|")[[1]]
         from <- as.numeric(mod_edge_ix[1])
         to <- as.numeric(mod_edge_ix[2])
-        g_deleted <- igraph::delete_edges(g, igraph::E(g, P = c(from, to)))
-        new_graph <- igraph::add_edges(g_deleted, c(to, from))
-        prob <- x$flip_edge_prob[flip_edge_ix]
+        nvert <- igraph::vcount(g)
+        if (any(is.na(c(from, to))) || from < 1 || to < 1 || from > nvert || to > nvert) {
+            warning("draw_graph: invalid vertex ids for flip: ", mod_edge)
+            new_graph <- g
+            prob <- 0
+        } else {
+            g_deleted <- igraph::delete_edges(g, igraph::E(g, P = c(from, to)))
+            new_graph <- igraph::add_edges(g_deleted, c(to, from))
+            prob <- x$flip_edge_prob[flip_edge_ix]
+        }
     }
 
     mod_edge_ix <- strsplit(mod_edge, "\\|")
     return(list(g = new_graph, prob = prob, mod_edge = mod_edge,
         insert_edge = identical(move_type, "add"),
         move_type = move_type,
-        from = mod_edge_ix[[1]][1],
-        to = mod_edge_ix[[1]][2]))
+        from = as.numeric(mod_edge_ix[[1]][1]),
+        to = as.numeric(mod_edge_ix[[1]][2])))
 }
 
 # If missing location, then use the maximum value in the current adjacency matrix
@@ -706,22 +723,32 @@ get_adjacent_graphs <- function(
     remove_edge_weight <- weight_mat[remove_candidates]
 
     # Flip candidates: check each remove edge, and see if flipping it would still be a DAG
-    flip_candidate_g <- apply(remove_candidates, 1, function(x) {
-        from <- x[1]
-        to <- x[2]
-#        g_test <- g
-        g_test <- igraph::delete.edges(g, igraph::E(g, P = c(from, to)))
-        # Try adding the edge
-        g_test <- igraph::add_edges(g_test, c(to, from))
-        is_dag_test <- igraph::is_dag(g_test)
-        if (is_dag_test) {
-            return(g_test)
-        } else {
-            return(NULL)
-        }
-    })
-    flip_keep <- sapply(flip_candidate_g, Negate(is.null))
-    flip_candidates <- remove_candidates[flip_keep, , drop = FALSE]
+    if (nrow(remove_candidates) == 0) {
+        flip_candidate_g <- list()
+        flip_keep <- logical(0)
+        flip_candidates <- matrix(numeric(0), ncol = 2)
+    } else {
+        flip_candidate_g <- lapply(seq_len(nrow(remove_candidates)), function(i) {
+            x <- remove_candidates[i, ]
+            from <- x[1]
+            to <- x[2]
+            nvert <- igraph::vcount(g)
+            if (any(is.na(c(from, to))) || from < 1 || to < 1 || from > nvert || to > nvert) {
+                return(NULL)
+            }
+            g_test <- igraph::delete.edges(g, igraph::E(g, P = c(from, to)))
+            # Try adding the edge
+            g_test <- igraph::add_edges(g_test, c(to, from))
+            is_dag_test <- igraph::is_dag(g_test)
+            if (is_dag_test) {
+                return(g_test)
+            } else {
+                return(NULL)
+            }
+        })
+        flip_keep <- vapply(flip_candidate_g, Negate(is.null), logical(1))
+        flip_candidates <- remove_candidates[flip_keep, , drop = FALSE]
+    }
     if (nrow(flip_candidates) > 0) {
         flip_candidates_weights <- abs(weight_mat[flip_candidates[, 2:1, drop = FALSE]]) - abs(weight_mat[flip_candidates])
     } else {

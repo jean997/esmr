@@ -57,7 +57,8 @@ plot_nesmr_tile.nesmr_tbl_graph <- function(
     scale_params = scale_params,
     title = paste(weight_title, "Matrix"),
     x_axis_position = x_axis_position,
-    node_order = node_order
+    node_order = node_order,
+    ...
   )
 }
 
@@ -87,7 +88,8 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
   scale_limit = NULL,
   scale_factor = 1,
   node_order = NULL,
-  x_axis_position = c("top", "bottom")) {
+  x_axis_position = c("top", "bottom"),
+  ...) {
 
   x_axis_position <- match.arg(x_axis_position)
 
@@ -129,7 +131,8 @@ edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
     title = "Normalized Edge Weights",
     x_axis_position = x_axis_position,
     node_order = node_order,
-    text_format = "%.2f"
+    text_format = "%.2f",
+    ...
   )
 }
 
@@ -225,7 +228,8 @@ create_tile_plot <- function(
   text_threshold = 0.01,
   text_format = "%.2f",
   base_size = 16,
-  node_order = NULL
+  node_order = NULL,
+  lower_tri_only = FALSE
 ) {
   scale_type <- match.arg(scale_type)
   x_axis_position <- match.arg(x_axis_position)
@@ -266,10 +270,47 @@ create_tile_plot <- function(
     ) +
     coord_equal()
 
-  # Add grid lines if node_order is provided
-  p <- p +
-    geom_vline(xintercept = seq(0.5, length(node_order) + 0.5, by = 1), color = "grey80") +
-    geom_hline(yintercept = seq(0.5, length(node_order) + 0.5, by = 1), color = "grey80")
+  if (lower_tri_only) {
+    # Add grid lines, but only for the lower triangle
+    if (is.null(node_order)) {
+      node_order <- levels(data$from)
+    }
+
+    n_nodes <- length(node_order)
+    grid_lines <- bind_rows(
+      data.frame(
+        x = seq_along(node_order) + 0.5,
+        xend = seq_along(node_order) + 0.5,
+        y = n_nodes - seq_along(node_order) + 0.5,
+        yend = 0.5
+      ),
+      data.frame(
+        x = 0.5,
+        xend = seq_along(node_order) + 0.5,
+        y = n_nodes - seq_along(node_order) + 0.5,
+        yend = n_nodes - seq_along(node_order) + 0.5
+      )
+    )
+
+    p <- p +
+      geom_segment(
+        data = grid_lines,
+        inherit.aes = FALSE,
+        aes(x = x, xend = xend, y = y, yend = yend),
+        color = "grey80"
+      ) +
+      theme(
+        legend.position = "inside",
+        legend.position.inside = c(0.9, 0.4)
+      )
+
+  } else {
+    # Add grid lines if node_order is provided
+    p <- p +
+      geom_vline(xintercept = seq(0.5, length(node_order) + 0.5, by = 1), color = "grey80") +
+      geom_hline(yintercept = seq(0.5, length(node_order) + 0.5, by = 1), color = "grey80")
+  }
+
 
   return(p)
 }

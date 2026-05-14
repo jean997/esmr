@@ -251,7 +251,7 @@ mh_graph_explore <- function(
         mh_chain_init <- append(mh_chain_init, random_start_graphs %>% setNames(paste0("random_start_", seq_along(.))))
     }
 
-    mh_chain_info <- lapply(seq_along(mh_chain_init), function(x) vector("list", length = max_iter))
+    mh_chain_info <- lapply(seq_along(mh_chain_init), function(x) vector("list", length = max_iter + 1))
     elbo_denom <- -Inf
     best_elbo_so_far <- -Inf
     models_since_improve <- 0
@@ -342,6 +342,27 @@ mh_graph_explore <- function(
             )
         }
 
+        # Iteration-0 row records the starting graph for this chain.
+        mh_chain_info[[i]][[1]] <- list(
+            chain = i,
+            iter = 0,
+            curr_graph = NA_character_,
+            prop_graph = curr_B_str,
+            accepted = NA_integer_,
+            move_type = "init",
+            curr_elbo = NA_real_,
+            prop_elbo = visited_graphs[[curr_B_str]]$elbo,
+            elbo_diff = NA_real_,
+            prop_num = NA_real_,
+            prop_denom = NA_real_,
+            accept_prob = NA_real_,
+            mod_edge = NA_character_,
+            insert_edge = NA,
+            heat_param = NA_real_,
+            logistic_scale = NA_real_,
+            logistic_location = NA_real_
+        )
+
         while (iter <= max_iter && nesmr_fits <= max_nesmr_fits) {
             logistic_scale <- logistic_scale_func(iter)
             logistic_location <- logistic_location_func(iter)
@@ -426,7 +447,7 @@ mh_graph_explore <- function(
                 if (sum(prop_B) == 0) {
                     log_msg("Zero edges; continue")
                                 # Record the chain info
-                    mh_chain_info[[i]][[iter]] <- list(
+                    mh_chain_info[[i]][[iter + 1]] <- list(
                         chain = i,
                         iter = iter,
                         curr_graph = curr_B_str,
@@ -513,7 +534,7 @@ mh_graph_explore <- function(
             accepted <- as.integer(accept_prob == 1 || runif(1) < accept_prob)
 
             # Record the chain info
-            mh_chain_info[[i]][[iter]] <- list(
+            mh_chain_info[[i]][[iter + 1]] <- list(
                 chain = i,
                 iter = iter,
                 curr_graph = curr_B_str,

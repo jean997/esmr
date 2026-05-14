@@ -29,6 +29,21 @@ discovery_summary <- function(x, max_iter = Inf) {
             graph = curr_graph
         )
 
+    ## Get the first index of the graph in the chain
+     first_visit <- mh_chain_info %>%
+        mutate(
+            combined_iter = row_number()
+        ) %>%
+        group_by(chain, prop_graph) %>%
+        summarize(
+            first_visit = min(combined_iter)
+        ) %>%
+        group_by(prop_graph) %>%
+        slice_min(order_by = first_visit, n = 1) %>%
+        rename(
+            graph = prop_graph
+        )
+
     # Proposed count
     prop_count <- mh_chain_info %>%
         group_by(prop_graph) %>%
@@ -41,6 +56,7 @@ discovery_summary <- function(x, max_iter = Inf) {
 
     graph_summary <- left_join(all_elbos, visit_count, by = "graph") %>%
         left_join(prop_count, by = "graph") %>%
+        left_join(first_visit, by = "graph") %>%
         mutate(
             norm_elbo = exp(elbo - norm_elbo)
         ) %>%

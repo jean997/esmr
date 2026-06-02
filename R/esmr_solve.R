@@ -105,7 +105,14 @@ esmr_solve <- function(dat, max_iter, tol){
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     obj_new <- obj[length(obj)]
-    check <- obj_new - obj_old
+    check_raw <- obj_new - obj_old
+    if(dat$is_factors && low_info_flag && check_raw < -1e-12){
+      dat$obj_dec_warn <- TRUE
+      warning("Objective decreased after low-info factor update/removal; continue running.\n")
+      check <- Inf
+    } else {
+      check <- check_raw
+    }
     #check <- max(abs(dat$beta$beta_m - beta_old))
     obj_old <- obj_new
     #beta_old <- dat$beta$beta_m

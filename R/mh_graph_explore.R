@@ -105,6 +105,7 @@ mh_graph_explore <- function(
     checkpoint_file = NULL,
     checkpoint_every = 0,
     temperature = FALSE,
+    graph_draw_mode = c("random", "fixed"),
     burnin = round(max_iter / 10),
     max_heat = 5,
     verbose = FALSE,
@@ -385,7 +386,10 @@ mh_graph_explore <- function(
 
             # log_msg("Adjacent graph information:")
             # if (verbose) print(adj_graph_info)
-            candidate_draw <- esmr:::draw_graph(ig, adj_graph_info)
+            candidate_draw <- esmr:::draw_graph(
+                ig,
+                adj_graph_info,
+                mode = graph_draw_mode, previous_move_type = if (iter == 1) "add" else mh_chain_info[[i]][[iter]]$move_type)
             tmp_ig <- candidate_draw$g
 
             # Denominator: h(G'|G)
@@ -626,7 +630,17 @@ mh_graph_explore <- function(
     return(rtn)
 }
 
-draw_graph <- function(g, x) {
+# Note: mode = "fixed" means that we alternatively add/remove/flips edges in that order.
+# mode = "random" means that we randomly choose to add/remove/flip edges based on the probabilities.
+draw_graph <- function(
+    g, x,
+    mode = c("random", "fixed"),
+    move_order = c("add", "remove", "flip"),
+    previous_move_type = c("add", "remove", "flip")) {
+    mode <- match.arg(mode)
+    move_order <- match.arg(move_order, several.ok = TRUE)
+    previous_move_type <- match.arg(previous_move_type)
+    stopifnot(previous_move_type %in% move_order)
     add_candidates <- x$add_candidates
     # Backward-compatible typo support for callers that pass flip_canidates.
     flip_candidates <- x$flip_candidates
@@ -637,14 +651,26 @@ draw_graph <- function(g, x) {
     total_add_prob <- sum(x$add_edge_prob)
     total_remove_prob <- sum(x$remove_edge_prob)
     total_flip_prob <- sum(x$flip_edge_prob)
+    total_probs <- c(total_add_prob, total_remove_prob, total_flip_prob)
 
     stopifnot(abs(total_add_prob + total_remove_prob + total_flip_prob - 1) < 1e-8)
 
-    move_type <- sample(
-        c("add", "remove", "flip"),
-        size = 1,
-        prob = c(total_add_prob, total_remove_prob, total_flip_prob)
-    )
+    if (mode == "fixed") {
+        prev_idx <- match(previous_move_type, move_order)
+        move_type <- move_order[(prev_idx %% length(move_order)) + 1]
+        while(abs(total_probs[[match(move_type, move_order)]]) < 1e-8) {
+            prev_idx <- match(move_type, move_order)
+            next_move_type <- move_order[(prev_idx %% length(move_order)) + 1]
+            warning(sprintf("No candidates available for move type '%s'. Going to next move type '%s'.", move_type, next_move_type))
+            move_type <- next_move_type
+        }
+    } else if (mode == "random") {
+        move_type <- sample(
+                c("add", "remove", "flip"),
+                size = 1,
+                prob = c(total_add_prob, total_remove_prob, total_flip_prob)
+            )
+    }
 
     if (identical(move_type, "add")) {
         cond_prob <- x$add_edge_prob / total_add_prob

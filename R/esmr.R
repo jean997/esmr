@@ -176,6 +176,14 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat$direct_effects_bootstrap <- pbstrap$direct_effects_bootstrap
     dat$standard_error_method <- "parametric_bootstrap"
   }
+
+  if (dat$is_factors) {
+    fbar <- dat$f$fbar
+    nfactor <- dat$k - 2
+    total_effect_matrix <- cbind(t(fbar[1:2, , drop = FALSE]),
+                                 rbind(matrix(0, nrow = 2, ncol = nfactor), diag(nfactor)))
+    dat$direct_effects <- t(total_to_direct(total_effect_matrix - diag(dat$k)))
+  }
   dat <- format_betas(dat)
   dat$elbo <- tail(dat$obj, n = 1)
 

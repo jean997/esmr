@@ -626,6 +626,14 @@ optimize_lpy2 <- function(fit,
     fit$direct_effects_se <- delt_pvals$semat
   }
 
+  if(fit$is_factors){
+    fbar <- fit$f$fbar
+    nfactor <- fit$k - 2
+    total_effect_matrix <- cbind(t(fbar[1:2, , drop = FALSE]),
+                                 rbind(matrix(0, nrow = 2, ncol = nfactor), diag(nfactor)))
+    fit$direct_effects <- t(total_to_direct(total_effect_matrix - diag(fit$k)))
+  }
+
 
   return(fit)
 }

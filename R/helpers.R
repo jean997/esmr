@@ -334,6 +334,21 @@ subset_data <- function(dat, ix){
   if(!dat$s_equal){
     dat$omega <- dat$omega[ix]
   }
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+  return(dat)
+}
+
+drop_G_cols <- function(dat, ix){
+  dat$G <- dat$G[, -ix, drop = FALSE]
+  dat$l$abar <- dat$l$abar[, -ix,drop = FALSE]
+  dat$l$a2bar <- dat$l$a2bar[, -ix, drop = FALSE]
+
+  dat$l$lbar <- dat$l$abar %*% t(dat$G)
+  Va <- dat$l$a2bar - (dat$l$abar^2)
+  dat$l$l2bar <- (dat$l$lbar^2) + (Va %*% t(dat$G)^2)
+
+  dat$k <- ncol(dat$G)
+  dat$f <- make_f(dat)
   return(dat)
 }
 

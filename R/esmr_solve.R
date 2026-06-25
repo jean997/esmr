@@ -21,6 +21,16 @@ esmr_solve <- function(dat, max_iter, tol){
     ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
+    ## Experimental drop unused columns of G
+    if(i > 2 & !dat$is_factors & !dat$is_nesmr){
+      info_abar <- colSums(dat$l$a2bar)
+      if(any(info_abar == 0)){
+        drop_G_ix <- which(info_abar == 0)
+        cat(i, ": dropping cols ", drop_G_ix, " from G\n")
+        dat <- drop_G_cols(dat, drop_G_ix)
+      }
+    }
+
     # beta update
     if(!dat$beta_joint){
       dat <- update_beta_sequential(dat)

@@ -41,14 +41,17 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
   }
   if(augment){
     # Second augment version
-    if(ncol(myG) < p){
-      n_add <- p-ncol(myG)
-      r <- rowSums(myG^2)
-      which_add <- order(r)[1:n_add]
-      A <- matrix(0, nrow = p, ncol = n_add)
-      for(j in seq_along(which_add)) A[which_add[j],j] <- 1
-      myG <- cbind(myG, A)
-    }
+    #if(ncol(myG) < p){
+    #  n_add <- p-ncol(myG)
+    #  r <- rowSums(myG^2)
+    #  which_add <- order(r)[1:n_add]
+    #  A <- matrix(0, nrow = p, ncol = n_add)
+    #  for(j in seq_along(which_add)) A[which_add[j],j] <- 1
+    #  myG <- cbind(myG, A)
+    #}
+    # third augment version, just add identity matrix
+    dG <- rbind(rep(0, p), diag(1, nrow = p))
+    myG <- cbind(myG, dG)
   }
   #myG <- myG*trait_scale
   #myG <- sumstatFactors:::norm_cols(myG)$A

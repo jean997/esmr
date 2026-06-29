@@ -105,7 +105,8 @@ mh_graph_explore <- function(
     checkpoint_file = NULL,
     checkpoint_every = 0,
     temperature = FALSE,
-    graph_draw_mode = c("random", "fixed"),
+    graph_draw_mode = c("random", "fixed_prob", "fixed_prop"),
+    move_weight = c(add = 1/3, remove = 1/3, flip = 1/3),
     burnin = round(max_iter / 10),
     max_heat = 5,
     verbose = FALSE,
@@ -141,7 +142,7 @@ mh_graph_explore <- function(
     }
 
     init_prob_method <- match.arg(init_prob_method)
-
+    graph_draw_mode <- match.arg(graph_draw_mode)
     d <- ncol(dat$beta_hat)
     max_edges <- d * (d - 1)
     if (is.null(pval_select)) {
@@ -361,7 +362,8 @@ mh_graph_explore <- function(
             insert_edge = NA,
             heat_param = NA_real_,
             logistic_scale = NA_real_,
-            logistic_location = NA_real_
+            logistic_location = NA_real_,
+            graph_draw_mode = graph_draw_mode
         )
 
         while (iter <= max_iter && nesmr_fits <= max_nesmr_fits) {
@@ -379,7 +381,9 @@ mh_graph_explore <- function(
                 visited_graphs[[curr_B_str]]$adj_graph_info <- esmr:::get_adjacent_graphs(
                     ig, MVMR_abs_Z_scores,
                     logistic_scale = logistic_scale,
-                    logistic_location = logistic_location
+                    logistic_location = logistic_location,
+                    graph_draw_mode = graph_draw_mode,
+                    move_weight = move_weight
                 )
                 adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
             }
@@ -389,7 +393,8 @@ mh_graph_explore <- function(
             candidate_draw <- esmr:::draw_graph(
                 ig,
                 adj_graph_info,
-                mode = graph_draw_mode, previous_move_type = if (iter == 1) "add" else mh_chain_info[[i]][[iter]]$move_type)
+                mode = graph_draw_mode,
+                move_weight = move_weight)
             tmp_ig <- candidate_draw$g
 
             # Denominator: h(G'|G)
@@ -404,15 +409,20 @@ mh_graph_explore <- function(
                 proposal_graph_info <- list()
             }
 
+            ## TODO: Place the reverse proposal probability into a function since we have multiple methods of calculating now
+
             # Check if we have neighboring graph information
             if (is.null(proposal_graph_info$adj_graph_info)) {
                 proposal_graph_info$adj_graph_info <- esmr:::get_adjacent_graphs(
                     tmp_ig, MVMR_abs_Z_scores,
                     logistic_location = logistic_location, # Use logistic_location from previous graph as need same proposal dist
-                    logistic_scale = logistic_scale
+                    logistic_scale = logistic_scale,
+                    graph_draw_mode = graph_draw_mode,
+                    move_weight = move_weight
                 )
                 # Get the remove_candidate probability that we are removing
             }
+
 
             # Get h(G|G') - Reverse direction
             if (identical(candidate_draw$move_type, "add")) {
@@ -468,7 +478,8 @@ mh_graph_explore <- function(
                         insert_edge = candidate_draw$insert_edge,
                         heat_param = heat_param,
                         logistic_scale = logistic_scale,
-                        logistic_location = logistic_location
+                        logistic_location = logistic_location,
+                        graph_draw_mode = graph_draw_mode
                     )
                     iter <- iter + 1
                     next
@@ -555,7 +566,8 @@ mh_graph_explore <- function(
                 insert_edge = candidate_draw$insert_edge,
                 heat_param = heat_param,
                 logistic_scale = logistic_scale,
-                logistic_location = logistic_location
+                logistic_location = logistic_location,
+                graph_draw_mode = graph_draw_mode
             )
 
 
@@ -602,7 +614,8 @@ mh_graph_explore <- function(
                         burnin = burnin,
                         max_heat = max_heat,
                         logistic_location = logistic_location_range,
-                        logistic_scale = logistic_scale_range
+                        logistic_scale = logistic_scale_range,
+                        graph_draw_mode = graph_draw_mode
                     ),
                     file = checkpoint_file
                 )
@@ -623,7 +636,8 @@ mh_graph_explore <- function(
         burnin = burnin,
         max_heat = max_heat,
         logistic_location = logistic_location_range,
-        logistic_scale = logistic_scale_range
+        logistic_scale = logistic_scale_range,
+        graph_draw_mode = graph_draw_mode
     )
 
     class(rtn) <- "nesmr_mh_graph_explore"
@@ -634,13 +648,10 @@ mh_graph_explore <- function(
 # mode = "random" means that we randomly choose to add/remove/flip edges based on the probabilities.
 draw_graph <- function(
     g, x,
-    mode = c("random", "fixed"),
-    move_order = c("add", "remove", "flip"),
-    previous_move_type = c("add", "remove", "flip")) {
+    mode = c("random", "fixed_prob", "fixed_prop"),
+    move_weight = c("add" = 1/3, "remove" = 1/3, "flip" = 1/3)
+    ) {
     mode <- match.arg(mode)
-    move_order <- match.arg(move_order, several.ok = TRUE)
-    previous_move_type <- match.arg(previous_move_type)
-    stopifnot(previous_move_type %in% move_order)
     add_candidates <- x$add_candidates
     # Backward-compatible typo support for callers that pass flip_canidates.
     flip_candidates <- x$flip_candidates
@@ -652,28 +663,67 @@ draw_graph <- function(
     total_remove_prob <- sum(x$remove_edge_prob)
     total_flip_prob <- sum(x$flip_edge_prob)
     total_probs <- c(total_add_prob, total_remove_prob, total_flip_prob)
+    names(total_probs) <- c("add", "remove", "flip")
 
-    stopifnot(abs(total_add_prob + total_remove_prob + total_flip_prob - 1) < 1e-8)
+    # TODO: Should match the names in the move_weight names to these rather than assuming the order is the same.
 
-    if (mode == "fixed") {
-        prev_idx <- match(previous_move_type, move_order)
-        move_type <- move_order[(prev_idx %% length(move_order)) + 1]
-        while(abs(total_probs[[match(move_type, move_order)]]) < 1e-8) {
-            prev_idx <- match(move_type, move_order)
-            next_move_type <- move_order[(prev_idx %% length(move_order)) + 1]
-            warning(sprintf("No candidates available for move type '%s'. Going to next move type '%s'.", move_type, next_move_type))
-            move_type <- next_move_type
-        }
+    if (mode == "fixed_prob") {
+        valid_move_types <- names(total_probs)[total_probs > 0]
+        move_weight <- move_weight[valid_move_types]
+        # move_weight <- (total_probs > 0) * move_weight
+
+        #print(sprintf("Valid move types: %s", paste(valid_move_types, collapse = ", ")))
+        #print(sprintf("Move weights: %s", paste(move_weight, collapse = ", ")))
+        move_type <- sample(
+            valid_move_types,
+            size = 1,
+            prob = move_weight
+        )
+
+        cond_prob <- switch(
+            move_type,
+            "add" = (x$add_edge_prob / total_add_prob),# / move_weight[["add"]],
+            "remove" = (x$remove_edge_prob / total_remove_prob),# / move_weight[["remove"]],
+            "flip" = (x$flip_edge_prob / total_flip_prob)# / move_weight[["flip"]]
+        )
+    } else if (mode == "fixed_prop") {
+      # Proportion should be based on the number of candidates for each move type, weighted by the move_weight
+      add_length <- length(x$add_edge_prob)
+      remove_length <- length(x$remove_edge_prob)
+      flip_length <- length(x$flip_edge_prob)
+
+      move_prop <- c(add_length, remove_length, flip_length) * move_weight
+      move_prop <- move_prop / sum(move_prop)
+
+      move_type <- sample(
+            names(move_weight),
+            size = 1,
+            prob = move_prop
+        )
+
+      cond_prob <- switch(
+        move_type,
+        "add" = (x$add_edge_prob / total_add_prob),# / move_prop[["add"]],
+        "remove" = (x$remove_edge_prob / total_remove_prob),# / move_prop[["remove"]],
+        "flip" = (x$flip_edge_prob / total_flip_prob)# / move_prop[["flip"]]
+        )
     } else if (mode == "random") {
         move_type <- sample(
-                c("add", "remove", "flip"),
+                names(move_weight),
                 size = 1,
-                prob = c(total_add_prob, total_remove_prob, total_flip_prob)
+                prob = total_probs
             )
+
+        cond_prob <- switch(
+            move_type,
+            "add" = x$add_edge_prob / total_add_prob,
+            "remove" = x$remove_edge_prob / total_remove_prob,
+            "flip" = x$flip_edge_prob / total_flip_prob
+        )
     }
 
     if (identical(move_type, "add")) {
-        cond_prob <- x$add_edge_prob / total_add_prob
+        #cond_prob <- x$add_edge_prob / total_add_prob
         stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
         add_candidate_ix <- sample(seq_along(cond_prob), 1, prob = cond_prob)
         new_graph <- igraph::add_edges(g, x$add_candidates[add_candidate_ix, ])
@@ -681,7 +731,7 @@ draw_graph <- function(
         mod_edge <- paste0(x$add_candidates[add_candidate_ix, ],
             collapse = "|")
     } else if (identical(move_type, "remove")) {
-        cond_prob <- x$remove_edge_prob / total_remove_prob
+        #cond_prob <- x$remove_edge_prob / total_remove_prob
         stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
         remove_edge_ix <- sample(seq_along(cond_prob),
             1, prob = cond_prob)
@@ -699,7 +749,7 @@ draw_graph <- function(
             prob <- x$remove_edge_prob[remove_edge_ix]
         }
     } else {
-        cond_prob <- x$flip_edge_prob / total_flip_prob
+        # cond_prob <- x$flip_edge_prob / total_flip_prob
         stopifnot(abs(sum(cond_prob) - 1) < 1e-8)
         flip_edge_ix <- sample(seq_along(cond_prob),
             1, prob = cond_prob)
@@ -732,7 +782,12 @@ draw_graph <- function(
 get_adjacent_graphs <- function(
     g, weight_mat, logistic_scale = 1,
     logistic_location = 5,
-    flip_logistic_scale = 3) {
+    flip_logistic_scale = 3,
+    graph_draw_mode = c("random", "fixed_prob", "fixed_prop"),
+    move_weight = c("add" = 1/3, "remove" = 1/3, "flip" = 1/3)
+    ) {
+    graph_draw_mode <- match.arg(graph_draw_mode)
+    move_weight <- move_weight / sum(move_weight)
     # Validate that weight matrix dimensions match graph vertices
     n_vertices <- igraph::vcount(g)
     stopifnot(`"weight_mat must be a square matrix with dimensions matching the number of vertices in the graph"` = nrow(weight_mat) == n_vertices && ncol(weight_mat) == n_vertices)
@@ -762,7 +817,6 @@ get_adjacent_graphs <- function(
         add_candidate_g <- add_candidate_g[keep_graphs]
         add_candidates <- add_candidates[keep_graphs, , drop = FALSE]
         add_edge_weight <- weight_mat[add_candidates]
-        # add_edge_prob <- weight_mat[add_candidates]
     }
 
     # Remove candidates : all edges
@@ -804,17 +858,6 @@ get_adjacent_graphs <- function(
 
     flip_edge_prob <- plogis(flip_candidates_weights, location = 0, scale = flip_logistic_scale)
 
-    # if (is.null(location)) {
-    #     if (length(add_edge_weight) > 0) {
-    #         location <- max(add_edge_weight, na.rm = TRUE)
-    #         if (is.na(location) || is.infinite(location)) {
-    #             location <- max(weight_mat, na.rm = TRUE)
-    #         }
-    #     } else if (length(add_edge_weight) == 0) {
-    #         # Use the global max if no add candidates
-    #         location <- max(weight_mat, na.rm = TRUE)
-    #     }
-    # }
     add_edge_prob <- plogis(weight_mat[add_candidates], location = logistic_location, scale = logistic_scale)
     remove_edge_prob <- 1 - plogis(weight_mat[remove_candidates], location = logistic_location, scale = logistic_scale)
 
@@ -822,11 +865,45 @@ get_adjacent_graphs <- function(
     total_remove_prob <- sum(remove_edge_prob)
     total_flip_prob <- sum(flip_edge_prob)
 
-    total_prob <- total_add_prob + total_remove_prob + total_flip_prob
-    # Normalize both the probabilities
-    add_edge_prob <- add_edge_prob / total_prob
-    remove_edge_prob <- remove_edge_prob / total_prob
-    flip_edge_prob <- flip_edge_prob / total_prob
+    if (graph_draw_mode == "random") {
+        total_prob <- total_add_prob + total_remove_prob + total_flip_prob
+        # Normalize both the probabilities
+        add_edge_prob <- add_edge_prob / total_prob
+        remove_edge_prob <- remove_edge_prob / total_prob
+        flip_edge_prob <- flip_edge_prob / total_prob
+    } else if (graph_draw_mode == "fixed_prob") {
+        # Normalize the probabilities to sum to 1 within each move type
+        add_edge_prob <- add_edge_prob / total_add_prob
+        remove_edge_prob <- remove_edge_prob / total_remove_prob
+        flip_edge_prob <- flip_edge_prob / total_flip_prob
+
+        # Multiple the probabilities by the move_weight for each move type
+        add_edge_prob <- add_edge_prob * move_weight[["add"]]
+        remove_edge_prob <- remove_edge_prob * move_weight[["remove"]]
+        flip_edge_prob <- flip_edge_prob * move_weight[["flip"]]
+    } else if (graph_draw_mode == "fixed_prop") {
+        # Normalize the probabilities to sum to 1 within each move type
+        add_edge_prob <- add_edge_prob / total_add_prob
+        remove_edge_prob <- remove_edge_prob / total_remove_prob
+        flip_edge_prob <- flip_edge_prob / total_flip_prob
+
+        # TODO: Double check that this is correct - It should be a matrix
+        add_edge_moves <- nrow(add_candidates)
+        remove_edge_moves <- nrow(remove_candidates)
+        flip_edge_moves <- nrow(flip_candidates)
+
+        # Now the weights are weights * number of moves for each type, scaled to sum to 1
+        new_weights <- move_weight * c(add_edge_moves, remove_edge_moves, flip_edge_moves)
+        new_weights <- new_weights / sum(new_weights)
+
+        add_edge_prob <- add_edge_prob * new_weights[["add"]]
+        remove_edge_prob <- remove_edge_prob * new_weights[["remove"]]
+        flip_edge_prob <- flip_edge_prob * new_weights[["flip"]]
+    } else {
+        stop("Unknown graph_draw_mode")
+    }
+
+
 
     ## TODO: Flip probs
 

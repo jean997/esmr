@@ -50,7 +50,7 @@ estimate_G <- function(beta_hat_X, se_X, R=NULL ,
     #  myG <- cbind(myG, A)
     #}
     # third augment version, just add identity matrix
-    dG <- rbind(rep(0, p), diag(1, nrow = p))
+    dG <- diag(1, nrow = p)
     myG <- cbind(myG, dG)
   }
   #myG <- myG*trait_scale

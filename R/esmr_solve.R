@@ -11,7 +11,7 @@ esmr_solve <- function(dat, max_iter, tol){
 
   nb <- length(dat$beta$beta_j)
 
-  while(i < max_iter && check > tol){
+  while(i <= max_iter && check > tol){
     low_info_flag <- FALSE
 
     # l update

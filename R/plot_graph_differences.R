@@ -29,9 +29,12 @@ plot_graph_differences <- function(
     node_order <- as.integer(igraph::topo_sort(tg1))
   }
 
+  ## Note: Need to add here some better check for node names and types
+
+
   diag_df <- data.frame(
-    from = names1,
-    to = names1
+    from = seq_along(names1),
+    to = seq_along(names1)
   )
 
   graph_diffs <- tg1 %>%
@@ -57,8 +60,8 @@ plot_graph_differences <- function(
       sign_diff = sign(effect_diff),
       diff_sign = sign(effect_tg1) - sign(effect_tg2),
       inc_sign = (effect_tg1 != 0) - (effect_tg2 != 0),
-      from = factor(from, levels = node_order),
-      to = factor(to, levels = rev(node_order)),
+      from = factor(names1[from], levels = names1[node_order]),
+      to = factor(names1[to], levels = rev(names1[node_order])),
       effect_diff = ifelse(from == to, NA, effect_diff),
       diff_sign = ifelse(from == to, NA, diff_sign)
     )
@@ -113,7 +116,10 @@ plot_graph_differences <- function(
 
     # Prepare data with factor levels - ensure all levels are represented
     plot_data <- graph_diffs %>%
-      mutate(diff_sign_factor = factor(as.character(inc_sign), levels = all_levels))    # Use common tile plot function
+      mutate(
+        diff_sign_factor = factor(as.character(inc_sign), levels = all_levels)
+      )
+          # Use common tile plot function
 
     p <- create_tile_plot(
       data = plot_data,

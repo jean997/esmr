@@ -62,9 +62,13 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat$is_factors <- FALSE
   }
 
-  class(dat) <- c(c("esmr"), class(dat))
+  #class(dat) <- c(c("esmr"), class(dat)) moved into set_data functions
 
   dat$is_nesmr <- !is.null(direct_effect_template)
+  if(dat$is_nesmr){
+    class(dat) <- c("nesmr", class(dat))
+  }
+
   dat$R_is_id <- (is.null(R) || all(R == diag(dat$p))) & is.null(RE)
   dat$cond_num <- cond_num
   dat$beta_joint <- beta_joint

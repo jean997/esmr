@@ -167,6 +167,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   # Pre-compute log(det(omega))
   dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
   dat$s_equal <- FALSE
+  dat <- structure(dat, class = "esmr")
   return(dat)
 }
 
@@ -232,11 +233,16 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
   dat$s_equal <- FALSE
 
-
+  dat <- structure(dat, class = c("esmr", "farmr"))
   return(dat)
 }
 
-
+`$.esmr` <- function(x, name) {
+  if (!name %in% names(x)) {
+    stop("Element '", name, "' not found.", call. = FALSE)
+  }
+  x[[name]]
+}
 
 
 order_upper_tri <- function(dat,
@@ -331,6 +337,21 @@ subset_data <- function(dat, ix){
   if(!dat$s_equal){
     dat$omega <- dat$omega[ix]
   }
+  dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+  return(dat)
+}
+
+drop_G_cols <- function(dat, ix){
+  dat$G <- dat$G[, -ix, drop = FALSE]
+  dat$l$abar <- dat$l$abar[, -ix,drop = FALSE]
+  dat$l$a2bar <- dat$l$a2bar[, -ix, drop = FALSE]
+
+  dat$l$lbar <- dat$l$abar %*% t(dat$G)
+  Va <- dat$l$a2bar - (dat$l$abar^2)
+  dat$l$l2bar <- (dat$l$lbar^2) + (Va %*% t(dat$G)^2)
+
+  dat$k <- ncol(dat$G)
+  dat$f <- make_f(dat)
   return(dat)
 }
 
@@ -353,14 +374,9 @@ get_ix1_ix0 <- function(dat, ix1, remove_empty_B_cols = FALSE){
     }
 
     if(type == "pval"){
-      pval <- with(dat, 2*pnorm(-abs(Y/S)))
-      # When out_ix is empty (e.g., template is all zeros), keep all variants
-      if (length(out_ix) == 0) {
-        dat$ix1 <- 1:dat$n
-      } else {
-        vals <- apply(pval[,out_ix,drop = FALSE], 1, min)
-        dat$ix1 <- which(vals < thresh)
-      }
+      pval <- 2*pnorm(-abs(dat$Y/dat$S))
+      vals <- apply(pval[,out_ix,drop = FALSE], 1, min)
+      dat$ix1 <- which(vals < thresh)
     }else{
       stop("Unknown option to ix1\n")
     }

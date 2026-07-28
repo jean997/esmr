@@ -59,7 +59,7 @@ update_lj <- function(dat, j,
                       return_x_s = FALSE){
 
   R_j <- dat$Y - (dat$l$abar[,-j,drop=FALSE] %*% t(dat$f$fgbar[,-j,drop=FALSE]))
-  fgbar_j <- with(dat$f, fgbar[,j])
+  fgbar_j <- dat$f$fgbar[,j]
   #fg2bar_j <- with(dat$f, fg2bar[,j])
   HxH <- outer(fgbar_j, fgbar_j)
   #diag(HxH) <- fg2bar_j

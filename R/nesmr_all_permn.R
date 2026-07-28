@@ -162,7 +162,7 @@ nesmr_all_permn <- function(
         z$ll_post_prob_raw <- z$log_lik + log_graph_prior(k = z$num_params, n = d, pi = log_graph_prior_pi)
       }
 
-      ll <- with(z, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
+      ll <- calc_ell2(z$Y, z$l$abar, z$l$a2bar, z$f$fgbar, z$omega, z$omega_logdet, z$s_equal)
       kl_ix <- !z$beta$fix_beta
       if (length(z$beta$prior_cov) == 1) {
         prior_cov <- z$beta$prior_cov * diag(ncol(z$beta$V))

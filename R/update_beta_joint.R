@@ -69,7 +69,7 @@ update_beta_joint <- function(dat,
   evR <- eigen(R, only.values = TRUE)$values
   condR <- abs(max(evR)/min(evR))
   if(any(evR < 0) | condR > cond_num){
-    info_abar <- colSums(dat$l$abar^2)
+    info_abar <- colSums(dat$l$a2bar)
     if(dat$is_nesmr){
       worst_abar <- which.min(info_abar)
       remove_suggest <- which.max(abs(dat$G[,worst_abar]))
@@ -86,8 +86,8 @@ update_beta_joint <- function(dat,
               I am going to remove factor ", remove_suggest-2, ".\n")
       }
     }else{ # MVMR case
-      worst_abar <- which.min(info_abar[-1]) + 1 ## do not check Y
-      remove_suggest <- which.max(abs(dat$G[,worst_abar]))
+      info_lbar <- colSums(dat$l$l2bar)
+      remove_suggest <- which.min(info_lbar[-1]) + 1 ## do not check Y
       warning("There is not enough independent genetic information to estimate all trait effects.
               This will result in some very large standard errors.  I recommend removing exposure trait ", remove_suggest-1, ".\n")
 
@@ -176,8 +176,6 @@ update_beta_full_joint <- function(dat, cond_num = 1e10){
   condR <- abs(max(evR)/min(evR))
   if(any(evR < 0) | condR > cond_num){
     info_abar <- colSums(dat$l$abar^2)
-
-
     if(dat$is_nesmr){
       worst_abar <- which.min(info_abar)
       remove_suggest <- which.max(abs(dat$G[,worst_abar]))
@@ -194,8 +192,8 @@ update_beta_full_joint <- function(dat, cond_num = 1e10){
               I am going to remove factor ", remove_suggest-2, ".\n")
       }
     }else{ # MVMR case
-      worst_abar <- which.min(info_abar[-1]) + 1 ## do not check Y
-      remove_suggest <- which.max(abs(dat$G[,worst_abar]))
+      info_lbar <- colSums(dat$l$l2bar)
+      remove_suggest <- which.min(info_lbar[-1]) + 1 ## do not check Y
       warning("There is not enough independent genetic information to estimate all trait effects.
               This will result in some very large standard errors.  I recommend removing exposure trait ", remove_suggest-1, ".\n")
 

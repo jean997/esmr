@@ -1,5 +1,4 @@
-esmr_solve <- function(dat, max_iter, tol){
-
+esmr_solve <- function(dat, max_iter, tol, keep_ebnm_res = FALSE){
   check <- 1
   obj <-  c()
   obj_old <- -Inf
@@ -9,13 +8,14 @@ esmr_solve <- function(dat, max_iter, tol){
   cond_num <- dat$cond_num
   if(is.null(cond_num)) cond_num <- 1e10
 
+  nb <- length(dat$beta$beta_m)
   no_effects_to_estimate <- length(dat$beta$beta_m) == 0
 
   while(i <= max_iter && check > tol){
     low_info_flag <- FALSE
 
     # l update
-    dat <- update_l_sequential(dat, seq(dat$k), dat$g_init, dat$fix_g)
+    dat <- update_l_sequential(dat, seq(dat$k), dat$g_init, dat$fix_g, keep_ebnm_res = keep_ebnm_res)
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
     ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)

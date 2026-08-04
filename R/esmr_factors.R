@@ -33,6 +33,7 @@ esmr_factors_depricated <- function(beta_hat_X, se_X,
                  g_init = NULL,
                  fix_g = FALSE,
                  max_iter = 100,
+                 keep_ebnm_res = FALSE,
                  sigma_beta = Inf,
                  tol = "default",
                  cond_num = 1e10,
@@ -99,7 +100,7 @@ esmr_factors_depricated <- function(beta_hat_X, se_X,
   dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
 
   ## solve esmr problem
-  dat <- esmr_solve(dat, max_iter, tol)
+  dat <- esmr_solve(dat, max_iter, tol, keep_ebnm_res = FALSE)
 
   dat <- format_betas(dat)
 

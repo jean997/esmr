@@ -1,5 +1,6 @@
 update_l_sequential <- function(dat, jj, g_init, fix_g,
-                                return_sampler = FALSE){
+                                return_sampler = FALSE,
+                                keep_ebnm_res = FALSE){
 
   kl <- c()
   if(!missing(jj)){
@@ -23,6 +24,9 @@ update_l_sequential <- function(dat, jj, g_init, fix_g,
   if(return_sampler){
     dat$l$sampler <- list()
   }
+  if (keep_ebnm_res){
+    dat$l$ebnm_res <- list()
+  }
   for(j in coords){
     lu <- update_lj(dat, j,
                     g_init = g_init[[j]],
@@ -35,6 +39,10 @@ update_l_sequential <- function(dat, jj, g_init, fix_g,
     #lfsr[lu$posterior$index,j] <- lu$posterior$lfsr
     dat$l$g_hat[[j]] <- lu$fitted_g
     dat$l$sampler[[j]] <- lu$posterior_sampler
+    if (keep_ebnm_res){
+      dat$l$ebnm_res[[j]] <- lu
+    }
+
     #l_update[[j]] <- lu
     kl <- c(kl, lu$KL)
   }
@@ -100,6 +108,7 @@ update_lj <- function(dat, j,
                                                     ebnm_res$posterior$mean,
                                                     ebnm_res$posterior$second_moment))
   ebnm_res$posterior$index <- ixnmiss
+
   # This is only for point normal
   if(return_post){
     a <- 1/ebnm_res$fitted_g$sd[2]^2

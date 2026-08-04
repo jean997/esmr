@@ -1,6 +1,6 @@
 esmr_resolve <- function(
     mod, direct_effect_template = NULL, max_iter = 100,  tol = "default",
-    restrict_dag = TRUE) {
+    restrict_dag = TRUE, keep_ebnm_res = FALSE) {
 
   if(tol == "default"){
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))
@@ -24,7 +24,7 @@ esmr_resolve <- function(
   mod$beta$V <- mod$beta$V[keep_betas, keep_betas]
   mod$beta$fix_beta <- c(rep(FALSE, nrow(B$which_tot_u)), rep(TRUE, nrow(B$which_tot_c)))
 
-  mod <- esmr_solve(mod, max_iter, tol)
+  mod <- esmr_solve(mod, max_iter, tol, keep_ebnm_res = keep_ebnm_res)
 
   ### Pasted from esmr
   # TODO: Could refactor into separate function

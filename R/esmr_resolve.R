@@ -11,18 +11,21 @@ esmr_resolve <- function(
   B <- check_B_template(mod$B_template, mod$p, restrict_dag = restrict_dag)
   #
   which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1), drop=FALSE] ## transpose
-  colnames(which_beta) <- c("row", "col")
+  which_beta <- cbind(which_beta, c(rep(FALSE, nrow(B$which_tot_u)), rep(TRUE, nrow(B$which_tot_c))))
+  colnames(which_beta) <- c("row", "col", "fixed")
+
   # Only keep betas that are in the new template
   original_idx <- data.frame(row = mod$beta$beta_j, col = mod$beta$beta_k, idx = seq_along(mod$beta$beta_j))
-  keep_betas <- merge(original_idx, which_beta, by = c("col", "row"))$idx
+  keep_betas <- merge(original_idx, which_beta, by = c("col", "row"))
+  keep_betas <- arrange(keep_betas, fixed)
 
 #  keep_betas <- mod$beta$beta_j == which_beta[,1] & mod$beta$beta_k == which_beta[,2]
-  mod$beta$beta_j <- mod$beta$beta_j[keep_betas]
-  mod$beta$beta_k <- mod$beta$beta_k[keep_betas]
-  mod$beta$beta_m <- mod$beta$beta_m[keep_betas]
-  mod$beta$beta_s <- mod$beta$beta_s[keep_betas]
-  mod$beta$V <- mod$beta$V[keep_betas, keep_betas]
-  mod$beta$fix_beta <- c(rep(FALSE, nrow(B$which_tot_u)), rep(TRUE, nrow(B$which_tot_c)))
+  mod$beta$beta_j <- mod$beta$beta_j[keep_betas$idx]
+  mod$beta$beta_k <- mod$beta$beta_k[keep_betas$idx]
+  mod$beta$beta_m <- mod$beta$beta_m[keep_betas$idx]
+  mod$beta$beta_s <- mod$beta$beta_s[keep_betas$idx]
+  mod$beta$V <- mod$beta$V[keep_betas$idx, keep_betas$idx]
+  mod$beta$fix_beta <- keep_betas$fixed
 
   mod <- esmr_solve(mod, max_iter, tol)
 

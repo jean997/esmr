@@ -281,8 +281,7 @@ order_upper_tri <- function(dat,
 
 
 
-reorder_data <- function(
-    dat, cols) {
+reorder_data <- function(dat, cols) {
 
   dat$Y <- dat$Y[,cols,drop=F]
   dat$S <- dat$S[,cols,drop=F]
@@ -292,8 +291,12 @@ reorder_data <- function(
     dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
     #dat$l$abar <- dat$l$abar[,cols,drop=F]
     #dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
-    dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
-    dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
+    #dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
+    #dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
+  }
+
+  if(!is.null(dat$G)){
+    dat$G <- dat$G[cols,]
   }
 
   if(!is.null(dat[["beta"]])) {
@@ -308,9 +311,7 @@ reorder_data <- function(
       dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
     }
   }
-  if(!is.null(dat$G)){
-    dat$G <- dat$G[cols,]
-  }
+
   if(!is.null(dat$B_template)){
     dat$B_template <- dat$B_template[cols, cols]
   }

@@ -9,7 +9,7 @@ update_beta_sequential <- function(dat){
     j <- dat$beta$beta_j[i]
 
     #b <- update_beta_k(j,k,dat)
-    b <- update_beta_joint(dat, j = j, ix = k)
+    b <- update_beta_joint(dat, j = j, ix = k, ii = i)
     dat$beta$beta_m[i] <- b$m
     #dat$beta$beta_s[i] <- b$s
     dat$beta$beta_s[i] <- sqrt(b$S)

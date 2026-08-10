@@ -97,6 +97,7 @@ mh_graph_explore <- function(
     sparse_chain = FALSE, # TODO: Remove this ?
     dense_chain = FALSE, # TODO: Remove this?
     random_starts = 0,
+    max_random_start_attempts = max(random_starts * 10, 100),
     max_iter = 1000,
     max_nesmr_fits = 100,
     kill_no_improve_iters = Inf,
@@ -242,14 +243,32 @@ mh_graph_explore <- function(
         # Note: Question here about unique or not.
         # If we are fitting with a single set of parameters, only makes sense to fit unique graphs
         # If we are fitting with different parameters, then makes sense to fit non-unique graphs
-        random_start_graphs <- unique(map(seq_len(random_starts), function(i) {
+        random_start_attempts <- 0
+        curr_random_starts <- 0
+        random_start_graphs <- list()
+        random_start_str <- list()
+        .sample_one_graph <- function() {
             noisy_zscores <- matrix(0, nrow = d, ncol = d)
             noisy_zscores[non_diag_i] <- map(full_graph_zscores[non_diag_i], ~ rnorm(1, mean = .x, sd = 1)) %>% unlist()
             diag(noisy_zscores) <- 0
             initial_filter <- (abs(noisy_zscores) > qnorm(init_prob_threshold / 2, lower.tail = FALSE)) + 0
             noisy_zscores <- noisy_zscores * initial_filter
             (maximal_acyclic_subgraph(noisy_zscores^2) != 0) + 0
-            }))
+        }
+
+        while (curr_random_starts < random_starts && random_start_attempts < max_random_start_attempts) {
+            new_graph <- .sample_one_graph()
+            new_graph_str <- paste0(new_graph, collapse = "")
+            if (!new_graph_str %in% random_start_str) {
+                random_start_graphs[[length(random_start_graphs) + 1]] <- new_graph
+                random_start_str[[length(random_start_str) + 1]] <- new_graph_str
+                curr_random_starts <- curr_random_starts + 1
+            }
+            random_start_attempts <- random_start_attempts + 1
+        }
+        if (curr_random_starts < random_starts) {
+            warning(sprintf("Only generated %d unique random start graphs after %d attempts", curr_random_starts, random_start_attempts))
+        }
         mh_chain_init <- append(mh_chain_init, random_start_graphs %>% setNames(paste0("random_start_", seq_along(.))))
     }
 

@@ -154,11 +154,13 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
     # Pre-compute log(det(omega))
     dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
+    #dat <- structure(dat, class = c("esmr", "list"))
+    class(dat) <- c("esmr", class(dat))
     return(dat)
   }
 
-  RE <- check_matrix(RE, p, p)
-  dat$RE <- check_R(RE)
+  dat$RE <- check_matrix(RE, p, p)
+  #dat$RE <- check_R(RE)
   dat$ld_scores <- check_numeric(ld_scores, n)
 
   dat$sigma <- get_sigma(R, dat$S, dat$s_equal, dat$any_missing)
@@ -167,7 +169,7 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   # Pre-compute log(det(omega))
   dat$omega_logdet <- get_omega_logdet(dat$omega, dat$s_equal, n = dat$n)
   dat$s_equal <- FALSE
-  dat <- structure(dat, class = "esmr")
+  class(dat) <- c("esmr", class(dat))
   return(dat)
 }
 
@@ -238,10 +240,11 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
 }
 
 `$.esmr` <- function(x, name) {
-  if (!name %in% names(x)) {
-    stop("Element '", name, "' not found.", call. = FALSE)
-  }
-  x[[name]]
+   if (!name %in% names(x)) {
+     return(NULL)
+     #stop("Element '", name, "' not found.", call. = FALSE)
+   }
+   x[[name]]
 }
 
 
@@ -284,8 +287,7 @@ order_upper_tri <- function(dat,
 
 
 
-reorder_data <- function(
-    dat, cols) {
+reorder_data <- function(dat, cols) {
 
   dat$Y <- dat$Y[,cols,drop=F]
   dat$S <- dat$S[,cols,drop=F]
@@ -295,8 +297,12 @@ reorder_data <- function(
     dat$l$l2bar <- dat$l$l2bar[,cols,drop=F]
     #dat$l$abar <- dat$l$abar[,cols,drop=F]
     #dat$l$a2bar <- dat$l$a2bar[,cols,drop=F]
-    dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
-    dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
+    #dat$l$lfsr <- dat$l$lfsr[,cols,drop=F]
+    #dat$l$g_hat <- dat$l$g_hat[cols,drop=F]
+  }
+
+  if(!is.null(dat$G)){
+    dat$G <- dat$G[cols,]
   }
 
   if(!is.null(dat[["beta"]])) {
@@ -311,9 +317,7 @@ reorder_data <- function(
       dat$omega <- lapply(dat$omega, function(x) x[cols, cols])
     }
   }
-  if(!is.null(dat$G)){
-    dat$G <- dat$G[cols,]
-  }
+
   if(!is.null(dat$B_template)){
     dat$B_template <- dat$B_template[cols, cols]
   }

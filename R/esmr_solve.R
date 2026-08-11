@@ -1,8 +1,10 @@
-esmr_solve <- function(dat, max_iter, tol, keep_ebnm_res = FALSE){
+esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, keep_ebnm_res = FALSE){
+
   check <- 1
   obj <-  c()
   obj_old <- -Inf
   i <- 1
+  tau_done <- FALSE
 
   dat$obj_dec_warn <- FALSE
   cond_num <- dat$cond_num
@@ -19,12 +21,13 @@ esmr_solve <- function(dat, max_iter, tol, keep_ebnm_res = FALSE){
     #dat <- update_l_sequential(dat, seq(dat$p), dat$g_init, dat$fix_g)
 
     ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)
+    #cat("after l: ", ll + dat$l$kl + dat$beta$kl, "ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     ## Experimental drop unused columns of G
     if(i > 2 & !dat$is_factors & !dat$is_nesmr){
       info_abar <- colSums(dat$l$a2bar)
-      if(any(info_abar == 0)){
+      if(any(info_abar == 0) & ncol(dat$G) > dat$p){
         drop_G_ix <- which(info_abar == 0)
         cat(i, ": dropping cols ", drop_G_ix, " from G\n")
         dat <- drop_G_cols(dat, drop_G_ix)
@@ -106,22 +109,31 @@ esmr_solve <- function(dat, max_iter, tol, keep_ebnm_res = FALSE){
       }
     }
 
+    ###
+    ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)
+    #cat("after beta: ", ll + dat$l$kl + dat$beta$kl, "ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
+    obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
+
     ## tau update
-    if(!is.null(dat$tau) & !dat$fix_tau){
+    if(!is.null(dat$tau) & !dat$fix_tau & !tau_done){
+      #cat("Updating tau.\n")
       min_tau <- dat$tau/10
       max_tau <- dat$tau*10
       if(dat$tau == 0){
         max_tau <- 10*median(dat$S^2)
       }
+      old_tau <- dat$tau
       dat <- update_tau(dat,tau_min = min_tau, tau_max = max_tau)
-      #ll <- with(dat, calc_ell2(Y, l$abar, l$a2bar, f$fgbar, omega, omega_logdet, s_equal))
-      obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
-    }
+      tau_change_pct <- abs(dat$tau - old_tau)/old_tau
+      #if(tau_change_pct < tau_tol_pct){
+      #  tau_done <- TRUE
+      #}
 
-    ###
-    ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)
-    #cat("ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
-    obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
+      ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)
+      #cat("after tau: ", ll + dat$l$kl + dat$beta$kl, "ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
+      obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
+
+    }
 
     obj_new <- obj[length(obj)]
     check <- obj_new - obj_old

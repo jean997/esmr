@@ -27,7 +27,7 @@ update_beta_joint <- function(dat,
   if(is.null(prior_precision)){
     T0 <- matrix(0, nrow = m, ncol = m)
   }else{
-    T0 <- prior_precision[ii,ii]
+    T0 <- prior_precision[ii,ii, drop = FALSE]
   }
   Va <- dat$l$a2bar - (dat$l$abar^2)
 
@@ -57,8 +57,8 @@ update_beta_joint <- function(dat,
     afull <- matrix(a10 - a20, nrow = p)
   }
   if(length(ix) < p){
-    R <- Rfull[ix,ix]
-    R12 <- Rfull[ix,-ix]
+    R <- Rfull[ix,ix, drop = FALSE]
+    R12 <- Rfull[ix,-ix, drop = FALSE]
     a <- afull[ix] - R12 %*% t(dat$f$fbar[j,-ix,drop = FALSE])
   }else{
     R <- Rfull

@@ -15,7 +15,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                  tau_init = NULL,
                  fix_tau = FALSE,
                  ###
-                 ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
+                 ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "trust"),
                  g_init = NULL,
                  fix_g = FALSE,
                  max_iter = 100,
@@ -53,6 +53,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     }
   }
 
+  # note set_data returns object of class c("esmr", "list")
   if(!is.null(beta_hat_Z)){
     dat <- set_data_factors(beta_hat_Y, se_Y, beta_hat_X, se_X,
                             beta_hat_Z, se_Z, factors_matrix, factors_residual_sd,
@@ -62,8 +63,6 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat <- set_data(beta_hat_Y, se_Y, beta_hat_X, se_X, R, ld_scores, RE, tau_init)
     dat$is_factors <- FALSE
   }
-
-  #class(dat) <- c(c("esmr"), class(dat)) moved into set_data functions
 
   dat$is_nesmr <- !is.null(direct_effect_template)
   if(dat$is_nesmr){

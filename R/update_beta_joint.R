@@ -170,7 +170,6 @@ update_beta_full_joint <- function(dat, cond_num = 1e10){
     a <- afull
   }
 
-  #browser()
   remove_suggest <- NULL
   evR <- eigen(R, only.values = TRUE)$values
   condR <- abs(max(evR)/min(evR))

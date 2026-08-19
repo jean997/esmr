@@ -66,9 +66,8 @@ update_beta_joint <- function(dat,
   }
 
   remove_suggest <- NULL
-  evR <- eigen(R, only.values = TRUE)$values
-  condR <- abs(max(evR)/min(evR))
-  if(any(evR < 0) | condR > cond_num){
+  condR <- kappa(R, exact = TRUE)
+  if(condR > cond_num){
     info_abar <- colSums(dat$l$a2bar)
     if(dat$is_nesmr){
       worst_abar <- which.min(info_abar)
@@ -171,9 +170,8 @@ update_beta_full_joint <- function(dat, cond_num = 1e10){
   }
 
   remove_suggest <- NULL
-  evR <- eigen(R, only.values = TRUE)$values
-  condR <- abs(max(evR)/min(evR))
-  if(any(evR < 0) | condR > cond_num){
+  condR <- kappa(R, exact = TRUE)
+  if(condR > cond_num){
     info_abar <- colSums(dat$l$abar^2)
     if(dat$is_nesmr){
       worst_abar <- which.min(info_abar)

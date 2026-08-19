@@ -140,19 +140,18 @@ update_beta_full_joint <- function(dat, cond_num = 1e10){
     #   a <- outer(l, l) + diag(Va[i,], nrow = k)
     #   kronecker(tcrossprod(dat$G, tcrossprod(dat$G, a)), dat$omega[[i]]) ## kronecker(G %*% a %*% t(G), O)
     # }) %>% Reduce(`+`, .)
-    Gt <- t(dat$G)
     nG <- nrow(dat$G)
     nO <- nrow(dat$omega[[1]])
     Rfull <- matrix(0, nG * nO, nG * nO)
     for (i in seq(n)) {
-      l <- dat$l$abar[i,]
-      a <- tcrossprod(l) + diag(Va[i,], nrow = k)
-      A <- dat$G %*% tcrossprod(a, Gt)
+      l <- dat$l$abar[i, ]
+      a <- tcrossprod(l) + diag(Va[i, ], nrow = k)
+      A <- tcrossprod(dat$G %*% a, dat$G)
       O <- dat$omega[[i]]
       for (r in seq_len(nG)) {
-        ri <- ((r-1)*nO + 1):(r*nO)
+        ri <- ((r - 1) * nO + 1):(r * nO)
         for (s in seq_len(nG)) {
-          si <- ((s-1)*nO + 1):(s*nO)
+          si <- ((s - 1) * nO + 1):(s * nO)
           Rfull[ri, si] <- Rfull[ri, si] + A[r, s] * O
         }
       }

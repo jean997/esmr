@@ -104,6 +104,12 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     nb <- sum(! dat$beta$fix_beta)
     dat$beta$prior_cov <- check_beta_prior_cov(beta_prior_cov, nb)
     dat$beta$prior_precision <- solve(dat$beta$prior_cov)
+
+    kl_ix <- !dat$beta$fix_beta
+    prior_cov_mat <- dat$beta$prior_cov * diag(sum(kl_ix))
+    # Note: Can pass prior_precision instead to avoid solving a bunch of times
+    dat$beta$kl <- - kl_mvn(
+        dat$beta$beta_m[kl_ix], dat$beta$V[kl_ix, kl_ix,drop=F], 0, prior_cov_mat)
   }
 
 

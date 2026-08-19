@@ -120,8 +120,6 @@ esmr_workhorse <- function(beta_hat_X, se_X,
         dat$beta$beta_m[kl_ix], dat$beta$V[kl_ix, kl_ix,drop=F], 0, prior_cov_mat)
   }
 
-  }
-
   if(dat$is_factors){
     dat$f <- make_f_factors(dat)
     dat$l <- init_l(dat$n, dat$k, dat$k)

@@ -28,6 +28,7 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1){
       info_abar <- colSums(dat$l$a2bar)
       if(any(info_abar == 0) & ncol(dat$G) > dat$p){
         drop_G_ix <- which(info_abar == 0)
+        drop_G_ix <- drop_G_ix[drop_G_ix != 1] # do not drop outcome
         cat(i, ": dropping cols ", drop_G_ix, " from G\n")
         dat <- drop_G_cols(dat, drop_G_ix)
       }

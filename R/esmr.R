@@ -135,7 +135,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     dat <- get_ix1_ix0(
       dat,
       paste0("pval-", pval_thresh),
-      remove_empty_B_cols = dat$is_nesmr)
+      remove_empty_B_cols = FALSE)#dat$is_nesmr)
 
     dat <- subset_data(dat, dat$ix1)
   }

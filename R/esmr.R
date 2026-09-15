@@ -30,7 +30,9 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                  beta_prior_cov = NULL,
                  beta_joint = TRUE,
                  augment_G = TRUE,
-                 cond_num = 1e10){
+                 cond_num = 1e10,
+                 experiment = TRUE # experimental option for mvmr (see esmr_solve)
+                 ){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
@@ -137,7 +139,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   }
 
   ## solve esmr problem
-  dat <- esmr_solve(dat, max_iter, tol)
+  dat <- esmr_solve(dat, max_iter, tol, experiment = experiment)
 
   ## post-processing
   if(dat$is_nesmr){

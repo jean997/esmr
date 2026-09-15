@@ -1,4 +1,4 @@
-esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1){
+esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, experiment = TRUE){
 
   check <- 1
   obj <-  c()
@@ -24,7 +24,7 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1){
     obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
 
     ## Experimental drop unused columns of G
-    if(i > 2 & !dat$is_factors & !dat$is_nesmr){
+    if(i > 2 & !dat$is_factors & !dat$is_nesmr & experiment){
       info_abar <- colSums(dat$l$a2bar)
       if(any(info_abar == 0) & ncol(dat$G) > dat$p){
         drop_G_ix <- which(info_abar == 0)

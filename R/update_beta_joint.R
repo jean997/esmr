@@ -17,9 +17,9 @@ update_beta_joint <- function(dat,
   prior_precision <- dat$beta$prior_precision
 
   if(is.null(ix)){
-    ix <- seq(k)[-j]
+    ix <- seq(p)[-j]
   }else{
-    stopifnot(all(ix %in% seq(k)))
+    stopifnot(all(ix %in% seq(p)))
     stopifnot(!any(duplicated(ix)))
     #ix <- sort(ix)
   }

@@ -39,9 +39,13 @@ make_f_factors <- function(dat){
 }
 
 format_betas <- function(dat){
-  # Reformat beta_hat and beta_se to matrix format
-  beta_hat <- beta_se <- matrix(0, nrow = dat$p, ncol = dat$k)
-  fix_beta <- matrix(FALSE, nrow = dat$p, ncol = dat$k)
+  # Reformat beta_hat and beta_se to matrix format. beta_j/beta_k index a
+  # p x p (trait x trait) matrix in every case except is_factors, where the
+  # model's beta structure is genuinely over the p x k (trait x factor)
+  # space (see make_f_factors()).
+  ncol_beta <- if(dat$is_factors) dat$k else dat$p
+  beta_hat <- beta_se <- matrix(0, nrow = dat$p, ncol = ncol_beta)
+  fix_beta <- matrix(FALSE, nrow = dat$p, ncol = ncol_beta)
   # Lower triangular format
   beta_ind <- cbind(dat$beta$beta_j, dat$beta$beta_k)
   beta_hat[beta_ind] <- dat$beta$beta_m

@@ -33,7 +33,9 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                  total_to_direct_bootstrap_samples = 10000,
                  keep_ebnm_res = FALSE,
                  augment_G = TRUE,
-                 cond_num = 1e10){
+                 cond_num = 1e10,
+                 experiment = TRUE # experimental option for mvmr (see esmr_solve)
+                 ){
 
 
   #if(length(fix_beta) > 1 & beta_joint) stop("if beta_joint = TRUE, fix_beta should have length 1.\n")
@@ -144,7 +146,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   }
 
   ## solve esmr problem
-  dat <- esmr_solve(dat, max_iter, tol, keep_ebnm_res = keep_ebnm_res)
+  dat <- esmr_solve(dat, max_iter, tol, experiment = experiment, keep_ebnm_res = keep_ebnm_res)
 
   if (strict_mode && !is.null(dat$remove_suggest)) {
     stop(sprintf("Strict mode is on and a low information trait was suggested for removal. Consider removing trait %s and re-running ESMR.", dat$remove_suggest))

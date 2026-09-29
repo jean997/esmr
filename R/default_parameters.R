@@ -11,7 +11,8 @@ mvmr_default_params <- function(){
     augment_G = TRUE,
     cond_num = 1e10,
     strict_mode = TRUE,
-    keep_ebnm_res = FALSE
+    keep_ebnm_res = FALSE,
+    experiment = TRUE
   )
 }
 

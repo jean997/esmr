@@ -4,7 +4,9 @@ discovery_summary <- function(x, max_iter = Inf) {
     # Table of graphs with number of edges, elbo, norm_elbo, and visited count
     n <- length(x$visited_graphs)
     all_elbos <- sapply(x$visited_graphs, function(g) g$elbo)
+    all_elbos_no_prior <- sapply(x$visited_graphs, function(g) g$elbo_without_prior)
     norm_elbo <- matrixStats::logSumExp(all_elbos)
+    norm_elbo_no_prior <- matrixStats::logSumExp(all_elbos_no_prior)
     flat_graphs <- names(x$visited_graphs)
     # num_edges <- sapply(flat_graphs, function(s) {
     #     sum(as.numeric(stringr::str_split(s, "")[[1]]))
@@ -13,6 +15,7 @@ discovery_summary <- function(x, max_iter = Inf) {
     all_elbos <- data.frame(
         graph = flat_graphs,
         elbo = all_elbos,
+        elbo_without_prior = all_elbos_no_prior,
         num_edges = sapply(stringr::str_split(flat_graphs, ""), function(s) sum(as.numeric(s)))
     )
 
@@ -58,12 +61,9 @@ discovery_summary <- function(x, max_iter = Inf) {
         left_join(prop_count, by = "graph") %>%
         left_join(first_visit, by = "graph") %>%
         mutate(
-            norm_elbo = exp(elbo - norm_elbo)
-        ) %>%
-        mutate(
-            prop_count = ifelse(is.na(prop_count), 0, prop_count),
-            visit_count = ifelse(is.na(visit_count), 0, visit_count)
         )
+
+    graph_summary$norm_elbo <- exp(graph_summary$elbo - norm_elbo)
 
     rownames(graph_summary) <- NULL
 
@@ -134,7 +134,8 @@ eip_weighted_graph.nesmr_mh_graph_explore <- function(x, min_prob_threshold = 0)
     if ("norm_elbo" %in% names(x)) {
         norm_elbo <- x$norm_elbo
     } else {
-        norm_elbo <- exp(sapply(x$visited_graphs, function(g) g$elbo) - x$elbo_denom)
+        elbo_denom <- matrixStats::logSumExp(sapply(x$visited_graphs, function(g) g$elbo))
+        norm_elbo <- exp(sapply(x$visited_graphs, function(g) g$elbo) - elbo_denom)
     }
 
     Reduce("+", lapply(seq_along(x$visited_graphs), function(i) {

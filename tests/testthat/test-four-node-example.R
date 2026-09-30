@@ -1,6 +1,3 @@
-test_that("NESMR runs with four-node DAG graph", {
-  skip_if_not_installed("GWASBrewer")
-
   # Setup graph
   G <- matrix(
     c(0, 0, 0, 0,
@@ -10,6 +7,12 @@ test_that("NESMR runs with four-node DAG graph", {
     nrow = 4,
     byrow = TRUE
   )
+
+B_lower <- lower.tri(G) + 0
+B_correct <- (G != 0) + 0
+
+test_that("NESMR runs with four-node DAG graph", {
+  skip_if_not_installed("GWASBrewer")
 
   d <- ncol(G)
 
@@ -51,18 +54,6 @@ test_that("NESMR runs with four-node DAG graph", {
 
 test_that("NESMR runs with DAG restriction", {
   skip_if_not_installed("GWASBrewer")
-
-  # Setup graph
-  G <- matrix(
-    c(0, 0, 0, 0,
-      0.4, 0, 0, 0,
-      0, 0, 0, 0,
-      0, -0.5, 0.2, 0),
-    nrow = 4,
-    byrow = TRUE
-  )
-
-  d <- ncol(G)
 
   # Simulate data
   dat <- GWASBrewer::sim_mv(
@@ -117,18 +108,7 @@ test_that("NESMR runs with DAG restriction", {
 test_that("NESMR runs with correct DAG structure", {
   skip_if_not_installed("GWASBrewer")
 
-  # Setup graph
-  G <- matrix(
-    c(0, 0, 0, 0,
-      0.4, 0, 0, 0,
-      0, 0, 0, 0,
-      0, -0.5, 0.2, 0),
-    nrow = 4,
-    byrow = TRUE
-  )
-
   d <- ncol(G)
-  B_correct <- (G != 0) + 0
 
   # Simulate data
   dat <- GWASBrewer::sim_mv(

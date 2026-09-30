@@ -148,7 +148,6 @@ set_data <- function(beta_hat_Y, se_Y, beta_hat_X, se_X, R,
   R <- check_R(R)
 
   dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
-  dat$traits <- 1:p
 
   if(is.null(RE)){
     dat$omega <- get_omega(R, dat$S, dat$s_equal, dat$any_missing) # omega is row covariance of data, either list or single matrix
@@ -211,7 +210,6 @@ set_data_factors <- function(beta_hat_Y, se_Y, beta_hat_X, se_X,
   R <- check_R(R)
 
   dat <- check_missing( beta_hat_X, se_X) # dat now has Y, S, s_equal, any_missing, n, and p
-  dat$traits <- 1:p
   dat$factors_matrix <- factors_matrix
   dat$nfactors <- k
   dat$k <- k + 2

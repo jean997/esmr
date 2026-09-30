@@ -7,7 +7,6 @@ esmr_resolve <- function(
   }
 
   mod$B_template <- direct_effect_template
-#  browser()
   B <- check_B_template(mod$B_template, mod$p, restrict_dag = restrict_dag)
   #
   which_beta <- rbind(B$which_tot_u, B$which_tot_c)[,c(2,1), drop=FALSE] ## transpose
@@ -32,9 +31,6 @@ esmr_resolve <- function(
   ### Pasted from esmr
   # TODO: Could refactor into separate function
   ## post-processing
-  #o <- match(1:mod$p, mod$traits)
-  #mod <- reorder_mod(mod, o)
-
   if (!is.null(direct_effect_template) && restrict_dag) {
     mod$direct_effects <- total_to_direct(t(mod$f$fbar) - diag(mod$p))
     delt_pvals <- delta_method_pvals(mod)

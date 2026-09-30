@@ -32,9 +32,6 @@ esmr_resolve <- function(
   ### Pasted from esmr
   # TODO: Could refactor into separate function
   ## post-processing
-  #o <- match(1:mod$p, mod$traits)
-  #mod <- reorder_mod(mod, o)
-
   if (!is.null(direct_effect_template) && restrict_dag) {
     mod$direct_effects <- total_to_direct(t(mod$f$fbar) - diag(mod$p))
     delt_pvals <- delta_method_pvals(mod)

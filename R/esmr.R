@@ -94,9 +94,14 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   }
   dat$k <- ncol(dat$G)
 
-  if(dat$is_nesmr){
-    dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
-                         restrict_dag = restrict_dag)
+  dat$B_template <- direct_effect_template
+  if(!is.null(direct_effect_init)){
+    dat$B_init <- check_matrix(direct_effect_init, dat$p, dat$p)
+    if(any((dat$B_init != 0) & (dat$B_template == 0))) {
+      rlang::abort("Initialization pattern does not match template.\n")
+    }
+  }else{
+    dat$B_init <- matrix(0, nrow = dat$p, ncol = dat$p)
   }
 
   dat <- init_beta(dat)
@@ -140,11 +145,6 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   dat <- esmr_solve(dat, max_iter, tol)
 
   ## post-processing
-  if(dat$is_nesmr){
-    o <- match(1:dat$p, dat$traits)
-    dat <- reorder_data(dat, o)
-  }
-
   if (dat$is_nesmr && is_dag(dat$B_template)) {
     # Multiply by direct effect template to ensure rounding is not an issue
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * dat$B_template

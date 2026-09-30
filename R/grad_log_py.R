@@ -535,10 +535,6 @@ optimize_lpy2 <- function(fit,
                          sub_size = fit$n){
 
 
-  if(fit$is_nesmr){
-    fit <- order_upper_tri(fit, fit$B_template)
-  }
-
   i <- 1
   bj <- fit$beta$beta_j[fit$beta$fix_beta == FALSE]
   bk <- fit$beta$beta_k[fit$beta$fix_beta == FALSE]
@@ -618,8 +614,6 @@ optimize_lpy2 <- function(fit,
   #fit <- format_betas(fit)
 
   if(fit$is_nesmr){
-    o <- match(1:fit$p, fit$traits)
-    fit <- reorder_data(fit, o)
     fit$direct_effects <- total_to_direct(t(fit$f$fbar) - diag(fit$p))
     delt_pvals <- delta_method_pvals(fit)
     fit$pvals_dm <- delt_pvals$pmat

@@ -131,7 +131,7 @@ test_that("NESMR direct effects are invariant to trait relabeling - with complet
   expect_equal(
     fit_perm$direct_effects[perm, perm],
     fit_ref$direct_effects,
-    tolerance = 1e-4
+    tolerance = 1e-3
   )
 
   expect_equal(

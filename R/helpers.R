@@ -306,7 +306,7 @@ reorder_data <- function(dat, cols) {
   }
 
   if(!is.null(dat$G)){
-    dat$G <- dat$G[cols,]
+    dat$G <- dat$G[cols,cols]
   }
 
   if(!is.null(dat[["beta"]])) {

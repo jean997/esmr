@@ -1,4 +1,22 @@
 
+# Matrix::nearPD() stops with "Matrix seems negative semi-definite" when R has
+# no eigenvalue strictly above eig.tol * lambda_max, which also fires on a
+# matrix that is already positive semi-definite but has lambda_max <= 0 (e.g.
+# R == 0 exactly, which happens when EBNM shrinkage has driven a trait's
+# global genetic signal fully to zero for the current graph/edge set - a
+# legitimate "no information from data" outcome, not numerical noise). In
+# that case R needs no projection; nudge it just enough to be invertible so
+# solve(R + T0) below falls back on the prior instead of crashing.
+project_to_pd <- function(R, posd.tol){
+  tryCatch(
+    Matrix::nearPD(R, posd.tol = posd.tol)$mat,
+    error = function(e){
+      ev <- eigen(R, symmetric = TRUE, only.values = TRUE)$values
+      R + diag(abs(min(ev)) + posd.tol, nrow(R))
+    }
+  )
+}
+
 #'@export
 update_beta_joint <- function(dat,
                               j=1,
@@ -92,7 +110,7 @@ update_beta_joint <- function(dat,
 
     }
     warning("Projecting internal R to nearest PD matrix in beta update.\n")
-    R <- Matrix::nearPD(R, posd.tol = 1/cond_num)$mat
+    R <- project_to_pd(R, posd.tol = 1/cond_num)
   }
 
   S <- solve(R + T0)
@@ -197,7 +215,7 @@ update_beta_full_joint <- function(dat, cond_num = 1e10){
     }
 
     warning("Projecting internal R to nearest PD matrix in beta update.\n")
-    R <- Matrix::nearPD(R, posd.tol = 1/cond_num)$mat
+    R <- project_to_pd(R, posd.tol = 1/cond_num)
   }
   S <- solve(R + T0)
   mu <- S %*% a

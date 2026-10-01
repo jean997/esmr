@@ -99,6 +99,12 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   if(dat$is_nesmr){
     dat <- order_upper_tri(dat, direct_effect_template, direct_effect_init,
                          restrict_dag = restrict_dag)
+  }else if(!dat$is_factors){
+    if(!is.null(direct_effect_init)){
+      dat$B_init <- check_numeric(direct_effect_init, dat$p-1)
+    }else{
+      dat$B_init <- rep(0, dat$p-1)
+    }
   }
 
   dat <- init_beta(dat)

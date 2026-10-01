@@ -2,6 +2,7 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, experiment = TRUE)
 
   check <- 1
   obj <-  c()
+  kappas <- c()
   obj_old <- -Inf
   i <- 1
   tau_done <- FALSE
@@ -47,8 +48,8 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, experiment = TRUE)
           ii <- which(dat$beta$beta_j == j & !dat$beta$fix_beta)
           if(length(ii) == 0) next
           ix <- dat$beta$beta_k[ii]
-          beta_upd <- update_beta_joint(dat, j = j, ix = ix, ii = ii, cond_num = cond_num)
-
+          beta_upd <- update_beta_joint(dat, j = j, ix = ix, ii = ii, cond_num = cond_num, return_W = TRUE)
+          kappas <- c(kappas, kappa(beta_upd$W, exact = TRUE))
           dat$beta$beta_m[ii] <- beta_upd$m
           dat$beta$beta_s[ii] <- sqrt(diag(beta_upd$S))
           dat$beta$V[ii,ii] <- beta_upd$S
@@ -147,6 +148,6 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, experiment = TRUE)
   }
 
   dat$obj <- obj
-
+  dat$kappa <- kappas
   return(dat)
 }

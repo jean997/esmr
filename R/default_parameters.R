@@ -2,7 +2,7 @@ mvmr_default_params <- function(){
   list(
     tau_init = NULL,
     fix_tau = FALSE,
-    ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
+    ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "trust"),
     g_init = NULL,
     fix_g = FALSE,
     tol = "default",
@@ -10,7 +10,8 @@ mvmr_default_params <- function(){
     beta_joint = TRUE,
     augment_G = TRUE,
     cond_num = 1e10,
-    experiment = TRUE
+    experiment = TRUE,
+    direct_effect_init = NULL
   )
 }
 
@@ -21,7 +22,7 @@ nesmr_default_params <- function(){
     restrict_dag = TRUE,
     tau_init = NULL,
     fix_tau = FALSE,
-    ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
+    ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "trust"),
     g_init = NULL,
     fix_g = FALSE,
     tol = "default",
@@ -35,7 +36,7 @@ factor_default_params <- function(){
   list(
     tau_init = NULL,
     fix_tau = FALSE,
-    ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
+    ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "trust"),
     g_init = NULL,
     fix_g = FALSE,
     tol = "default",

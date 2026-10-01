@@ -37,6 +37,8 @@ init_beta <- function(dat){
   nb <- length(dat$beta$beta_j)
   if(dat$is_nesmr){
     dat$beta$beta_m <- dat$B_init[which_beta]
+  }else if(!dat$is_factors){
+    dat$beta$beta_m <- dat$B_init
   }else{
     dat$beta$beta_m <- rep(0, nb)
   }

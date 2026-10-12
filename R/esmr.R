@@ -158,14 +158,23 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   }
 
   ## post-processing
+  failed_delta_method <- FALSE
   if (dat$is_nesmr && is_dag(dat$B_template) && !all(direct_effect_template == 0)) {
     # Multiply by direct effect template to ensure rounding is not an issue
     dat$direct_effects <- total_to_direct(t(dat$f$fbar) - diag(dat$p)) * dat$B_template
-    delt_pvals <- delta_method_pvals(dat)
-    dat$direct_effects_se <- delt_pvals$semat * dat$B_template
-    dat$direct_effects_log_pval <- delt_pvals$pmat * dat$B_template
-    dat$standard_error_method <- "delta_method"
-  } else if (dat$is_nesmr && !is_dag(dat$B_template)) {
+    tryCatch({
+      delt_pvals <- delta_method_pvals(dat)
+      dat$direct_effects_se <- delt_pvals$semat * dat$B_template
+      dat$direct_effects_log_pval <- delt_pvals$pmat * dat$B_template
+      dat$standard_error_method <- "delta_method"
+    },
+    error = function(e) {
+      warning("Error occurred while computing direct effects: ", e$message)
+      failed_delta_method <<- TRUE
+    })
+  }
+
+  if ((dat$is_nesmr && !is_dag(dat$B_template)) || failed_delta_method) {
     dat$total_effects <- t(dat$f$fbar)
     dat$direct_effects <- total_to_direct(dat$total_effects - diag(dat$p), restrict_dag = FALSE) * dat$B_template
 

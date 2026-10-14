@@ -170,7 +170,11 @@ top_i_graph <- function(x, i = 1, include_total_effect = FALSE) {
 
     # Get the total effects
     if (include_total_effect) {
-        top_graph$total_effect <- direct_to_total(top_graph$beta_hat)# * (direct_to_total_adj(top_graph$beta_hat != 0))
+        if ("best_graph" %in% names(x)) {
+            top_graph$total_effect <- x$best_graph$total_effects
+        } else {
+            top_graph$total_effect <- direct_to_total(zapsmall(top_graph$beta_hat))
+        }
     }
 
     # TODO: Remove this check if we make the graph a tidygraph

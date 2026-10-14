@@ -292,7 +292,7 @@ mh_graph_explore <- function(
             start_time <- Sys.time()
             capture.output(
                 {
-                    init_mod <- nesmr(
+                    best_graph <- init_mod <- nesmr(
                         beta_hat_X = dat$beta_hat,
                         se_X = dat$s_estimate,
                         variant_ix = ix,
@@ -533,6 +533,15 @@ mh_graph_explore <- function(
                 visited_graphs[[prop_B_str]]$beta_hat <- new_mod$direct_effects
                 visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$direct_effects_se
                 proposal_graph_info <- visited_graphs[[prop_B_str]]
+
+                # Track best elbo seen in this chain
+                if (proposal_graph_info$elbo > best_elbo_so_far) {
+                    best_elbo_so_far <- proposal_graph_info$elbo
+                    last_best_iter <- iter
+                    models_since_improve <- 0
+
+                    best_graph <- new_mod
+                }
             }
 
             visited_graphs[[prop_B_str]] <- proposal_graph_info
@@ -595,12 +604,6 @@ mh_graph_explore <- function(
                 curr_B_str <- prop_B_str
                 ig <- tmp_ig
                 visited_graphs[[prop_B_str]]$visited_count <- (visited_graphs[[prop_B_str]]$visited_count %||% 0) + 1
-                # Track best elbo seen in this chain
-                if (proposal_graph_info$elbo > best_elbo_so_far) {
-                    best_elbo_so_far <- proposal_graph_info$elbo
-                    last_best_iter <- iter
-                    models_since_improve <- 0
-                }
             } else {
                 visited_graphs[[curr_B_str]]$visited_count <- (visited_graphs[[curr_B_str]]$visited_count %||% 0) + 1
             }
@@ -634,7 +637,8 @@ mh_graph_explore <- function(
                         max_heat = max_heat,
                         logistic_location = logistic_location_range,
                         logistic_scale = logistic_scale_range,
-                        graph_draw_mode = graph_draw_mode
+                        graph_draw_mode = graph_draw_mode,
+                        best_graph = best_graph
                     ),
                     file = checkpoint_file
                 )
@@ -656,7 +660,8 @@ mh_graph_explore <- function(
         max_heat = max_heat,
         logistic_location = logistic_location_range,
         logistic_scale = logistic_scale_range,
-        graph_draw_mode = graph_draw_mode
+        graph_draw_mode = graph_draw_mode,
+        best_graph = best_graph
     )
 
     class(rtn) <- "nesmr_mh_graph_explore"

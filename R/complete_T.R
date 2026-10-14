@@ -15,24 +15,50 @@
 #'
 #' @return list of direct effects B and total effects filled in
 complete_T <- function(total_effects, s) {
-  n <- nrow(total_effects)
-  I <- diag(n)
-  free <- matrix(TRUE, n, n)
-  diag(free) <- FALSE
-  if (nrow(s) > 0) free[cbind(s[, "row"], s[, "col"])] <- FALSE
+  total_effects_complete <- total_effects
 
-  tgt <- total_effects * free
-  B <- tgt
-  for (it in seq_len(max(n - 1, 1))) {
-    higher <- solve(I - B) - I - B
-    B_new <- (tgt - higher) * free
-    done <- all(B_new == B)
-    B <- B_new
-    if (done) break
+  # Reorder total effects to be lower triangular
+  topo_order <- esmr:::topo_sort_mat(total_effects_complete)
+  topo_order_inv <- order(topo_order)
+  total_effects_complete <- total_effects_complete[topo_order, topo_order]
+  s <- s[topo_order_inv[s[, 'row']], topo_order_inv[s[, 'col']], drop = FALSE]
+
+  n <- nrow(total_effects)
+  X <- diag(n)
+  X_inv <- (diag(n) + total_effects)
+  # Order in order that we are iterating
+  s <- s[order(s[,'row'], -s[,'col']),, drop = FALSE]
+  s_idx <- 1
+  s_max <- nrow(s)
+
+  # Iterate rows
+  for (i in 2:n) {
+    # Iterate cols right to left
+    for (j in (i - 1):1) {
+      if ((j + 1) <= (i - 1)) {
+        partial_sum <- - sum(
+          X_inv[i, (j + 1):(i - 1)] *
+            X[(j + 1):(i - 1), j]
+        )
+      } else {
+        partial_sum <- 0
+      }
+
+      if (s_idx <= s_max && all(s[s_idx, ] == c(i,j))) {
+        # Fill in t_ij
+        s_idx <- s_idx + 1
+        X[i,j] <- 0
+        X_inv[i,j] <- partial_sum
+      } else {
+        X[i,j] = - X_inv[i,j] + partial_sum
+      }
+    }
   }
 
-  list(
-    B = B,
-    total_effects = solve(I - B) - I
+  return(
+    list(
+      B = (diag(n) - X)[topo_order_inv, topo_order_inv],
+      total_effects = (X_inv - diag(n))[topo_order_inv, topo_order_inv]
+    )
   )
 }

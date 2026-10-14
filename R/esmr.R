@@ -190,7 +190,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
       bootstrap_samples = 1000
     )
 
-    dat$direct_effect_se <- pbstrap$direct_effects_se
+    dat$direct_effects_se <- pbstrap$direct_effects_se
     dat$direct_effects_bootstrap <- pbstrap$direct_effects_bootstrap
     dat$standard_error_method <- "parametric_bootstrap"
   }

@@ -21,7 +21,7 @@
 #' @param dense_chain Logical. Whether to initialize a dense chain (all possible edges). Default is FALSE.
 #' @param max_iter Maximum number of MH iterations per chain. Default is 1000.
 #' @param max_nesmr_fits Maximum number of NESMR model fits per chain. Default is 100.
-#' @param visited_graphs List of previously visited graphs (for warm start or checkpointing). Default is empty list.
+#' @param prev_run Optional. A `nesmr_mh_graph_explore` object from a previous run (for warm start or checkpointing). Its `visited_graphs` and `best_graph` are carried forward and updated by this run. Default is NULL.
 #' @param checkpoint_file Optional. File path to save checkpoints. Default is NULL.
 #' @param checkpoint_every Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).
 #' @param verbose Logical. Print progress and debug information. Default is FALSE.
@@ -102,7 +102,7 @@ mh_graph_explore <- function(
     max_nesmr_fits = 100,
     kill_no_improve_iters = Inf,
     kill_no_improve_models = Inf,
-    visited_graphs = list(),
+    prev_run = NULL,
     checkpoint_file = NULL,
     checkpoint_every = 0,
     temperature = FALSE,
@@ -120,6 +120,18 @@ mh_graph_explore <- function(
         if (verbose) {
             message("mh_graph_explore: ", ...)
         }
+    }
+
+    if (!is.null(prev_run)) {
+        if (!inherits(prev_run, "nesmr_mh_graph_explore") && !is.list(prev_run)) {
+            stop("prev_run must be a nesmr_mh_graph_explore object (or checkpoint list) from a previous run")
+        }
+        visited_graphs <- prev_run$visited_graphs
+        best_graph <- prev_run$best_graph
+        if (is.null(visited_graphs)) visited_graphs <- list()
+    } else {
+        visited_graphs <- list()
+        best_graph <- NULL
     }
 
     kill_no_improve <- is.finite(kill_no_improve_iters) || is.finite(kill_no_improve_models)
@@ -274,7 +286,11 @@ mh_graph_explore <- function(
 
     mh_chain_info <- lapply(seq_along(mh_chain_init), function(x) vector("list", length = max_iter + 1))
     elbo_denom <- -Inf
-    best_elbo_so_far <- -Inf
+    best_elbo_so_far <- if (length(visited_graphs) > 0) {
+        suppressWarnings(max(vapply(visited_graphs, function(g) g$elbo %||% -Inf, numeric(1)), -Inf))
+    } else {
+        -Inf
+    }
     models_since_improve <- 0
 
     for (i in seq_along(mh_chain_init)) {
@@ -292,7 +308,7 @@ mh_graph_explore <- function(
             start_time <- Sys.time()
             capture.output(
                 {
-                    best_graph <- init_mod <- nesmr(
+                    init_mod <- nesmr(
                         beta_hat_X = dat$beta_hat,
                         se_X = dat$s_estimate,
                         variant_ix = ix,
@@ -318,6 +334,11 @@ mh_graph_explore <- function(
             visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$direct_effects_se
             visited_graphs[[curr_B_str]]$proposed <- (visited_graphs[[curr_B_str]]$proposed %||% 0) + 1
             if (debug) visited_graphs[[curr_B_str]]$model <- init_mod
+
+            if (visited_graphs[[curr_B_str]]$elbo > best_elbo_so_far) {
+                best_elbo_so_far <- visited_graphs[[curr_B_str]]$elbo
+                best_graph <- init_mod
+            }
 
             elbo_denom <- matrixStats::logSumExp(c(elbo_denom, init_mod$elbo), na.rm = TRUE)
         }

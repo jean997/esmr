@@ -21,11 +21,11 @@
 #' @param dense_chain Logical. Whether to initialize a dense chain (all possible edges). Default is FALSE.
 #' @param max_iter Maximum number of MH iterations per chain. Default is 1000.
 #' @param max_nesmr_fits Maximum number of NESMR model fits per chain. Default is 100.
-#' @param prev_run Optional. A `nesmr_mh_graph_explore` object from a previous run (for warm start or checkpointing). Its `visited_graphs` and `best_graph` are carried forward and updated by this run. Default is NULL.
+#' @param prev_run Optional. A `nesmr_mh_graph_explore` object from a previous run (for warm start or checkpointing). Its `visited_graphs` and `best_graph` are carried forward and updated by this run. The previous `mh_chain_info` is prepended; new chain indices continue from its maximum `chain` and new chains get unique names `chain_<date>` (with `_2`, `_3`, ... appended on collision) in the `chain_name` column. Default is NULL.
 #' @param checkpoint_file Optional. File path to save checkpoints. Default is NULL.
 #' @param checkpoint_every Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).
 #' @param verbose Logical. Print progress and debug information. Default is FALSE.
-#' @param starting_graph Optional. A starting graph in the form of an adjacency matrix. If provided, will override the "best_approx" initialization and start the first chain from this graph.
+#' @param starting_graph Optional. A starting graph in the form of an adjacency matrix. If provided, will override the "best_approx" initialization and start the first chain from this graph. When `prev_run` is given and `starting_graph` is NULL, the first chain starts from the current (last) graph of the previous run's last chain, falling back to the best visited graph if no chain info is available.
 #'
 #' @return An object of class `nesmr_mh_graph_explore`, a list containing:
 #'   - visited_graphs: List of all visited graphs and their ELBOs
@@ -128,10 +128,53 @@ mh_graph_explore <- function(
         }
         visited_graphs <- prev_run$visited_graphs
         best_graph <- prev_run$best_graph
+        prev_chain_info <- prev_run$mh_chain_info
         if (is.null(visited_graphs)) visited_graphs <- list()
     } else {
         visited_graphs <- list()
         best_graph <- NULL
+        prev_chain_info <- NULL
+    }
+
+    # Continue chain indices and names from the previous run
+    if (!is.null(prev_chain_info) && nrow(prev_chain_info) > 0) {
+        chain_offset <- max(prev_chain_info$chain, na.rm = TRUE)
+        if (is.null(prev_chain_info$chain_name)) {
+            prev_chain_info$chain_name <- paste0("chain_", prev_chain_info$chain)
+        }
+        used_chain_names <- unique(prev_chain_info$chain_name)
+    } else {
+        prev_chain_info <- NULL
+        chain_offset <- 0
+        used_chain_names <- character(0)
+    }
+    # Current (last) graph of the previous run's last chain
+    prev_curr_graph <- NULL
+    if (!is.null(prev_chain_info)) {
+        last_chain <- prev_chain_info[prev_chain_info$chain == chain_offset, , drop = FALSE]
+        last_row <- last_chain[which.max(last_chain$iter), , drop = FALSE]
+        prev_curr_graph <- if (!is.na(last_row$accepted) && last_row$accepted == 1) {
+            last_row$prop_graph
+        } else if (!is.na(last_row$curr_graph)) {
+            last_row$curr_graph
+        } else {
+            last_row$prop_graph # iteration-0 row: the starting graph
+        }
+    }
+    chain_base_name <- paste0("chain_", format(Sys.Date(), "%Y-%m-%d"))
+    new_chain_name <- function() {
+        nm <- chain_base_name
+        k <- 1
+        while (nm %in% used_chain_names) {
+            k <- k + 1
+            nm <- paste0(chain_base_name, "_", k)
+        }
+        used_chain_names <<- c(used_chain_names, nm)
+        nm
+    }
+    combine_chain_info <- function(info) {
+        new_info <- dplyr::bind_rows(info)
+        if (is.null(prev_chain_info)) new_info else dplyr::bind_rows(prev_chain_info, new_info)
     }
 
     kill_no_improve <- is.finite(kill_no_improve_iters) || is.finite(kill_no_improve_models)
@@ -217,10 +260,20 @@ mh_graph_explore <- function(
         init_filter_zscore <- mat_init * init_filter_matrix
         sqrt(esmr:::maximal_acyclic_subgraph((init_filter_zscore)^2)) * sign(init_filter_zscore)
     } else {
-        log_msg("Initializing best_approx from visited_graphs")
+        if (!is.null(prev_curr_graph) && !is.na(prev_curr_graph)) {
+            log_msg("Initializing best_approx from the current graph of prev_run")
+            return_graph <- prev_curr_graph
+        } else {
+            log_msg("Initializing best_approx from best graph in visited_graphs")
+            return_graph <- NULL
+        }
+        if (!is.null(return_graph)) {
+            esmr:::flat_string_to_adj_mat(return_graph)
+        } else {
         best_visited_elbo <- sapply(visited_graphs, function(x) x$elbo)
         best_visited_graph <- names(visited_graphs)[[which.max(best_visited_elbo)]]
         esmr:::flat_string_to_adj_mat(best_visited_graph)
+        }
     }
 
     if (sum(mh_chain_init$best_approx != 0) == 0) {
@@ -300,6 +353,8 @@ mh_graph_explore <- function(
         curr_B <- (curr_adj_mat != 0) + 0
         curr_B_str <- paste0(curr_B, collapse = "")
         chain_name <- names(mh_chain_init)[i]
+        chain_id <- chain_offset + i
+        run_chain_name <- new_chain_name()
         n_edges <- sum(curr_B)
 
         if (is.null(visited_graphs[[curr_B_str]])) {
@@ -386,7 +441,8 @@ mh_graph_explore <- function(
 
         # Iteration-0 row records the starting graph for this chain.
         mh_chain_info[[i]][[1]] <- list(
-            chain = i,
+            chain = chain_id,
+            chain_name = run_chain_name,
             iter = 0,
             curr_graph = NA_character_,
             prop_graph = curr_B_str,
@@ -502,7 +558,8 @@ mh_graph_explore <- function(
                     log_msg("Zero edges; continue")
                                 # Record the chain info
                     mh_chain_info[[i]][[iter + 1]] <- list(
-                        chain = i,
+                        chain = chain_id,
+            chain_name = run_chain_name,
                         iter = iter,
                         curr_graph = curr_B_str,
                         prop_graph = prop_B_str,
@@ -599,7 +656,8 @@ mh_graph_explore <- function(
 
             # Record the chain info
             mh_chain_info[[i]][[iter + 1]] <- list(
-                chain = i,
+                chain = chain_id,
+            chain_name = run_chain_name,
                 iter = iter,
                 curr_graph = curr_B_str,
                 prop_graph = prop_B_str,
@@ -649,7 +707,7 @@ mh_graph_explore <- function(
                     # TODO: Need to update this for the resume mh_graph_explore
                     list(
                         visited_graphs = visited_graphs,
-                        mh_chain_info = dplyr::bind_rows(mh_chain_info),
+                        mh_chain_info = combine_chain_info(mh_chain_info),
                         n_nesmr_fits = nesmr_fits,
                         mvmr_all = n_mvmr_res,
                         mh_chain_init = mh_chain_init,
@@ -672,7 +730,7 @@ mh_graph_explore <- function(
 
     rtn <- list(
         visited_graphs = visited_graphs,
-        mh_chain_info = dplyr::bind_rows(mh_chain_info),
+        mh_chain_info = combine_chain_info(mh_chain_info),
         n_nesmr_fits = nesmr_fits,
         mvmr_all = n_mvmr_res,
         mh_chain_init = mh_chain_init,

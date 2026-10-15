@@ -152,8 +152,8 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, keep_ebnm_res = FA
 
     if(dat$is_factors && low_info_flag){
       dat <- remove_worst_factor(dat)
-    } else if (low_info_flag) {
-      dat$remove_suggest <- remove_suggest
+    } else {
+      dat$remove_suggest <- if (low_info_flag) remove_suggest else NULL
     }
   }
 

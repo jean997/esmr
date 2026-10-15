@@ -13,11 +13,14 @@ create_tile_plot(
   x_label = "To",
   y_label = "From",
   x_axis_position = c("top", "bottom"),
+  x_axis_at = x_axis_position,
+  x_text_angle = 0,
   text_size = 5,
   text_threshold = 0.01,
   text_format = "\%.2f",
   base_size = 16,
-  node_order = NULL
+  node_order = NULL,
+  lower_tri_only = FALSE
 )
 }
 \arguments{
@@ -35,7 +38,13 @@ create_tile_plot(
 
 \item{y_label}{Y-axis label (default "From")}
 
-\item{x_axis_position}{Position of x-axis ("top" or "bottom")}
+\item{x_axis_position}{Orientation of the matrix: the order of the columns (`"top"`
+reverses them relative to the rows).}
+
+\item{x_axis_at}{Side of the plot where the x-axis is drawn, defaults to
+`x_axis_position`.}
+
+\item{x_text_angle}{Angle of the x-axis labels.}
 
 \item{text_size}{Size of text labels on tiles}
 
@@ -46,6 +55,8 @@ create_tile_plot(
 \item{base_size}{Base font size for theme}
 
 \item{node_order}{Character vector of node order for grid lines}
+
+\item{lower_tri_only}{Only draw grid lines for the lower triangle}
 }
 \value{
 ggplot object

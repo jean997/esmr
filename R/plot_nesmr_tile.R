@@ -1,60 +1,75 @@
+#' Tile plots of NESMR graphs
+#'
+#' Matrix-style tile plots of the edges of a graph. `plot_nesmr_tile()` shows effect sizes
+#' of a `nesmr_tbl_graph` (or one of several summaries of a `nesmr_mh_graph_explore`
+#' object); `edge_inclusion_tile_plot()` shows edge inclusion probabilities.
+#'
+#' @param x A `nesmr_tbl_graph` or `nesmr_mh_graph_explore` object.
+#' @param weight Edge column to plot. `"indirect_effect"` is `total_effect - direct_effect`
+#'   and requires a graph with total effects.
+#' @param type For a `nesmr_mh_graph_explore`, what to plot: the edge inclusion
+#'   probabilities (`"edge_inc_prob"`), direct (`"best"`), total (`"total"`) or indirect
+#'   (`"indirect"`) effects of the best graph, the starting graph (`"start"`), or the
+#'   frequency of each edge among proposed graphs (`"proposal_freq"`).
+#' @param node_order Order of the nodes, either positions in the graph or node names (after
+#'   `labels` are applied). Defaults to the layered topological order, of the best graph for
+#'   a `nesmr_mh_graph_explore`.
+#' @param labels Optional labels for the nodes, one per node in graph order or named by the
+#'   current node names.
+#' @param pos_color,neg_color Colors for positive and negative effects.
+#' @param x_axis_position `"top"` or `"bottom"`: orientation of the matrix.
+#' @param ... Further arguments passed to `create_tile_plot()`, e.g. `lower_tri_only`,
+#'   `x_axis_at` or `x_text_angle`.
+#' @return A ggplot object.
+#' @name nesmr_tile_plots
+NULL
+
+#' @rdname nesmr_tile_plots
+#' @export
+plot_nesmr_tile <- function(x, ...) {
+  UseMethod("plot_nesmr_tile")
+}
+
+#' @rdname nesmr_tile_plots
 #' @export
 plot_nesmr_tile.nesmr_tbl_graph <- function(
-  x, weight = c("direct_effect", "total_effect"),
+  x, weight = c("direct_effect", "total_effect", "indirect_effect"),
   neg_color = "#1f77b4",
   pos_color = "#d62728",
   x_axis_position = c("top", "bottom"),
   node_order = NULL,
+  labels = NULL,
   ...) {
-  # If we are plotting a graph, use the weights from direct/total effects
   weight <- match.arg(weight)
   x_axis_position <- match.arg(x_axis_position)
 
-  if (!inherits(x, "nesmr_tbl_graph")) {
-    x <- tidygraph::as_tbl_graph(x)
+  x <- relabel_nodes(x, labels)
+  node_order <- resolve_node_order(x, node_order)
+
+  if (weight == "indirect_effect") {
+    x <- x |>
+      tidygraph::activate(edges) |>
+      mutate(indirect_effect = total_effect - direct_effect)
   }
 
-  if (is.null(node_order)) {
-    node_order <- tryCatch(
-      unlist(layered_topological_sort(x)),
-      error = function(e) {
-        # TODO: Might be a better way to handle this?
-        # This does maximal feedback arc set and topo sort from there
-        ig <- igraph::as.igraph(x)
-        ts <- as.integer(igraph::topo_sort(ig - igraph::feedback_arc_set(ig)))
-        c(ts, setdiff(seq_len(nrow(x)), ts))  # Ensure all nodes are included
-      }
-    )
-  }
-
-  # Get the weight values for scale limits
-  weight_values <- x %>%
-    tidygraph::activate(edges) %>%
+  weight_values <- x |>
+    tidygraph::activate(edges) |>
     pull(!!sym(weight))
-
   scale_limit <- max(abs(weight_values), na.rm = TRUE)
-
-  # Create nice title from weight name
   weight_title <- tools::toTitleCase(gsub("_", " ", weight))
 
-  plot_data <- prepare_tile_plot_data(x, node_order, weight, x_axis_position)
-
-  # Create scale parameters
-  scale_params <- list(
-    low = neg_color,
-    mid = "white",
-    high = pos_color,
-    midpoint = 0,
-    limits = c(-scale_limit, scale_limit),
-    name = weight_title
-  )
-
-  # Use common tile plot function
   create_tile_plot(
-    data = plot_data,
+    data = prepare_tile_plot_data(x, node_order, weight, x_axis_position),
     fill_var = weight,
     scale_type = "gradient2",
-    scale_params = scale_params,
+    scale_params = list(
+      low = neg_color,
+      mid = "white",
+      high = pos_color,
+      midpoint = 0,
+      limits = c(-scale_limit, scale_limit),
+      name = weight_title
+    ),
     title = paste(weight_title, "Matrix"),
     x_axis_position = x_axis_position,
     node_order = node_order,
@@ -62,96 +77,81 @@ plot_nesmr_tile.nesmr_tbl_graph <- function(
   )
 }
 
+#' @rdname nesmr_tile_plots
 #' @export
-plot_nesmr_tile <- function(x, ...) {
-  UseMethod("plot_nesmr_tile")
+plot_nesmr_tile.nesmr_mh_graph_explore <- function(
+  x,
+  type = c("edge_inc_prob", "best", "total", "indirect", "start", "proposal_freq"),
+  node_order = NULL, ...) {
+  type <- match.arg(type)
+  if (is.null(node_order)) node_order <- best_node_order(x)
+
+  switch(type,
+    edge_inc_prob = edge_inclusion_tile_plot(x, node_order = node_order, ...),
+    proposal_freq = plot_edge_prob_tile(
+      edge_proposal_freq(x), "proposal_freq", "Proposal Frequency",
+      "Frequency of Edges in Proposed Graphs", node_order = node_order, ...),
+    start = plot_nesmr_tile(discovery_start_graph(x), node_order = node_order, ...),
+    best = plot_nesmr_tile(top_i_graph(x, i = 1), node_order = node_order, ...),
+    total = plot_nesmr_tile(
+      top_i_graph(x, i = 1, include_total_effect = TRUE),
+      weight = "total_effect", node_order = node_order, ...),
+    indirect = plot_nesmr_tile(
+      top_i_graph(x, i = 1, include_total_effect = TRUE),
+      weight = "indirect_effect", node_order = node_order, ...)
+  )
 }
 
+#' @rdname nesmr_tile_plots
 #' @export
 edge_inclusion_tile_plot <- function(x, ...) {
   UseMethod("edge_inclusion_tile_plot")
 }
 
+#' @rdname nesmr_tile_plots
 #' @export
 edge_inclusion_tile_plot.nesmr_mh_graph_explore <- function(x, node_order = NULL, ...) {
-  eip <- edge_inclusion_probs(x)
-  best_graph <- top_i_graph(x, i = 1)
-  if (is.null(node_order)) node_order <- unlist(layered_topological_sort(best_graph))
-  edge_inclusion_tile_plot(eip, node_order = node_order, ...)
+  if (is.null(node_order)) node_order <- best_node_order(x)
+  edge_inclusion_tile_plot(edge_inclusion_probs(x), node_order = node_order, ...)
 }
 
+#' @rdname nesmr_tile_plots
 #' @export
-edge_inclusion_tile_plot.nesmr_tbl_graph <- function(
-  x,
-  pos_color = "#d62728",
-  neg_color = "#1f77b4",
-  scale_limit = NULL,
-  scale_factor = 1,
+edge_inclusion_tile_plot.nesmr_tbl_graph <- function(x, ...) {
+  plot_edge_prob_tile(
+    x, "inclusion_prob", "Edge Inclusion", "Edge Inclusion Probability", ...)
+}
+
+## Tile plot of an edge column on a [0, 1] scale, shared by the edge inclusion and
+## proposal frequency plots.
+plot_edge_prob_tile <- function(
+  x, weight, fill_name, title,
+  high_color = "orange",
   node_order = NULL,
+  labels = NULL,
   x_axis_position = c("top", "bottom"),
   ...) {
-
   x_axis_position <- match.arg(x_axis_position)
 
-  if (!inherits(x, "nesmr_tbl_graph")) {
-    x <- tidygraph::as_tbl_graph(x)
-  }
+  x <- relabel_nodes(x, labels)
+  node_order <- resolve_node_order(x, node_order)
 
-  if (is.null(node_order)) {
-    # Get the node order from the layered topological sort
-    node_order <- tryCatch(
-      unlist(layered_topological_sort(x)),
-      error = function(e) {
-        # TODO: Might be a better way to handle this?
-        # This does maximal feedback arc set and topo sort from there
-        ts <- as.integer(igraph::topo_sort(x - igraph::feedback_arc_set(x)))
-        c(ts, setdiff(ts, tidygraph::activate(x, nodes) %>% pull(name)))  # Ensure all nodes are included
-      })
-  }
-
-
-
-  # TODO: Add a extra row of tiles (like BPG plots) for node layer
-  plot_data <- prepare_tile_plot_data(x, node_order, "inclusion_prob", x_axis_position)
-
-  # Create scale parameters
-  scale_params <- list(
-    low = "white",
-    high = "orange",
-    name = "Edge Inclusion",
-    limits = c(0, 1.0001)
-  )
-
-  # Use common tile plot function
   create_tile_plot(
-    data = plot_data,
-    fill_var = "inclusion_prob",
+    data = prepare_tile_plot_data(x, node_order, weight, x_axis_position),
+    fill_var = weight,
     scale_type = "gradient",
-    scale_params = scale_params,
-    title = "Normalized Edge Weights",
+    scale_params = list(
+      low = "white",
+      high = high_color,
+      name = fill_name,
+      limits = c(0, 1.0001)
+    ),
+    title = title,
     x_axis_position = x_axis_position,
     node_order = node_order,
     text_format = "%.2f",
     ...
   )
-}
-
-#' @export
-plot_nesmr_tile.nesmr_mh_graph_explore <- function(
-  x, type = c("edge_inc_prob", "best"), node_order = NULL, ...) {
-  # Plot the edge inclusion probability or the best graph
-  type <- match.arg(type)
-  best_graph <- top_i_graph(x, i = 1)
-  if (type == "edge_inc_prob") {
-    # First get the ordering from th best graph
-    if (is.null(node_order)) node_order <- unlist(layered_topological_sort(best_graph))
-    edge_inclusion_tile_plot.nesmr_tbl_graph(edge_inclusion_probs(x), node_order = node_order)
-  } else if (type == "best") {
-    # Get the best graph
-    plot_nesmr_tile.nesmr_tbl_graph(best_graph, weight = "direct_effect", plot_type = "beta", node_order = node_order, ...)
-  } else {
-    stop("Unknown type for nesmr_mh_graph_explore.")
-  }
 }
 
 #' Prepare data for tile plots
@@ -165,35 +165,22 @@ plot_nesmr_tile.nesmr_mh_graph_explore <- function(
 #'
 #' @return Data frame prepared for tile plotting
 prepare_tile_plot_data <- function(x, node_order, weight_var, x_axis_position = "top") {
-  # Get all node names for diagonal elements
-  all_nodes <- x %>% tidygraph::activate(nodes) %>% pull(name)
+  all_nodes <- as.character(tbl_node_names(x))
   diag_df <- data.frame(
     from = seq_along(all_nodes),
     to = seq_along(all_nodes)
   )
 
-  # Prepare plot data with diagonal elements
-  plot_data <- x %>%
-    tidygraph::activate(edges) %>%
-    tidygraph::as_tibble() %>%
-    full_join(
-      diag_df,
-      by = c("from", "to")
-    )
-
-  if (is.character(all_nodes)) {
-    plot_data$from <- all_nodes[plot_data$from]
-    plot_data$to <- all_nodes[plot_data$to]
-  }
-  plot_data <- plot_data %>%
+  x |>
+    tidygraph::activate(edges) |>
+    tidygraph::as_tibble() |>
+    full_join(diag_df, by = c("from", "to")) |>
     mutate(
-      from = factor(from, levels = node_order),
-      to = factor(to, levels = if (x_axis_position == "top") rev(node_order) else node_order),
+      from = factor(all_nodes[from], levels = node_order),
+      to = factor(all_nodes[to], levels = if (x_axis_position == "top") rev(node_order) else node_order),
       # Set diagonal elements to NA for the weight variable
       !!weight_var := ifelse(from == to, NA, !!sym(weight_var))
     )
-
-  return(plot_data)
 }
 
 #' Common tile plot function
@@ -207,12 +194,17 @@ prepare_tile_plot_data <- function(x, node_order, weight_var, x_axis_position = 
 #' @param title Plot title
 #' @param x_label X-axis label (default "To")
 #' @param y_label Y-axis label (default "From")
-#' @param x_axis_position Position of x-axis ("top" or "bottom")
+#' @param x_axis_position Orientation of the matrix: the order of the columns (`"top"`
+#'   reverses them relative to the rows).
+#' @param x_axis_at Side of the plot where the x-axis is drawn, defaults to
+#'   `x_axis_position`.
+#' @param x_text_angle Angle of the x-axis labels.
 #' @param text_size Size of text labels on tiles
 #' @param text_threshold Threshold for showing text labels
 #' @param text_format sprintf format for text labels
 #' @param base_size Base font size for theme
 #' @param node_order Character vector of node order for grid lines
+#' @param lower_tri_only Only draw grid lines for the lower triangle
 #'
 #' @return ggplot object
 create_tile_plot <- function(
@@ -224,6 +216,8 @@ create_tile_plot <- function(
   x_label = "To",
   y_label = "From",
   x_axis_position = c("top", "bottom"),
+  x_axis_at = x_axis_position,
+  x_text_angle = 0,
   text_size = 5,
   text_threshold = 0.01,
   text_format = "%.2f",
@@ -233,6 +227,7 @@ create_tile_plot <- function(
 ) {
   scale_type <- match.arg(scale_type)
   x_axis_position <- match.arg(x_axis_position)
+  x_axis_at <- match.arg(x_axis_at, c("top", "bottom"))
 
   # Create base plot
   p <- ggplot(data, aes(x = to, y = from, fill = !!sym(fill_var))) +
@@ -241,7 +236,7 @@ create_tile_plot <- function(
   # Add text only if threshold is not Inf
   if (fill_var != "diff_sign_factor" && text_threshold < Inf) {
     p <- p + geom_text(
-      data = data %>%
+      data = data |>
         filter(!is.na(!!sym(fill_var))),
       aes(label = ifelse(
         abs(!!sym(fill_var)) > text_threshold,
@@ -251,44 +246,45 @@ create_tile_plot <- function(
   }
 
   # Add appropriate scale
-  if (scale_type == "gradient2") {
-    p <- p + do.call(scale_fill_gradient2, c(scale_params, list(na.value = "lightgrey")))
-  } else if (scale_type == "gradient") {
-    p <- p + do.call(scale_fill_gradient, c(scale_params, list(na.value = "lightgrey")))
-  } else if (scale_type == "manual") {
-    p <- p + do.call(scale_fill_manual, c(scale_params, list(na.value = "lightgrey")))
-  }
+  scale_fn <- switch(scale_type,
+    gradient2 = scale_fill_gradient2,
+    gradient = scale_fill_gradient,
+    manual = scale_fill_manual
+  )
+  p <- p + do.call(scale_fn, c(scale_params, list(na.value = "lightgrey")))
 
   # Add labels and scales
   p <- p +
     labs(title = title, x = x_label, y = y_label) +
     scale_y_discrete(drop = FALSE) +
-    scale_x_discrete(drop = FALSE, position = x_axis_position) +
+    scale_x_discrete(drop = FALSE, position = x_axis_at) +
     theme_classic(base_size = base_size) +
     theme(
-      axis.text.x = element_text(hjust = if(x_axis_position == "top") 0 else 1)
+      axis.text.x = element_text(
+        angle = x_text_angle,
+        hjust = if (x_axis_at == "top") 0 else 1,
+        vjust = if (x_text_angle == 0) NULL else if (x_axis_at == "top") 0 else 1
+      )
     ) +
     coord_equal()
 
+  if (is.null(node_order)) node_order <- levels(data$from)
+  n_nodes <- length(node_order)
+
   if (lower_tri_only) {
     # Add grid lines, but only for the lower triangle
-    if (is.null(node_order)) {
-      node_order <- levels(data$from)
-    }
-
-    n_nodes <- length(node_order)
     grid_lines <- bind_rows(
       data.frame(
-        x = seq_along(node_order) + 0.5,
-        xend = seq_along(node_order) + 0.5,
-        y = n_nodes - seq_along(node_order) + 0.5,
+        x = seq_len(n_nodes) + 0.5,
+        xend = seq_len(n_nodes) + 0.5,
+        y = n_nodes - seq_len(n_nodes) + 0.5,
         yend = 0.5
       ),
       data.frame(
         x = 0.5,
-        xend = seq_along(node_order) + 0.5,
-        y = n_nodes - seq_along(node_order) + 0.5,
-        yend = n_nodes - seq_along(node_order) + 0.5
+        xend = seq_len(n_nodes) + 0.5,
+        y = n_nodes - seq_len(n_nodes) + 0.5,
+        yend = n_nodes - seq_len(n_nodes) + 0.5
       )
     )
 
@@ -303,14 +299,11 @@ create_tile_plot <- function(
         legend.position = "inside",
         legend.position.inside = c(0.9, 0.4)
       )
-
   } else {
-    # Add grid lines if node_order is provided
     p <- p +
-      geom_vline(xintercept = seq(0.5, length(node_order) + 0.5, by = 1), color = "grey80") +
-      geom_hline(yintercept = seq(0.5, length(node_order) + 0.5, by = 1), color = "grey80")
+      geom_vline(xintercept = seq(0.5, n_nodes + 0.5, by = 1), color = "grey80") +
+      geom_hline(yintercept = seq(0.5, n_nodes + 0.5, by = 1), color = "grey80")
   }
 
-
-  return(p)
+  p
 }

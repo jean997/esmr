@@ -13,7 +13,8 @@ Suggests:
     knitr,
     rmarkdown,
     testthat (>= 3.0.0),
-    GWASBrewer
+    GWASBrewer,
+    ggrepel
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Imports:
@@ -28,6 +29,8 @@ Imports:
     gtools,
     rstackdeque,
     combinat,
-    tidygraph
+    tidygraph,
+    ggplot2,
+    ggraph
 Remotes:
     jean997/GFA

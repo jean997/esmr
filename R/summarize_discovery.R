@@ -170,7 +170,7 @@ top_i_graph <- function(x, i = 1, include_total_effect = FALSE) {
 
     # Get the total effects
     if (include_total_effect) {
-        if ("best_graph" %in% names(x)) {
+        if (i == 1 && !is.null(x$best_graph$total_effects)) {
             top_graph$total_effect <- x$best_graph$total_effects
         } else {
             top_graph$total_effect <- direct_to_total(zapsmall(top_graph$beta_hat))

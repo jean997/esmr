@@ -4,6 +4,7 @@
 #'
 #' @param tg1 first graph object
 #' @param tg2 second graph object
+#' @param labels,node_order Node labels and order, see [plot_nesmr_tile()].
 #' @param diff_type Character vector specifying the type of difference to plot. Options are \code{"adj"} for adjacency matrix differences or \code{"beta"} for beta coefficient differences.
 #'
 #' @return A plot visualizing the differences between the two graphs.
@@ -17,17 +18,16 @@ plot_graph_differences <- function(
     `-2` = "#D7191C", `-1` = "#FDAE61",
     `0` = "white", `1` = "#ABDDA4", `2` = "#2B83BA"),
   node_order = NULL,
+  labels = NULL,
   x_axis_position = c("top", "bottom")) {
   effect <- match.arg(effect)
   diff_type <- match.arg(diff_type)
   x_axis_position <- match.arg(x_axis_position)
-  names1 <- tg1 %>% tidygraph::activate(nodes) %>% pull(name)
-  names2 <- tg2 %>% tidygraph::activate(nodes) %>% pull(name)
-  stopifnot(identical(names1, names2))
-
-  if (is.null(node_order)) {
-    node_order <- as.integer(igraph::topo_sort(tg1))
-  }
+  tg1 <- relabel_nodes(tg1, labels)
+  tg2 <- relabel_nodes(tg2, labels)
+  names1 <- tbl_node_names(tg1)
+  stopifnot(identical(names1, tbl_node_names(tg2)))
+  node_order <- resolve_node_order(tg1, node_order)
 
   ## Note: Need to add here some better check for node names and types
 
@@ -60,8 +60,8 @@ plot_graph_differences <- function(
       sign_diff = sign(effect_diff),
       diff_sign = sign(effect_tg1) - sign(effect_tg2),
       inc_sign = (effect_tg1 != 0) - (effect_tg2 != 0),
-      from = factor(names1[from], levels = names1[node_order]),
-      to = factor(names1[to], levels = rev(names1[node_order])),
+      from = factor(names1[from], levels = node_order),
+      to = factor(names1[to], levels = rev(node_order)),
       effect_diff = ifelse(from == to, NA, effect_diff),
       diff_sign = ifelse(from == to, NA, diff_sign)
     )
@@ -134,40 +134,4 @@ plot_graph_differences <- function(
   }
 
   return(p)
-}
-
-#' Prepare data for tile plots
-#'
-#' Internal function to prepare edge data with diagonal elements for tile plotting
-#'
-#' @param x A tidygraph object
-#' @param node_order Character vector specifying node order
-#' @param weight_var Character name of the weight variable to handle
-#' @param x_axis_position Position of x-axis ("top" or "bottom") for factor level ordering
-#'
-#' @return Data frame prepared for tile plotting
-prepare_tile_plot_data <- function(x, node_order, weight_var, x_axis_position = "top") {
-  # Get all node names for diagonal elements
-  all_nodes <- x %>% tidygraph::activate(nodes) %>% pull(name)
-  diag_df <- data.frame(
-    from = all_nodes,
-    to = all_nodes
-  )
-
-  # Prepare plot data with diagonal elements
-  plot_data <- x %>%
-    tidygraph::activate(edges) %>%
-    tidygraph::as_tibble() %>%
-    full_join(
-      diag_df,
-      by = c("from", "to")
-    ) %>%
-    mutate(
-      from = factor(from, levels = node_order),
-      to = factor(to, levels = if (x_axis_position == "top") rev(node_order) else node_order),
-      # Set diagonal elements to NA for the weight variable
-      !!weight_var := ifelse(from == to, NA, !!sym(weight_var))
-    )
-
-  return(plot_data)
 }

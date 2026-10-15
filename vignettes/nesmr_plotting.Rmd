@@ -64,8 +64,13 @@ dat <- sim_mv(
 
 ## Discovery
 
+We start the chain from a graph far from the truth, with every true edge reversed, so the diagnostic plots below show the chain moving toward the best graph.
+
 ```{r}
-suppressWarnings(capture.output(mh_results <- mh_graph_explore(dat), file = nullfile()))
+suppressWarnings(capture.output(
+  mh_results <- mh_graph_explore(dat, starting_graph = t(B_correct)),
+  file = nullfile()
+))
 
 kableExtra::kable(
   head(discovery_summary(mh_results), n = 10),
@@ -129,6 +134,46 @@ Edge inclusion probabilities are the approximate posterior inclusion probability
 edge_inclusion_tile_plot(mh_results, node_order = 4:1)
 ```
 
+### Tile plots from the discovery object
+
+`plot_nesmr_tile()` also accepts the discovery object directly. The `type` argument selects what to plot, and every type orders the nodes by the best graph unless `node_order` is given.
+
+| `type` | Plot |
+|---|---|
+| `"edge_inc_prob"` | Edge inclusion probabilities |
+| `"best"` | Direct effects of the best graph |
+| `"total"` | Total effects of the best graph |
+| `"indirect"` | Indirect effects (total - direct) of the best graph |
+| `"start"` | Direct effects of the graph the chain started from |
+| `"proposal_freq"` | Frequency of each edge among the proposed graphs |
+
+```{r tile-types, fig.width = 5, fig.height = 5}
+plot_nesmr_tile(mh_results, type = "best")
+plot_nesmr_tile(mh_results, type = "total")
+plot_nesmr_tile(mh_results, type = "indirect")
+plot_nesmr_tile(mh_results, type = "start")
+plot_nesmr_tile(mh_results, type = "proposal_freq")
+```
+
+The starting graph is available as a graph with `discovery_start_graph()`.
+
+### Labels and layout
+
+Nodes are named by their position unless `labels` is supplied, one label per node. Additional arguments are passed on to the tile plot:
+`lower_tri_only` only draws grid lines for the lower triangle (useful for DAGs), `x_axis_at` chooses the side of the x-axis labels, and `x_text_angle` rotates them.
+
+```{r tile-labels, fig.width = 5, fig.height = 5}
+trait_names <- c("Trait A", "Trait B", "Trait C", "Trait D")
+
+plot_nesmr_tile(
+  mh_results, type = "total", labels = trait_names,
+  lower_tri_only = TRUE, x_axis_at = "bottom", x_text_angle = 30
+)
+edge_inclusion_tile_plot(
+  mh_results, labels = trait_names, x_axis_at = "bottom", x_text_angle = 30
+)
+```
+
 ## Graph Differences
 
 We can compare the different graphs returned from NESMR discovery using a few different plotting function.
@@ -172,4 +217,54 @@ plot_graph_differences(best_graph, next_graph, diff_type = "beta", node_order = 
 ```{r graph-diff-plot-adj}
 # Adjacency (edge presence) differences
 plot_graph_differences(best_graph, next_graph, diff_type = "adj", node_order = 4:1)
+```
+
+Both graphs can be relabeled with `labels`. Here we compare the best graph to the graph the chain started from.
+
+```{r graph-diff-start}
+plot_graph_differences(
+  best_graph, discovery_start_graph(mh_results),
+  diff_type = "adj", labels = trait_names
+)
+```
+
+## MH Chain Diagnostics
+
+The following plots summarize the Metropolis-Hastings exploration. Points are colored by the type of move that proposed the graph.
+
+### Trace plots
+
+`plot_mh_trace()` plots one of the following against the MH iteration (`x_axis = "iter"`) or the number of unique graphs fit (`x_axis = "graph_fit"`):
+
+  - `"elbo"`: ELBO of each new graph relative to the best, with the accepted state of the chain in grey
+  - `"exp_elbo"`: the same on the exponential scale
+  - `"cum_best_elbo"`: the best ELBO found so far
+  - `"cum_total_elbo"`: the cumulative total exp(ELBO) explored
+  - `"new_best"`: the iterations that discovered a new best graph
+
+```{r mh-trace, fig.height = 5}
+plot_mh_trace(mh_results, "elbo")
+plot_mh_trace(mh_results, "exp_elbo")
+plot_mh_trace(mh_results, "cum_best_elbo")
+plot_mh_trace(mh_results, "cum_total_elbo", x_axis = "graph_fit")
+plot_mh_trace(mh_results, "new_best")
+```
+
+### Distance of the current best graph to the overall best
+
+`plot_mh_best_path()` follows each new best graph found during the chain and plots its distance to the overall best graph: the edit distance between graphs (`"edit_distance"`), the ELBO difference (`"elbo_diff"`), or the Frobenius norm of the difference in direct effects (`"frob_norm"`).
+Moves that improve the ELBO by more than `label_gain` are annotated when the ggrepel package is installed; set `label_gain = NULL` to turn this off.
+
+```{r mh-best-path, fig.height = 5}
+plot_mh_best_path(mh_results, "edit_distance", labels = trait_names)
+plot_mh_best_path(mh_results, "elbo_diff", label_gain = NULL)
+plot_mh_best_path(mh_results, "frob_norm", label_gain = NULL)
+```
+
+### Acceptance rate
+
+Cumulative and rolling acceptance and new-graph rates. Dashed lines mark the start of a new chain.
+
+```{r mh-accept-rate, fig.height = 7}
+plot_mh_accept_rate(mh_results, window = 25)
 ```

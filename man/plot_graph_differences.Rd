@@ -14,6 +14,7 @@ plot_graph_differences(
   scale_colors = c(`-2` = "#D7191C", `-1` = "#FDAE61", `0` = "white", `1` = "#ABDDA4",
     `2` = "#2B83BA"),
   node_order = NULL,
+  labels = NULL,
   x_axis_position = c("top", "bottom")
 )
 }
@@ -23,6 +24,8 @@ plot_graph_differences(
 \item{tg2}{second graph object}
 
 \item{diff_type}{Character vector specifying the type of difference to plot. Options are \code{"adj"} for adjacency matrix differences or \code{"beta"} for beta coefficient differences.}
+
+\item{labels, node_order}{Node labels and order, see [plot_nesmr_tile()].}
 }
 \value{
 A plot visualizing the differences between the two graphs.

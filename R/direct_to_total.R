@@ -14,7 +14,7 @@
 direct_to_total <- function(B_dir, restrict_dag = TRUE) {
   n <- nrow(B_dir)
   B_total <- solve(diag(n) - B_dir) - diag(n)
-  if(!all(diag(B_total) == 0) && restrict_dag){
+  if(!all(abs(diag(B_total)) < sqrt(.Machine$double.eps)) && restrict_dag){
     stop("Failed to compute total effects from direct. Check that supplied B_dir corresponds to a valid DAG.\n")
   }
   return(B_total)
@@ -29,7 +29,7 @@ direct_to_total <- function(B_dir, restrict_dag = TRUE) {
 total_to_direct <- function(B_tot, restrict_dag = TRUE){
   n <- nrow(B_tot)
   B_dir <- diag(n) - solve(diag(n) + B_tot)
-  if(!all(diag(B_tot) == 0)){
+  if(!all(abs(diag(B_tot)) < sqrt(.Machine$double.eps))){
     stop("Failed to compute total effects from direct. Check that supplied B_tot corresponds to a valid DAG.\n")
   }
   return(B_dir)

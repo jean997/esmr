@@ -17,6 +17,8 @@ direct_to_total <- function(B_dir, restrict_dag = TRUE) {
   if(!all(abs(diag(B_total)) < sqrt(.Machine$double.eps)) && restrict_dag){
     stop("Failed to compute total effects from direct. Check that supplied B_dir corresponds to a valid DAG.\n")
   }
+  # Diagonal is only numerical noise once the DAG check has passed
+  if (restrict_dag) diag(B_total) <- 0
   return(B_total)
 }
 

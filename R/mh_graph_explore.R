@@ -21,7 +21,7 @@
 #' @param dense_chain Logical. Whether to initialize a dense chain (all possible edges). Default is FALSE.
 #' @param max_iter Maximum number of MH iterations per chain. Default is 1000.
 #' @param max_nesmr_fits Maximum number of NESMR model fits per chain. Default is 100.
-#' @param prev_run Optional. A `nesmr_mh_graph_explore` object from a previous run (for warm start or checkpointing). Its `visited_graphs` and `best_graph` are carried forward and updated by this run. The previous `mh_chain_info` is prepended; new chain indices continue from its maximum `chain` and new chains get unique names `chain_<date>` (with `_2`, `_3`, ... appended on collision) in the `chain_name` column. Default is NULL.
+#' @param prev_run Optional. A `nesmr_mh_graph_explore` object from a previous run (or a path to an RDS file of one, e.g. a checkpoint file) (for warm start or checkpointing). Its `visited_graphs` and `best_graph` are carried forward and updated by this run. The previous `mh_chain_info` is prepended; new chain indices continue from its maximum `chain` and new chains get unique names `chain_<date>` (with `_2`, `_3`, ... appended on collision) in the `chain_name` column. Default is NULL.
 #' @param checkpoint_file Optional. File path to save checkpoints. Default is NULL.
 #' @param checkpoint_every Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).
 #' @param verbose Logical. Print progress and debug information. Default is FALSE.
@@ -122,6 +122,12 @@ mh_graph_explore <- function(
         }
     }
 
+    if (is.character(prev_run) && length(prev_run) == 1) {
+        if (!file.exists(prev_run)) stop("prev_run file does not exist: ", prev_run)
+        log_msg("Reading prev_run from ", prev_run)
+        prev_run <- readRDS(prev_run)
+    }
+
     if (!is.null(prev_run)) {
         if (!inherits(prev_run, "nesmr_mh_graph_explore") && !is.list(prev_run)) {
             stop("prev_run must be a nesmr_mh_graph_explore object (or checkpoint list) from a previous run")
@@ -138,9 +144,15 @@ mh_graph_explore <- function(
 
     # Continue chain indices and names from the previous run
     if (!is.null(prev_chain_info) && nrow(prev_chain_info) > 0) {
+        # Older versions stored the chain as a string (name) rather than an integer index
+        if (!is.numeric(prev_chain_info$chain)) {
+            old_chain <- as.character(prev_chain_info$chain)
+            if (is.null(prev_chain_info[["chain_name"]])) prev_chain_info[["chain_name"]] <- old_chain
+            prev_chain_info$chain <- match(old_chain, unique(old_chain))
+        }
         chain_offset <- max(prev_chain_info$chain, na.rm = TRUE)
-        if (is.null(prev_chain_info$chain_name)) {
-            prev_chain_info$chain_name <- paste0("chain_", prev_chain_info$chain)
+        if (is.null(prev_chain_info[["chain_name"]])) {
+            prev_chain_info[["chain_name"]] <- paste0("chain_", prev_chain_info$chain)
         }
         used_chain_names <- unique(prev_chain_info$chain_name)
     } else {
@@ -151,14 +163,14 @@ mh_graph_explore <- function(
     # Current (last) graph of the previous run's last chain
     prev_curr_graph <- NULL
     if (!is.null(prev_chain_info)) {
-        last_chain <- prev_chain_info[prev_chain_info$chain == chain_offset, , drop = FALSE]
-        last_row <- last_chain[which.max(last_chain$iter), , drop = FALSE]
-        prev_curr_graph <- if (!is.na(last_row$accepted) && last_row$accepted == 1) {
-            last_row$prop_graph
-        } else if (!is.na(last_row$curr_graph)) {
-            last_row$curr_graph
+        # Last row by position: iter can restart/continue across resumed runs
+        last_row <- prev_chain_info[nrow(prev_chain_info), , drop = FALSE]
+        prev_curr_graph <- if (isTRUE(last_row[["accepted"]] == 1)) {
+            last_row[["prop_graph"]]
+        } else if (!is.na(last_row[["curr_graph"]])) {
+            last_row[["curr_graph"]]
         } else {
-            last_row$prop_graph # iteration-0 row: the starting graph
+            last_row[["prop_graph"]] # init row: the starting graph
         }
     }
     chain_base_name <- paste0("chain_", format(Sys.Date(), "%Y-%m-%d"))

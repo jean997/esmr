@@ -104,7 +104,9 @@ check_B_template <- function(B, p, restrict_dag = TRUE) {
     stop("Check that supplied template corresponds to a valid DAG.\n")
   }
 
-  B_tot[!B_tot == 0] <- 1
+  # For a 0/1 template the total effects are path counts (>= 1), so threshold to ignore
+  # floating point noise from solve(), which would otherwise mark spurious entries
+  B_tot <- (abs(B_tot) > 0.5) * 1
   which_tot_u <- which(B_tot != 0 & B != 0, arr.ind = TRUE)
   which_tot_c <- which(B_tot != 0 & B == 0, arr.ind = TRUE)
   return(list(B_dir = B, B_tot = B_tot, which_tot_u = which_tot_u, which_tot_c = which_tot_c ))

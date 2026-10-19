@@ -369,7 +369,7 @@ mh_graph_explore <- function(
         run_chain_name <- new_chain_name()
         n_edges <- sum(curr_B)
 
-        if (is.null(visited_graphs[[curr_B_str]])) {
+        if (is.null(visited_graphs[[curr_B_str]]) || is.null(best_graph)) {
             # Initial NESMR fit
             #        capture.output({
             start_time <- Sys.time()
@@ -402,7 +402,7 @@ mh_graph_explore <- function(
             visited_graphs[[curr_B_str]]$proposed <- (visited_graphs[[curr_B_str]]$proposed %||% 0) + 1
             if (debug) visited_graphs[[curr_B_str]]$model <- init_mod
 
-            if (visited_graphs[[curr_B_str]]$elbo > best_elbo_so_far) {
+            if (visited_graphs[[curr_B_str]]$elbo > best_elbo_so_far || is.null(best_graph)) {
                 best_elbo_so_far <- visited_graphs[[curr_B_str]]$elbo
                 best_graph <- init_mod
             }

@@ -2,19 +2,21 @@
 % Please edit documentation in R/complete_T.R
 \name{complete_T}
 \alias{complete_T}
-\title{Computes direct effects and fills in constrained total effects}
+\title{Computes direct effects and fills in constrained total effects for a DAG}
 \usage{
-complete_T(total_effects, s)
+complete_T(total_effects, s = NULL)
 }
 \arguments{
-\item{total_effects}{Total effect matrix (lower triangular).}
+\item{total_effects}{Total effect matrix. Entries in s and the diagonal
+are ignored; all other off-diagonal entries are treated as known.}
 
-\item{s}{A matrix of indices with columns: row, col such that the direct effects B
-of B[row, col] = 0}
+\item{s}{Matrix with named columns row and col specifying zero direct
+effects. NULL means no constraints.}
 }
 \value{
-list of direct effects B and total effects filled in
+List containing B and completed total_effects in input order.
 }
 \description{
-O(n^3)
+Infers a topological order and applies the triangular recurrence.
+O(n^3) time and O(n^2) memory; independent of input trait ordering.
 }

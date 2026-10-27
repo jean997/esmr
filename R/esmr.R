@@ -28,6 +28,7 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                  # direct_effect_fix = NULL,
                  #fix_beta = FALSE,
                  strict_mode = FALSE,
+                 shared_first = TRUE,
                  beta_prior_cov = NULL,
                  beta_joint = TRUE,
                  total_to_direct_bootstrap_samples = 10000,
@@ -97,6 +98,12 @@ esmr_workhorse <- function(beta_hat_X, se_X,
     }
   }else if(dat$is_nesmr){
     dat$G <- diag(1, dat$p)
+    if(!is.null(G)){
+      # Shared factors go first so the sequential l updates let them absorb shared signal
+      # before the private (identity) factors, which can fit any effect on their own.
+      G <- check_matrix(G, n = dat$p)
+      dat$G <- if(shared_first) cbind(G, dat$G) else cbind(dat$G, G)
+    }
   }else if(dat$is_factors){
     dat$G <- diag(1, dat$k)
   }else{

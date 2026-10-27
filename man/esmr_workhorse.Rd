@@ -21,7 +21,7 @@ esmr_workhorse(
   RE = NULL,
   tau_init = NULL,
   fix_tau = FALSE,
-  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "nlm"),
+  ebnm_fn = flashier::flash_ebnm(prior_family = "point_normal", optmethod = "trust"),
   g_init = NULL,
   fix_g = FALSE,
   max_iter = 100,
@@ -29,10 +29,14 @@ esmr_workhorse(
   restrict_dag = TRUE,
   direct_effect_template = NULL,
   direct_effect_init = NULL,
+  strict_mode = FALSE,
   beta_prior_cov = NULL,
   beta_joint = TRUE,
+  total_to_direct_bootstrap_samples = 10000,
+  keep_ebnm_res = FALSE,
   augment_G = TRUE,
-  cond_num = 1e+10
+  cond_num = 1e+10,
+  experiment = TRUE
 )
 }
 \description{

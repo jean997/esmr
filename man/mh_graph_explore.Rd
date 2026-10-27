@@ -19,17 +19,27 @@ mh_graph_explore(
   sparse_chain = FALSE,
   dense_chain = FALSE,
   random_starts = 0,
+  max_random_start_attempts = max(random_starts * 10, 100),
   max_iter = 1000,
   max_nesmr_fits = 100,
-  visited_graphs = list(),
+  kill_no_improve_iters = Inf,
+  kill_no_improve_models = Inf,
+  prev_run = NULL,
   checkpoint_file = NULL,
   checkpoint_every = 0,
   temperature = FALSE,
+  graph_draw_mode = c("random", "fixed_prob", "fixed_prop"),
+  move_weight = c(add = 1/3, remove = 1/3, flip = 1/3),
   burnin = round(max_iter/10),
   max_heat = 5,
   verbose = FALSE,
   debug = FALSE,
-  graph_edge_prior = 0.5
+  beta_prior_cov = 1,
+  graph_edge_prior = 0.5,
+  auto_remove_traits = FALSE,
+  forbidden_edges = NULL,
+  required_edges = NULL,
+  starting_graph = NULL
 )
 }
 \arguments{
@@ -61,13 +71,21 @@ mh_graph_explore(
 
 \item{max_nesmr_fits}{Maximum number of NESMR model fits per chain. Default is 100.}
 
-\item{visited_graphs}{List of previously visited graphs (for warm start or checkpointing). Default is empty list.}
+\item{prev_run}{Optional. A `nesmr_mh_graph_explore` object from a previous run (or a path to an RDS file of one, e.g. a checkpoint file) (for warm start or checkpointing). Its `visited_graphs` and `best_graph` are carried forward and updated by this run. The previous `mh_chain_info` is prepended; new chain indices continue from its maximum `chain` and new chains get unique names `chain_<date>` (with `_2`, `_3`, ... appended on collision) in the `chain_name` column. Default is NULL.}
 
 \item{checkpoint_file}{Optional. File path to save checkpoints. Default is NULL.}
 
 \item{checkpoint_every}{Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).}
 
 \item{verbose}{Logical. Print progress and debug information. Default is FALSE.}
+
+\item{auto_remove_traits}{Logical. If TRUE, the initial graph fit drops any low-information trait suggested for removal (`remove_suggest`, i.e. a condition number above `cond_num`) and refits with the same variants until no removal is suggested. The remaining traits are then used for every later fit in the run so that all ELBOs are comparable. Direct effects and standard errors are padded back to `d x d` with zeros for removed traits. The removed/kept traits are returned as `removed_traits`/`kept_traits`. Every visited graph records `remove_suggest` (the suggested trait in the original numbering, `NA` if none). Default is FALSE.}
+
+\item{forbidden_edges}{Optional. Edges that can never be in the graph, as a `d x d` 0/1 matrix (`[from, to]`) or a two column matrix / list of `(from, to)` pairs given as trait indices or trait names (column names of `dat$beta_hat`). To force the direction between traits `a` and `b` (the edge may be absent but can never point `b -> a`) use `forbidden_edges = cbind(b, a)`. Proposal moves never create or flip into a forbidden edge.}
+
+\item{required_edges}{Optional. Edges that are always in the graph, same formats as `forbidden_edges`. Proposal moves never remove or flip a required edge. Together with `forbidden_edges` this fixes the direction and the presence of an edge, e.g. `required_edges = cbind(a, b)` forces `a -> b`. Starting and random-start graphs are made consistent with the constraints, and a `prev_run` that visited graphs violating them is rejected.}
+
+\item{starting_graph}{Optional. A starting graph in the form of an adjacency matrix. If provided, will override the "best_approx" initialization and start the first chain from this graph. When `prev_run` is given and `starting_graph` is NULL, the first chain starts from the current (last) graph of the previous run's last chain, falling back to the best visited graph if no chain info is available.}
 
 \item{logistic_scale_range}{A numeric vector of length 2 indicating the range of logistic scaling. Default c(3, 0.0001) which linearly decrease the scale from 3 to 0.0001 over [1, max_iter]. This progressively puts more weight on the ELBO difference and more on the initial Z-score MVMR estimates as the chain progresses.}
 }

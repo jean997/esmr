@@ -24,6 +24,7 @@ esmr_factors_depricated(
   g_init = NULL,
   fix_g = FALSE,
   max_iter = 100,
+  keep_ebnm_res = FALSE,
   sigma_beta = Inf,
   tol = "default",
   cond_num = 1e+10,

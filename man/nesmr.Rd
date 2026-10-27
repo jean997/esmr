@@ -8,6 +8,7 @@ nesmr(
   beta_hat_X,
   se_X,
   direct_effect_template,
+  G = NULL,
   R = NULL,
   pval_thresh = NULL,
   variant_ix = NULL,
@@ -23,6 +24,9 @@ nesmr(
 \item{se_X}{Matrix of standard errors of beta_hat_X}
 
 \item{direct_effect_template}{p by p matrix with all elements equal to 0 or 1 specifying the DAG structure.}
+
+\item{G}{Optional p by m matrix of extra shared latent pleiotropic factors (e.g. loadings from GFA). The p by p
+identity (a private factor per trait) is always included, so the model uses `cbind(G, diag(p))`.}
 
 \item{R}{Nuisance correlation matrix if there is sample overlap (optional).}
 

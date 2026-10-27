@@ -2,16 +2,31 @@
 % Please edit documentation in R/nesmr_complete.R
 \name{nesmr_complete_mvmr}
 \alias{nesmr_complete_mvmr}
-\title{Initial NESMR graph estimate using n MVMR estimates}
+\title{Perform leave-one-out MVMR, treating each trait as the outcome in turn and all other traits as exposures.}
 \usage{
 nesmr_complete_mvmr(
   beta_hat,
   se_beta_hat,
   pval_select = NULL,
   alpha = 5e-08,
+  lower_tri = FALSE,
+  R = NULL,
   ...
 )
 }
+\arguments{
+\item{beta_hat}{Matrix of SNP-trait associations (n by p)}
+
+\item{se_beta_hat}{Matrix of standard errors of beta_hat}
+
+\item{pval_select}{Matrix of p-values for variant selection. If NULL, p-values will be calculated from beta_hat and se_beta_hat.}
+
+\item{alpha}{P-value threshold for variant selection.}
+
+\item{lower_tri}{If TRUE, only use traits with higher index as exposures for each outcome. This will only estimate the lower triangular part of the matrix representing the graph structure.}
+
+\item{R}{Nuisance correlation matrix if there is sample overlap (optional).}
+}
 \description{
-Initial NESMR graph estimate using n MVMR estimates
+This can be used to get an initial estimate of the graph structure for NESMR, or as a standalone method for performing network MR with a large number of traits.
 }

@@ -31,6 +31,7 @@ nesmr_default_params <- function(){
     beta_joint = TRUE,
     cond_num = 1e10,
     strict_mode = TRUE,
+    shared_first = TRUE,
     keep_ebnm_res = FALSE
   )
 }

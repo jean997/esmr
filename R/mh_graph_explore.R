@@ -25,6 +25,15 @@
 #' @param checkpoint_file Optional. File path to save checkpoints. Default is NULL.
 #' @param checkpoint_every Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).
 #' @param verbose Logical. Print progress and debug information. Default is FALSE.
+#' @param auto_remove_traits Logical. If TRUE, the initial graph fit drops any low-information trait suggested for removal (`remove_suggest`, i.e. a condition number above `cond_num`) and refits with the same variants until no removal is suggested. The remaining traits are then used for every later fit in the run so that all ELBOs are comparable. Direct effects and standard errors are padded back to `d x d` with zeros for removed traits. The removed/kept traits are returned as `removed_traits`/`kept_traits`. Every visited graph records `remove_suggest` (the suggested trait in the original numbering, `NA` if none). Default is FALSE.
+#' @param forbidden_edges Optional. Edges that can never be in the graph, as a `d x d` 0/1 matrix (`[from, to]`) or a
+#'   two column matrix / list of `(from, to)` pairs given as trait indices or trait names (column names of
+#'   `dat$beta_hat`). To force the direction between traits `a` and `b` (the edge may be absent but can never point
+#'   `b -> a`) use `forbidden_edges = cbind(b, a)`. Proposal moves never create or flip into a forbidden edge.
+#' @param required_edges Optional. Edges that are always in the graph, same formats as `forbidden_edges`. Proposal moves
+#'   never remove or flip a required edge. Together with `forbidden_edges` this fixes the direction and the presence of an
+#'   edge, e.g. `required_edges = cbind(a, b)` forces `a -> b`. Starting and random-start graphs are made consistent with
+#'   the constraints, and a `prev_run` that visited graphs violating them is rejected.
 #' @param starting_graph Optional. A starting graph in the form of an adjacency matrix. If provided, will override the "best_approx" initialization and start the first chain from this graph. When `prev_run` is given and `starting_graph` is NULL, the first chain starts from the current (last) graph of the previous run's last chain, falling back to the best visited graph if no chain info is available.
 #'
 #' @return An object of class `nesmr_mh_graph_explore`, a list containing:
@@ -114,6 +123,10 @@ mh_graph_explore <- function(
     debug = FALSE,
     beta_prior_cov = 1,
     graph_edge_prior = 0.5,
+    auto_remove_traits = FALSE,
+    cond_num = 1000,
+    forbidden_edges = NULL,
+    required_edges = NULL,
     starting_graph = NULL) {
     # Create a logging function based on verbose parameter
     log_msg <- function(...) {
@@ -133,6 +146,7 @@ mh_graph_explore <- function(
             stop("prev_run must be a nesmr_mh_graph_explore object (or checkpoint list) from a previous run")
         }
         visited_graphs <- prev_run$visited_graphs
+        kept_traits <- prev_run$kept_traits
         best_graph <- prev_run$best_graph
         prev_chain_info <- prev_run$mh_chain_info
         if (is.null(visited_graphs)) visited_graphs <- list()
@@ -140,7 +154,10 @@ mh_graph_explore <- function(
         visited_graphs <- list()
         best_graph <- NULL
         prev_chain_info <- NULL
+        kept_traits <- NULL
     }
+    # Traits used in every fit. Fixed by the initial fit when auto_remove_traits is TRUE.
+    kept_traits_fixed <- !is.null(kept_traits)
 
     # Continue chain indices and names from the previous run
     if (!is.null(prev_chain_info) && nrow(prev_chain_info) > 0) {
@@ -213,6 +230,30 @@ mh_graph_explore <- function(
     graph_draw_mode <- match.arg(graph_draw_mode)
     d <- ncol(dat$beta_hat)
     max_edges <- d * (d - 1)
+    forbidden_mat <- edge_constraint_matrix(forbidden_edges, d, colnames(dat$beta_hat), "forbidden_edges")
+    required_mat <- edge_constraint_matrix(required_edges, d, colnames(dat$beta_hat), "required_edges")
+    check_edge_constraints(forbidden_mat, required_mat)
+    has_edge_constraints <- any(forbidden_mat) || any(required_mat)
+    if (has_edge_constraints) {
+        # Visited graphs and the best graph of a previous run must satisfy the constraints,
+        # otherwise the reported best graph / posterior would not be for the constrained model.
+        bad_prev <- vapply(names(visited_graphs), function(g) {
+            violates_edge_constraints(flat_string_to_adj_mat(g), forbidden_mat, required_mat)
+        }, logical(1))
+        if (any(bad_prev)) {
+            stop(sum(bad_prev), " graphs in prev_run violate the edge constraints. ",
+                "Start a new constrained run instead of continuing an unconstrained one.")
+        }
+        if (!is.null(best_graph) && identical(dim(best_graph$B_template), c(d, d)) &&
+            violates_edge_constraints(best_graph$B_template, forbidden_mat, required_mat)) {
+            stop("The best graph of prev_run violates the edge constraints.")
+        }
+        if (!is.null(starting_graph)) {
+            if (violates_edge_constraints(starting_graph, forbidden_mat, required_mat)) {
+                stop("starting_graph violates the edge constraints.")
+            }
+        }
+    }
     if (is.null(pval_select)) {
         dat_Z <- dat$beta_hat / dat$s_estimate
         pval_select <- 2 * pnorm(-abs(dat_Z))
@@ -288,6 +329,12 @@ mh_graph_explore <- function(
         }
     }
 
+    if (has_edge_constraints) {
+        mh_chain_init$best_approx <- enforce_edge_constraints(
+            mh_chain_init$best_approx, forbidden_mat, required_mat, weight = MVMR_abs_Z_scores
+        )
+    }
+
     if (sum(mh_chain_init$best_approx != 0) == 0) {
         warning("best_approx initialization is empty; falling back to the strongest single-edge graph")
         mh_chain_init$best_approx <- {
@@ -304,6 +351,7 @@ mh_graph_explore <- function(
             mat_init[non_diag_i] <- 0
             max_index <- which(abs(full_graph_zscores[non_diag_i]) == max(abs(full_graph_zscores[non_diag_i]), na.rm = TRUE))
             mat_init[non_diag_i][max_index] <- full_graph_zscores[non_diag_i][max_index]
+            if (has_edge_constraints) mat_init <- enforce_edge_constraints(mat_init, forbidden_mat, required_mat)
             mat_init
         }
     }
@@ -312,7 +360,9 @@ mh_graph_explore <- function(
         mh_chain_init$max_graph <- {
             mat_init <- matrix(0, nrow = d, ncol = d)
             mat_init[non_diag_i] <- full_graph_zscores[non_diag_i]
-            sqrt(esmr:::maximal_acyclic_subgraph((mat_init)^2)) * sign(mat_init)
+            max_g <- sqrt(esmr:::maximal_acyclic_subgraph((mat_init)^2)) * sign(mat_init)
+            if (has_edge_constraints) max_g <- enforce_edge_constraints(max_g, forbidden_mat, required_mat, weight = MVMR_abs_Z_scores)
+            max_g
         }
     }
 
@@ -330,7 +380,9 @@ mh_graph_explore <- function(
             diag(noisy_zscores) <- 0
             initial_filter <- (abs(noisy_zscores) > qnorm(init_prob_threshold / 2, lower.tail = FALSE)) + 0
             noisy_zscores <- noisy_zscores * initial_filter
-            (maximal_acyclic_subgraph(noisy_zscores^2) != 0) + 0
+            g_rand <- (maximal_acyclic_subgraph(noisy_zscores^2) != 0) + 0
+            if (has_edge_constraints) g_rand <- enforce_edge_constraints(g_rand, forbidden_mat, required_mat, weight = abs(noisy_zscores))
+            g_rand
         }
 
         while (curr_random_starts < random_starts && random_start_attempts < max_random_start_attempts) {
@@ -375,18 +427,19 @@ mh_graph_explore <- function(
             start_time <- Sys.time()
             capture.output(
                 {
-                    init_mod <- nesmr(
+                    init_mod <- fit_nesmr_autoremove(
                         beta_hat_X = dat$beta_hat,
                         se_X = dat$s_estimate,
                         variant_ix = ix,
                         direct_effect_template = curr_B,
                         max_iter = 300,
                         R = R,
-                        params = list(
-                           beta_prior_cov = beta_prior_cov,
-                           strict_mode = FALSE # Note: Not sure if this makes the most sense, or to just fail.
-                        )
+                        beta_prior_cov = beta_prior_cov,
+                        keep = kept_traits,
+                        auto_remove = auto_remove_traits && !kept_traits_fixed
                     )
+                    kept_traits <- init_mod$kept_traits
+                    kept_traits_fixed <- TRUE
                 },
                 file = if (verbose) stdout() else nullfile()
             )
@@ -399,6 +452,7 @@ mh_graph_explore <- function(
             visited_graphs[[curr_B_str]]$elbo <- init_mod$elbo + log_graph_prior(n_edges, d, pi_0 = graph_edge_prior)
             visited_graphs[[curr_B_str]]$beta_hat <- init_mod$direct_effects
             visited_graphs[[curr_B_str]]$se_beta_hat <- init_mod$direct_effects_se
+            visited_graphs[[curr_B_str]]$remove_suggest <- init_mod$remove_suggest_orig
             visited_graphs[[curr_B_str]]$proposed <- (visited_graphs[[curr_B_str]]$proposed %||% 0) + 1
             if (debug) visited_graphs[[curr_B_str]]$model <- init_mod
 
@@ -491,7 +545,9 @@ mh_graph_explore <- function(
                     logistic_scale = logistic_scale,
                     logistic_location = logistic_location,
                     graph_draw_mode = graph_draw_mode,
-                    move_weight = move_weight
+                    move_weight = move_weight,
+                    forbidden = forbidden_mat,
+                    required = required_mat
                 )
                 adj_graph_info <- visited_graphs[[curr_B_str]]$adj_graph_info
             }
@@ -526,7 +582,9 @@ mh_graph_explore <- function(
                     logistic_location = logistic_location, # Use logistic_location from previous graph as need same proposal dist
                     logistic_scale = logistic_scale,
                     graph_draw_mode = graph_draw_mode,
-                    move_weight = move_weight
+                    move_weight = move_weight,
+                    forbidden = forbidden_mat,
+                    required = required_mat
                 )
                 # Get the remove_candidate probability that we are removing
             }
@@ -597,17 +655,16 @@ mh_graph_explore <- function(
                 # TODO: Probably want to just re-fit from initial/previous chain
                 capture.output(
                     {
-                        new_mod <- nesmr(
+                        new_mod <- fit_nesmr_autoremove(
                             beta_hat_X = dat$beta_hat,
                             se_X = dat$s_estimate,
                             variant_ix = ix,
                             direct_effect_template = prop_B,
                             max_iter = 300,
                             R = R,
-                            params = list(
-                                 beta_prior_cov = beta_prior_cov,
-                                 strict_mode = FALSE # Note: Not sure if this makes the most sense, or to just fail.
-                            )
+                            beta_prior_cov = beta_prior_cov,
+                            keep = kept_traits,
+                            auto_remove = FALSE
                         )
                         if (debug) visited_graphs[[curr_B_str]]$model <- new_mod
                         nesmr_fits <- nesmr_fits + 1
@@ -622,6 +679,7 @@ mh_graph_explore <- function(
                 visited_graphs[[prop_B_str]]$elbo <- new_mod$elbo + log_graph_prior(n_edges, d, pi_0 = graph_edge_prior)
                 visited_graphs[[prop_B_str]]$beta_hat <- new_mod$direct_effects
                 visited_graphs[[prop_B_str]]$se_beta_hat <- new_mod$direct_effects_se
+                visited_graphs[[prop_B_str]]$remove_suggest <- new_mod$remove_suggest_orig
                 proposal_graph_info <- visited_graphs[[prop_B_str]]
 
                 # Track best elbo seen in this chain
@@ -729,7 +787,10 @@ mh_graph_explore <- function(
                         logistic_location = logistic_location_range,
                         logistic_scale = logistic_scale_range,
                         graph_draw_mode = graph_draw_mode,
-                        best_graph = best_graph
+                        best_graph = best_graph,
+                        kept_traits = kept_traits,
+                        forbidden_edges = forbidden_mat,
+                        required_edges = required_mat
                     ),
                     file = checkpoint_file
                 )
@@ -752,7 +813,11 @@ mh_graph_explore <- function(
         logistic_location = logistic_location_range,
         logistic_scale = logistic_scale_range,
         graph_draw_mode = graph_draw_mode,
-        best_graph = best_graph
+        best_graph = best_graph,
+        kept_traits = kept_traits,
+        removed_traits = setdiff(seq_len(d), kept_traits),
+        forbidden_edges = forbidden_mat,
+        required_edges = required_mat
     )
 
     class(rtn) <- "nesmr_mh_graph_explore"
@@ -899,7 +964,9 @@ get_adjacent_graphs <- function(
     logistic_location = 5,
     flip_logistic_scale = 3,
     graph_draw_mode = c("random", "fixed_prob", "fixed_prop"),
-    move_weight = c("add" = 1/3, "remove" = 1/3, "flip" = 1/3)
+    move_weight = c("add" = 1/3, "remove" = 1/3, "flip" = 1/3),
+    forbidden = NULL,
+    required = NULL
     ) {
     graph_draw_mode <- match.arg(graph_draw_mode)
     move_weight <- move_weight / sum(move_weight)
@@ -911,6 +978,10 @@ get_adjacent_graphs <- function(
 
     #    # TODO: Is it from here that we ned
     add_candidates <- igraph::as_edgelist(g_comp, names = FALSE)
+    if (!is.null(forbidden) && nrow(add_candidates) > 0) {
+        # Never add a forbidden edge
+        add_candidates <- add_candidates[!forbidden[add_candidates], , drop = FALSE]
+    }
     add_candidate_g <- apply(add_candidates, 1, function(x) {
         from <- x[1]
         to <- x[2]
@@ -936,6 +1007,10 @@ get_adjacent_graphs <- function(
 
     # Remove candidates : all edges
     remove_candidates <- igraph::as_edgelist(g, names = FALSE)
+    if (!is.null(required) && nrow(remove_candidates) > 0) {
+        # Required edges can be neither removed nor flipped
+        remove_candidates <- remove_candidates[!required[remove_candidates], , drop = FALSE]
+    }
     remove_edge_weight <- weight_mat[remove_candidates]
 
     # Flip candidates: check each remove edge, and see if flipping it would still be a DAG
@@ -950,6 +1025,10 @@ get_adjacent_graphs <- function(
             to <- x[2]
             nvert <- igraph::vcount(g)
             if (any(is.na(c(from, to))) || from < 1 || to < 1 || from > nvert || to > nvert) {
+                return(NULL)
+            }
+            # Flipping would add to -> from
+            if (!is.null(forbidden) && forbidden[to, from]) {
                 return(NULL)
             }
             g_test <- igraph::delete.edges(g, igraph::E(g, P = c(from, to)))
@@ -1044,4 +1123,53 @@ get_adjacent_graphs <- function(
 get_Z_to_prob <- function(x, y) {
     suppressWarnings(mod_coefs <- unname(glm(y ~ x, family = binomial)$coef))
     return(function(x) plogis(mod_coefs[1] + mod_coefs[2] * x))
+}
+
+
+# Fit nesmr() on the traits in `keep` (default all). If auto_remove is TRUE,
+# traits suggested for removal (`remove_suggest`) are dropped and the model is
+# refit with the same variants until no removal is suggested.
+# Returns the final fit with direct_effects / direct_effects_se padded back to
+# the original d x d size (zeros for removed traits), `kept_traits`,
+# `removed_traits` and `remove_suggest_orig` (the suggestion of the final fit in
+# the original trait numbering, NA if none).
+fit_nesmr_autoremove <- function(beta_hat_X, se_X, direct_effect_template,
+                                 variant_ix, max_iter, R, beta_prior_cov,
+                                 keep = NULL, auto_remove = FALSE, cond_num = 1000) {
+    d <- ncol(beta_hat_X)
+    if (is.null(keep)) keep <- seq_len(d)
+    B <- direct_effect_template
+    repeat {
+        fit <- nesmr(
+            beta_hat_X = beta_hat_X[, keep, drop = FALSE],
+            se_X = se_X[, keep, drop = FALSE],
+            variant_ix = variant_ix,
+            direct_effect_template = B[keep, keep, drop = FALSE],
+            max_iter = max_iter,
+            R = if (is.null(R)) NULL else R[keep, keep, drop = FALSE],
+            params = list(
+                beta_prior_cov = beta_prior_cov,
+                strict_mode = FALSE,
+                cond_num = cond_num
+            )
+        )
+        rs <- fit$remove_suggest
+        if (!auto_remove || is.null(rs)) break
+        if (!rs %in% seq_along(keep)) stop("Invalid remove_suggest index: ", rs)
+        if (length(keep) <= 2) stop("Too few traits remain after removing low-information traits.")
+        keep <- keep[-rs]
+    }
+    fit$remove_suggest_orig <- if (is.null(fit$remove_suggest)) NA_integer_ else keep[fit$remove_suggest]
+    fit$kept_traits <- keep
+    fit$removed_traits <- setdiff(seq_len(d), keep)
+    if (length(keep) < d) {
+        pad <- function(m) {
+            full <- matrix(0, d, d)
+            full[keep, keep] <- m
+            full
+        }
+        fit$direct_effects <- pad(fit$direct_effects)
+        if (!is.null(fit$direct_effects_se)) fit$direct_effects_se <- pad(fit$direct_effects_se)
+    }
+    fit
 }

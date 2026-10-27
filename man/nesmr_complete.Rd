@@ -4,7 +4,15 @@
 \alias{nesmr_complete}
 \title{Initial NESMR graph estimate using n MVMR estimates}
 \usage{
-nesmr_complete(beta_hat, se_beta_hat, pval_select = NULL, alpha = 5e-08, ...)
+nesmr_complete(
+  beta_hat,
+  se_beta_hat,
+  pval_select = NULL,
+  alpha = 5e-08,
+  R = NULL,
+  return_full_model = FALSE,
+  ...
+)
 }
 \description{
 Initial NESMR graph estimate using n MVMR estimates

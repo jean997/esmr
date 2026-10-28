@@ -31,6 +31,7 @@ Imports:
     combinat,
     tidygraph,
     ggplot2,
-    ggraph
+    ggraph,
+    mvtnorm
 Remotes:
     jean997/GFA

@@ -32,6 +32,8 @@ nesmr_default_params <- function(){
     cond_num = 1e10,
     strict_mode = TRUE,
     shared_first = TRUE,
+    selection_adjust = FALSE,
+    selection_pval = NULL,
     keep_ebnm_res = FALSE
   )
 }

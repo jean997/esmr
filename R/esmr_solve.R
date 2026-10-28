@@ -21,7 +21,7 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, keep_ebnm_res = FA
 
     ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)
     #cat("after l: ", ll + dat$l$kl + dat$beta$kl, "ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
-    obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
+    obj <- c(obj, ll + dat$l$kl + dat$beta$kl + selection_penalty(dat))
 
     ## Experimental drop unused columns of G
     if(i > 2 & !dat$is_factors & !dat$is_nesmr & experiment){
@@ -112,7 +112,7 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, keep_ebnm_res = FA
     ###
     ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)
     #cat("after beta: ", ll + dat$l$kl + dat$beta$kl, "ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
-    obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
+    obj <- c(obj, ll + dat$l$kl + dat$beta$kl + selection_penalty(dat))
 
     ## tau update
     if(!is.null(dat$tau) & !dat$fix_tau & !tau_done){
@@ -131,7 +131,7 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, keep_ebnm_res = FA
 
       ll <- calc_ell2(dat$Y, dat$l$abar, dat$l$a2bar, dat$f$fgbar, dat$omega, dat$omega_logdet, dat$s_equal)
       #cat("after tau: ", ll + dat$l$kl + dat$beta$kl, "ll: ", ll, "l$kl: ", dat$l$kl, "beta$kl: ", dat$beta$kl, "\n")
-      obj <- c(obj, ll + dat$l$kl + dat$beta$kl)
+      obj <- c(obj, ll + dat$l$kl + dat$beta$kl + selection_penalty(dat))
 
     }
 
@@ -141,7 +141,7 @@ esmr_solve <- function(dat, max_iter, tol, tau_tol_pct = 0.1, keep_ebnm_res = FA
     obj_old <- obj_new
     #beta_old <- dat$beta$beta_m
     #cat(check, "\n")
-    if(check < -1e-12){
+    if(check < -1e-12 && !isTRUE(dat$selection_adjust)){
       dat$obj_dec_warn <- TRUE
       warning("Objective decreased, something may be wrong.\n")
     }

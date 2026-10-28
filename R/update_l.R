@@ -103,6 +103,13 @@ update_lj <- function(dat, j,
 
 
   ebnm_res <- dat$ebnm_fn( x= as.numeric(x), s = s, g_init = g_init, fix_g= fix_g, output = ebnm::ebnm_output_all())
+  if(isTRUE(dat$selection_adjust) && !fix_g){
+    # Selection-aware prior: maximize the marginal likelihood minus n log P(S = 1 | Theta)
+    g_sel <- selection_refit_g(dat, j, as.numeric(x), s, ebnm_res$fitted_g)
+    if(!is.null(g_sel)){
+      ebnm_res <- dat$ebnm_fn(x = as.numeric(x), s = s, g_init = g_sel, fix_g = TRUE, output = ebnm::ebnm_output_all())
+    }
+  }
   ebnm_res$KL <-  (ebnm_res$log_likelihood
                    - flashier:::normal.means.loglik(x,s,
                                                     ebnm_res$posterior$mean,

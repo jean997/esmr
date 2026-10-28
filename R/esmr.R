@@ -29,6 +29,8 @@ esmr_workhorse <- function(beta_hat_X, se_X,
                  #fix_beta = FALSE,
                  strict_mode = FALSE,
                  shared_first = TRUE,
+                 selection_adjust = FALSE,
+                 selection_pval = NULL,
                  beta_prior_cov = NULL,
                  beta_joint = TRUE,
                  total_to_direct_bootstrap_samples = 10000,
@@ -155,6 +157,17 @@ esmr_workhorse <- function(beta_hat_X, se_X,
   }
   if(tol == "default"){
     tol <- default_precision(c(ncol(dat$Y), nrow(dat$Y)))
+  }
+
+  # selection-aware likelihood: condition on the variants having been selected (min p < selection_pval)
+  dat$selection_adjust <- isTRUE(selection_adjust)
+  if(dat$selection_adjust){
+    if(!dat$is_nesmr) stop("selection_adjust is only implemented for nesmr.")
+    if(is.null(selection_pval)){
+      if(is.null(pval_thresh)) stop("selection_adjust requires selection_pval (or pval_thresh).")
+      selection_pval <- pval_thresh
+    }
+    dat$sel <- selection_setup(dat, selection_pval)
   }
 
   ## solve esmr problem

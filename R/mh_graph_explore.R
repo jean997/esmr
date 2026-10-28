@@ -34,6 +34,7 @@
 #'   never remove or flip a required edge. Together with `forbidden_edges` this fixes the direction and the presence of an
 #'   edge, e.g. `required_edges = cbind(a, b)` forces `a -> b`. Starting and random-start graphs are made consistent with
 #'   the constraints, and a `prev_run` that visited graphs violating them is rejected.
+#' @param selection_adjust Logical. If TRUE, every NESMR fit uses the selection-aware likelihood (`nesmr(..., params = list(selection_adjust = TRUE))`): the ELBO is conditioned on the variants having been selected (min p < `alpha`) by subtracting n log P(S = 1 | Theta). Useful when the GWAS sample sizes of the traits differ by up to about 10 fold. Default is FALSE.
 #' @param starting_graph Optional. A starting graph in the form of an adjacency matrix. If provided, will override the "best_approx" initialization and start the first chain from this graph. When `prev_run` is given and `starting_graph` is NULL, the first chain starts from the current (last) graph of the previous run's last chain, falling back to the best visited graph if no chain info is available.
 #'
 #' @return An object of class `nesmr_mh_graph_explore`, a list containing:
@@ -438,7 +439,8 @@ mh_graph_explore <- function(
                         beta_prior_cov = beta_prior_cov,
                         keep = kept_traits,
                         auto_remove = auto_remove_traits && !kept_traits_fixed,
-                        selection_adjust = selection_adjust
+                        selection_adjust = selection_adjust,
+                        selection_pval = alpha
                     )
                     kept_traits <- init_mod$kept_traits
                     kept_traits_fixed <- TRUE
@@ -667,7 +669,8 @@ mh_graph_explore <- function(
                             beta_prior_cov = beta_prior_cov,
                             keep = kept_traits,
                             auto_remove = FALSE,
-                            selection_adjust = selection_adjust
+                            selection_adjust = selection_adjust,
+                            selection_pval = alpha
                         )
                         if (debug) visited_graphs[[curr_B_str]]$model <- new_mod
                         nesmr_fits <- nesmr_fits + 1
@@ -1138,7 +1141,8 @@ get_Z_to_prob <- function(x, y) {
 # the original trait numbering, NA if none).
 fit_nesmr_autoremove <- function(beta_hat_X, se_X, direct_effect_template,
                                  variant_ix, max_iter, R, beta_prior_cov,
-                                 keep = NULL, auto_remove = FALSE, cond_num = 1000) {
+                                 keep = NULL, auto_remove = FALSE, cond_num = 1000,
+                                 selection_adjust = FALSE, selection_pval = NULL) {
     d <- ncol(beta_hat_X)
     if (is.null(keep)) keep <- seq_len(d)
     B <- direct_effect_template
@@ -1154,7 +1158,8 @@ fit_nesmr_autoremove <- function(beta_hat_X, se_X, direct_effect_template,
                 beta_prior_cov = beta_prior_cov,
                 strict_mode = FALSE,
                 cond_num = cond_num,
-                selection_adjust = selection_adjust
+                selection_adjust = selection_adjust,
+                selection_pval = if (selection_adjust) selection_pval else NULL
             )
         )
         rs <- fit$remove_suggest

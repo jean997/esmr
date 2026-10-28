@@ -36,3 +36,55 @@ test_that("nesmr with selection_adjust runs and returns a larger objective than 
   expect_error(nesmr(dat$beta_hat[ix, ], dat$s_estimate[ix, ], B, max_iter = 5,
                      params = list(selection_adjust = TRUE, strict_mode = FALSE)), "selection")
 })
+
+# mh_graph_explore with the selection-aware likelihood on a two trait network where the cause (trait 1) has
+# a 5 - 10 fold smaller GWAS than the downstream trait (trait 2). With the plain ELBO the edge is oriented
+# 2 -> 1 by power for these seeds; with selection_adjust = TRUE the true direction 1 -> 2 is the best graph.
+sim_imbalanced_pair <- function(ratio, seed) {
+  set.seed(seed)
+  G <- matrix(0, 2, 2)
+  G[1, 2] <- 0.4 # true edge: trait 1 (small GWAS) -> trait 2 (large GWAS)
+  suppressMessages(GWASBrewer::sim_mv(
+    G = G, N = c(20000, 20000 * ratio), J = 20000, h2 = 0.2, pi = 0.05,
+    sporadic_pleiotropy = TRUE, est_s = TRUE
+  ))
+}
+
+run_mh_pair <- function(dat, adjust) {
+  suppressWarnings(mh_graph_explore(
+    dat, alpha = 5e-8, max_iter = 40, max_nesmr_fits = 10,
+    graph_draw_mode = "fixed_prop", init_prob_threshold = 0.05,
+    selection_adjust = adjust
+  ))
+}
+
+test_that("mh_graph_explore(selection_adjust = TRUE) orients the edge correctly with a 10 fold smaller cause GWAS", {
+  skip_on_cran()
+  skip_if_not_installed("GWASBrewer")
+  dat <- sim_imbalanced_pair(ratio = 10, seed = 1)
+
+  res_plain <- run_mh_pair(dat, adjust = FALSE)
+  res_adj <- run_mh_pair(dat, adjust = TRUE)
+
+  B_adj <- res_adj$best_graph$B_template
+  expect_equal(B_adj[1, 2], 1) # true direction 1 -> 2
+  expect_equal(B_adj[2, 1], 0)
+  expect_true(all(vapply(names(res_adj$visited_graphs), function(g) is_dag(flat_string_to_adj_mat(g)), logical(1))))
+
+  # The adjustment adds -n log P(S = 1 | Theta) > 0 to the ELBO of every graph, so the same graph scores higher
+  common <- intersect(names(res_plain$visited_graphs), names(res_adj$visited_graphs))
+  expect_gt(length(common), 0)
+  for (g in common) {
+    expect_gt(res_adj$visited_graphs[[g]]$elbo, res_plain$visited_graphs[[g]]$elbo)
+  }
+})
+
+test_that("mh_graph_explore(selection_adjust = TRUE) orients the edge correctly with a 5 fold smaller cause GWAS", {
+  skip_on_cran()
+  skip_if_not_installed("GWASBrewer")
+  dat <- sim_imbalanced_pair(ratio = 5, seed = 6)
+  res_adj <- run_mh_pair(dat, adjust = TRUE)
+  B_adj <- res_adj$best_graph$B_template
+  expect_equal(B_adj[1, 2], 1)
+  expect_equal(B_adj[2, 1], 0)
+})

@@ -127,7 +127,8 @@ mh_graph_explore <- function(
     cond_num = 1000,
     forbidden_edges = NULL,
     required_edges = NULL,
-    starting_graph = NULL) {
+    starting_graph = NULL,
+    selection_adjust = FALSE) {
     # Create a logging function based on verbose parameter
     log_msg <- function(...) {
         if (verbose) {
@@ -436,7 +437,8 @@ mh_graph_explore <- function(
                         R = R,
                         beta_prior_cov = beta_prior_cov,
                         keep = kept_traits,
-                        auto_remove = auto_remove_traits && !kept_traits_fixed
+                        auto_remove = auto_remove_traits && !kept_traits_fixed,
+                        selection_adjust = selection_adjust
                     )
                     kept_traits <- init_mod$kept_traits
                     kept_traits_fixed <- TRUE
@@ -664,7 +666,8 @@ mh_graph_explore <- function(
                             R = R,
                             beta_prior_cov = beta_prior_cov,
                             keep = kept_traits,
-                            auto_remove = FALSE
+                            auto_remove = FALSE,
+                            selection_adjust = selection_adjust
                         )
                         if (debug) visited_graphs[[curr_B_str]]$model <- new_mod
                         nesmr_fits <- nesmr_fits + 1
@@ -1150,7 +1153,8 @@ fit_nesmr_autoremove <- function(beta_hat_X, se_X, direct_effect_template,
             params = list(
                 beta_prior_cov = beta_prior_cov,
                 strict_mode = FALSE,
-                cond_num = cond_num
+                cond_num = cond_num,
+                selection_adjust = selection_adjust
             )
         )
         rs <- fit$remove_suggest

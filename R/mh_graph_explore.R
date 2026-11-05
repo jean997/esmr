@@ -114,7 +114,11 @@ mh_graph_explore <- function(
     debug = FALSE,
     beta_prior_cov = 1,
     graph_edge_prior = 0.5,
-    starting_graph = NULL) {
+    starting_graph = NULL,
+    nesmr_params = list(
+        beta_prior_cov = 1,
+        strict_mode = FALSE
+    )) {
     # Create a logging function based on verbose parameter
     log_msg <- function(...) {
         if (verbose) {
@@ -382,10 +386,7 @@ mh_graph_explore <- function(
                         direct_effect_template = curr_B,
                         max_iter = 300,
                         R = R,
-                        params = list(
-                           beta_prior_cov = beta_prior_cov,
-                           strict_mode = FALSE # Note: Not sure if this makes the most sense, or to just fail.
-                        )
+                        params = nesmr_params
                     )
                 },
                 file = if (verbose) stdout() else nullfile()
@@ -604,10 +605,7 @@ mh_graph_explore <- function(
                             direct_effect_template = prop_B,
                             max_iter = 300,
                             R = R,
-                            params = list(
-                                 beta_prior_cov = beta_prior_cov,
-                                 strict_mode = FALSE # Note: Not sure if this makes the most sense, or to just fail.
-                            )
+                            params = nesmr_params
                         )
                         if (debug) visited_graphs[[curr_B_str]]$model <- new_mod
                         nesmr_fits <- nesmr_fits + 1

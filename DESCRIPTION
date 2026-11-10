@@ -28,6 +28,7 @@ Imports:
     igraph,
     gtools,
     rstackdeque,
+    parallel,
     combinat,
     tidygraph,
     ggplot2,

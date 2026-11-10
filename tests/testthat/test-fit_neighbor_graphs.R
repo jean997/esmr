@@ -61,3 +61,32 @@ test_that("fit_neighbor_graphs dry_run and max_fits do not fit anything", {
     "max_fits"
   )
 })
+
+test_that("merge_neighbor_fits combines runs and de-duplicates", {
+    mk <- function(center, graphs, elbos, src = NULL) {
+        g <- data.frame(
+            graph = graphs, distance = 1L, n_edges = 3L, elbo = elbos, elbo_gain = elbos - 10,
+            fitted = TRUE, error = NA_character_, stringsAsFactors = FALSE
+        )
+        structure(list(
+            center = center, center_elbo = 10, graphs = g,
+            fits = stats::setNames(lapply(elbos, function(e) list(elbo = e)), graphs),
+            config = list(edit_distance = 1L, moves = c("add", "remove")),
+            consistency = list(checked = FALSE), n_enumerated = length(graphs), n_already_visited = 0L
+        ), class = "nesmr_neighbor_fits")
+    }
+    a <- mk("c1", c("g1", "g2"), c(11, 9))
+    b <- mk("c2", c("g2", "g3"), c(9, 15))
+    m <- merge_neighbor_fits(a, b, sources = c("a", "b"))
+    expect_equal(sort(m$graphs$graph), c("g1", "g2", "g3"))
+    expect_equal(m$graphs$source[m$graphs$graph == "g2"], "a") # earliest fit kept
+    expect_equal(m$best_graph, "g3")
+    expect_equal(m$center, "c2")
+    expect_equal(nrow(m$runs), 2)
+    expect_equal(length(m$fits), 3)
+    # merged objects can be merged again and still print
+    m2 <- merge_neighbor_fits(m, mk("c3", "g4", 12), sources = c("ignored", "c"))
+    expect_equal(nrow(m2$runs), 3)
+    expect_equal(sum(m2$graphs$source == "a"), 2)
+    expect_output(print(m2), "merged: 3 runs")
+})

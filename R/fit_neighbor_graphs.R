@@ -324,25 +324,96 @@ fit_neighbor_graphs <- function(
     }
 }
 
+#' Merge several neighbor-fit results into one cumulative object
+#'
+#' Combines `nesmr_neighbor_fits` objects (for example one per round of
+#' [fit_neighbor_graphs()], each centered on the best graph found so far) into a
+#' single object. The merged object has the same structure, so it can be passed to
+#' [merge_neighbor_fits()] again or used as `prior_fits` in the pipeline.
+#'
+#' A graph fitted in more than one object keeps the earliest fit (fits are
+#' deterministic for identical data and options). In `graphs`, `distance` and
+#' `elbo_gain` stay relative to the center of the run that fitted the graph; the
+#' columns `source` and `center` identify that run, and `elbo_vs_best` is the ELBO
+#' minus the best ELBO over the merged fits. `runs` has one row per input.
+#'
+#' @param ... `nesmr_neighbor_fits` objects, oldest first. Already merged objects are
+#'   allowed.
+#' @param sources Optional character vector with one label per object in `...`
+#'   (default `run1`, `run2`, ...). Ignored for rows of an already merged object, which
+#'   keep their `source`.
+#' @return An object of class `nesmr_neighbor_fits` with the latest object's `center`,
+#'   `center_elbo`, `config` and `consistency`, merged `graphs` and `fits`, a `runs` data
+#'   frame, and `best_graph` / `best_elbo` over all fitted graphs.
+#' @export
+merge_neighbor_fits <- function(..., sources = NULL) {
+    objs <- list(...)
+    stopifnot(length(objs) >= 1, all(vapply(objs, inherits, NA, "nesmr_neighbor_fits")))
+    if (is.null(sources)) sources <- paste0("run", seq_along(objs))
+    stopifnot(length(sources) == length(objs))
+
+    graphs <- list()
+    runs <- list()
+    fits <- list()
+    for (k in seq_along(objs)) {
+        o <- objs[[k]]
+        g <- o$graphs
+        g$elbo_vs_best <- NULL # recomputed after merging
+        if (is.null(g$source)) g$source <- sources[k]
+        if (is.null(g$center)) g$center <- o$center
+        graphs[[k]] <- g
+        runs[[k]] <- if (!is.null(o$runs)) o$runs else data.frame(
+            source = sources[k], center = o$center, center_elbo = o$center_elbo,
+            edit_distance = o$config$edit_distance, moves = paste(o$config$moves, collapse = ","),
+            n_fitted = sum(o$graphs$fitted), stringsAsFactors = FALSE
+        )
+        fits <- c(fits, o$fits[setdiff(names(o$fits), names(fits))])
+    }
+    graphs <- do.call(rbind, graphs)
+    graphs <- graphs[order(!graphs$fitted), , drop = FALSE] # fitted rows win the de-duplication
+    graphs <- graphs[!duplicated(graphs$graph), , drop = FALSE]
+    graphs <- graphs[order(match(graphs$source, unique(unlist(lapply(runs, `[[`, "source"))))), , drop = FALSE]
+    graphs$elbo_vs_best <- graphs$elbo - suppressWarnings(max(graphs$elbo, na.rm = TRUE))
+    rownames(graphs) <- NULL
+    latest <- objs[[length(objs)]]
+    best_ix <- if (any(graphs$fitted)) which.max(graphs$elbo) else NA_integer_
+    structure(list(
+        center = latest$center, center_elbo = latest$center_elbo,
+        graphs = graphs, fits = fits, config = latest$config, consistency = latest$consistency,
+        n_enumerated = latest$n_enumerated, n_already_visited = latest$n_already_visited,
+        runs = do.call(rbind, runs),
+        best_graph = if (is.na(best_ix)) NA_character_ else graphs$graph[best_ix],
+        best_elbo = if (is.na(best_ix)) NA_real_ else graphs$elbo[best_ix]
+    ), class = "nesmr_neighbor_fits")
+}
+
 #' @export
 print.nesmr_neighbor_fits <- function(x, ...) {
     g <- x$graphs
+    merged <- !is.null(x$runs)
+    latest <- if (merged) g[g$source == x$runs$source[nrow(x$runs)], , drop = FALSE] else g
     cat("Neighbor-graph fits around the center graph\n")
     cat(sprintf(
-        "  edit distance <= %s | %d graphs enumerated, %d already visited, %d to fit, %d fitted, %d failed\n",
-        x$config$edit_distance, x$n_enumerated, x$n_already_visited, nrow(g),
-        sum(g$fitted), sum(!g$fitted & !is.na(g$error))
+        "  %sedit distance <= %s | %d graphs enumerated, %d already visited, %d to fit, %d fitted, %d failed\n",
+        if (merged) "latest run: " else "", x$config$edit_distance, x$n_enumerated, x$n_already_visited,
+        nrow(latest), sum(latest$fitted), sum(!latest$fitted & !is.na(latest$error))
     ))
     if (isTRUE(x$consistency$checked)) {
         cat(sprintf("  consistency check: refit ELBO differs by %.2g\n", x$consistency$diff))
     }
-    if (any(g$fitted)) {
-        best <- g[which.max(g$elbo), ]
+    if (any(latest$fitted)) {
+        best <- latest[which.max(latest$elbo), ]
         cat(sprintf(
             "  center ELBO %.3f | best new graph ELBO %.3f (gain %+.3f, distance %d)\n",
             x$center_elbo, best$elbo, best$elbo_gain, best$distance
         ))
-        cat(sprintf("  new graphs better than center: %d\n", sum(g$elbo_gain > 0, na.rm = TRUE)))
+        cat(sprintf("  new graphs better than center: %d\n", sum(latest$elbo_gain > 0, na.rm = TRUE)))
+    }
+    if (merged) {
+        cat(sprintf(
+            "  merged: %d runs, %d graphs fitted in total | best ELBO %.3f\n",
+            nrow(x$runs), sum(g$fitted), x$best_elbo
+        ))
     }
     invisible(x)
 }

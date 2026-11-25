@@ -26,6 +26,8 @@
 #' @param checkpoint_every Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).
 #' @param verbose Logical. Print progress and debug information. Default is FALSE.
 #' @param starting_graph Optional. A starting graph in the form of an adjacency matrix. If provided, will override the "best_approx" initialization and start the first chain from this graph. When `prev_run` is given and `starting_graph` is NULL, the first chain starts from the current (last) graph of the previous run's last chain, falling back to the best visited graph if no chain info is available.
+#' @param chain_name Optional. Base name for the chain(s) started by this call, used in the `chain_name` column of `mh_chain_info` instead of `chain_<date>`. If the name is already used (e.g. in `prev_run`), `_2`, `_3`, ... is appended. Default is NULL.
+#' @param kill_no_improve_iters,kill_no_improve_models Stop a chain early once this many iterations / this many newly fitted models have passed without a graph beating the overall best ELBO (including the best from `prev_run`). The counters restart at the beginning of every chain. Default is Inf (never stop early).
 #'
 #' @return An object of class `nesmr_mh_graph_explore`, a list containing:
 #'   - visited_graphs: List of all visited graphs and their ELBOs
@@ -115,6 +117,7 @@ mh_graph_explore <- function(
     beta_prior_cov = 1,
     graph_edge_prior = 0.5,
     starting_graph = NULL,
+    chain_name = NULL,
     nesmr_params = list(
         beta_prior_cov = 1,
         strict_mode = FALSE
@@ -177,7 +180,7 @@ mh_graph_explore <- function(
             last_row[["prop_graph"]] # init row: the starting graph
         }
     }
-    chain_base_name <- paste0("chain_", format(Sys.Date(), "%Y-%m-%d"))
+    chain_base_name <- if (!is.null(chain_name)) chain_name else paste0("chain_", format(Sys.Date(), "%Y-%m-%d"))
     new_chain_name <- function() {
         nm <- chain_base_name
         k <- 1
@@ -360,11 +363,15 @@ mh_graph_explore <- function(
     } else {
         -Inf
     }
-    models_since_improve <- 0
+    chain_status <- vector("list", length(mh_chain_init))
 
     for (i in seq_along(mh_chain_init)) {
         accept_count <- 0
         last_best_iter <- 0
+        # The no-improvement counter is per chain; otherwise every chain after the first
+        # would stop immediately once an earlier chain hit kill_no_improve_models.
+        models_since_improve <- 0
+        stop_reason <- NA_character_
         curr_adj_mat <- mh_chain_init[[i]]
         curr_B <- (curr_adj_mat != 0) + 0
         curr_B_str <- paste0(curr_B, collapse = "")
@@ -707,7 +714,8 @@ mh_graph_explore <- function(
                     (is.finite(kill_no_improve_iters) && (iter - last_best_iter) >= kill_no_improve_iters) ||
                     (is.finite(kill_no_improve_models) && models_since_improve >= kill_no_improve_models)
                     ) {
-                    log_msg(sprintf("No new best graph in %d iterations; and %d models; terminating chain %s.", last_best_iter, models_since_improve, chain_name))
+                    log_msg(sprintf("No new best graph in %d iterations; and %d models; terminating chain %s.", iter - last_best_iter, models_since_improve, names(mh_chain_init)[i]))
+                    stop_reason <- "early_stop"
                     break
                 }
             }
@@ -734,6 +742,14 @@ mh_graph_explore <- function(
                 log_msg(sprintf("Checkpoint saved at iteration %d", iter))
             }
         }
+        if (is.na(stop_reason)) {
+            stop_reason <- if (nesmr_fits > max_nesmr_fits) "max_nesmr_fits" else "max_iter"
+        }
+        chain_status[[i]] <- data.frame(
+            chain = chain_id, chain_name = run_chain_name, stop_reason = stop_reason,
+            n_nesmr_fits = nesmr_fits, iter = iter, models_since_improve = models_since_improve,
+            stringsAsFactors = FALSE
+        )
     }
 
     all_elbos <- sapply(visited_graphs, function(g) g$elbo)
@@ -750,7 +766,8 @@ mh_graph_explore <- function(
         logistic_location = logistic_location_range,
         logistic_scale = logistic_scale_range,
         graph_draw_mode = graph_draw_mode,
-        best_graph = best_graph
+        best_graph = best_graph,
+        chain_status = do.call(rbind, chain_status)
     )
 
     class(rtn) <- "nesmr_mh_graph_explore"

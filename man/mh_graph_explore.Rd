@@ -19,17 +19,26 @@ mh_graph_explore(
   sparse_chain = FALSE,
   dense_chain = FALSE,
   random_starts = 0,
+  max_random_start_attempts = max(random_starts * 10, 100),
   max_iter = 1000,
   max_nesmr_fits = 100,
-  visited_graphs = list(),
+  kill_no_improve_iters = Inf,
+  kill_no_improve_models = Inf,
+  prev_run = NULL,
   checkpoint_file = NULL,
   checkpoint_every = 0,
   temperature = FALSE,
+  graph_draw_mode = c("random", "fixed_prob", "fixed_prop"),
+  move_weight = c(add = 1/3, remove = 1/3, flip = 1/3),
   burnin = round(max_iter/10),
   max_heat = 5,
   verbose = FALSE,
   debug = FALSE,
-  graph_edge_prior = 0.5
+  beta_prior_cov = 1,
+  graph_edge_prior = 0.5,
+  starting_graph = NULL,
+  chain_name = NULL,
+  nesmr_params = list(beta_prior_cov = 1, strict_mode = FALSE)
 )
 }
 \arguments{
@@ -61,13 +70,19 @@ mh_graph_explore(
 
 \item{max_nesmr_fits}{Maximum number of NESMR model fits per chain. Default is 100.}
 
-\item{visited_graphs}{List of previously visited graphs (for warm start or checkpointing). Default is empty list.}
+\item{kill_no_improve_iters, kill_no_improve_models}{Stop a chain early once this many iterations / this many newly fitted models have passed without a graph beating the overall best ELBO (including the best from `prev_run`). The counters restart at the beginning of every chain. Default is Inf (never stop early).}
+
+\item{prev_run}{Optional. A `nesmr_mh_graph_explore` object from a previous run (or a path to an RDS file of one, e.g. a checkpoint file) (for warm start or checkpointing). Its `visited_graphs` and `best_graph` are carried forward and updated by this run. The previous `mh_chain_info` is prepended; new chain indices continue from its maximum `chain` and new chains get unique names `chain_<date>` (with `_2`, `_3`, ... appended on collision) in the `chain_name` column. Default is NULL.}
 
 \item{checkpoint_file}{Optional. File path to save checkpoints. Default is NULL.}
 
 \item{checkpoint_every}{Integer. Save checkpoint every N NESMR fits. Default is 0 (no checkpointing).}
 
 \item{verbose}{Logical. Print progress and debug information. Default is FALSE.}
+
+\item{starting_graph}{Optional. A starting graph in the form of an adjacency matrix. If provided, will override the "best_approx" initialization and start the first chain from this graph. When `prev_run` is given and `starting_graph` is NULL, the first chain starts from the current (last) graph of the previous run's last chain, falling back to the best visited graph if no chain info is available.}
+
+\item{chain_name}{Optional. Base name for the chain(s) started by this call, used in the `chain_name` column of `mh_chain_info` instead of `chain_<date>`. If the name is already used (e.g. in `prev_run`), `_2`, `_3`, ... is appended. Default is NULL.}
 
 \item{logistic_scale_range}{A numeric vector of length 2 indicating the range of logistic scaling. Default c(3, 0.0001) which linearly decrease the scale from 3 to 0.0001 over [1, max_iter]. This progressively puts more weight on the ELBO difference and more on the initial Z-score MVMR estimates as the chain progresses.}
 }
